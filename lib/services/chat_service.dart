@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../model/chat_model.dart';
+import '../model/chat_Model.dart';
 
 class ChatService {
   final FirebaseFirestore _db;

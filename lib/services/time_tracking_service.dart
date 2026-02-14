@@ -216,7 +216,6 @@ class TimeTrackingService {
           .get();
 
       double totalMinutes = 0;
-      double totalAmount = 0;
       int entriesCount = 0;
 
       for (var doc in snapshot.docs) {

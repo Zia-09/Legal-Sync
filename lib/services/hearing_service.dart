@@ -1,11 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:legal_sync/model/hearing_Model.dart';
+import 'package:legal_sync/services/notification_services.dart';
 
 class HearingService {
-  HearingService({FirebaseFirestore? firestore})
-    : _firestore = firestore ?? FirebaseFirestore.instance;
+  HearingService({
+    FirebaseFirestore? firestore,
+    NotificationService? notificationService,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _notificationService = notificationService ?? NotificationService();
 
   final FirebaseFirestore _firestore;
+  final NotificationService _notificationService;
   static const String _collection = 'hearings';
 
   /// 🔹 Create hearing
@@ -18,6 +23,26 @@ class HearingService {
     } catch (e) {
       throw Exception('Failed to create hearing: $e');
     }
+  }
+
+  Future<void> createHearingWithReminder({
+    required HearingModel hearing,
+    required List<String> recipientUserIds,
+    int hoursBefore = 24,
+  }) async {
+    await createHearing(hearing);
+    await _notificationService.queuePushNotification(
+      userIds: recipientUserIds,
+      title: 'Upcoming Hearing Reminder',
+      message:
+          'Hearing for case ${hearing.caseId} at ${hearing.courtName ?? 'court'}',
+      data: {
+        'type': 'hearing',
+        'hearingId': hearing.hearingId,
+        'caseId': hearing.caseId,
+      },
+      scheduledAt: hearing.hearingDate.subtract(Duration(hours: hoursBefore)),
+    );
   }
 
   /// 🔹 Update hearing
@@ -66,6 +91,12 @@ class HearingService {
         });
   }
 
+  // Backward-compatible alias used by provider layer.
+  Stream<List<HearingModel>> streamHearings(String caseId) =>
+      getHearingsByCase(caseId);
+
+  Future<void> addHearing(HearingModel hearing) => createHearing(hearing);
+
   /// 🔹 Get upcoming hearings for lawyer
   Stream<List<HearingModel>> getUpcomingHearings(String lawyerId) {
     final now = DateTime.now();
@@ -106,6 +137,48 @@ class HearingService {
       });
     } catch (e) {
       throw Exception('Failed to mark reminder: $e');
+    }
+  }
+
+  Future<void> triggerReminders([String? lawyerId]) async {
+    final now = DateTime.now();
+    final nextDay = now.add(const Duration(hours: 24));
+
+    Query<Map<String, dynamic>> query = _firestore
+        .collection(_collection)
+        .where('status', isEqualTo: 'scheduled')
+        .where('reminderSent', isEqualTo: false)
+        .where('hearingDate', isGreaterThanOrEqualTo: Timestamp.fromDate(now))
+        .where('hearingDate', isLessThanOrEqualTo: Timestamp.fromDate(nextDay));
+
+    if (lawyerId != null && lawyerId.isNotEmpty) {
+      query = query.where('createdBy', isEqualTo: lawyerId);
+    }
+
+    final snapshot = await query.get();
+
+    for (final doc in snapshot.docs) {
+      final hearing = HearingModel.fromJson({
+        ...doc.data(),
+        'hearingId': doc.id,
+      });
+      final recipients = <String>{
+        if (lawyerId != null && lawyerId.isNotEmpty) lawyerId,
+        if (hearing.createdBy != null && hearing.createdBy!.isNotEmpty)
+          hearing.createdBy!,
+      };
+      if (recipients.isEmpty) {
+        await markReminderSent(doc.id);
+        continue;
+      }
+      await _notificationService.queuePushNotification(
+        userIds: recipients.toList(),
+        title: 'Hearing in 24 hours',
+        message:
+            'Hearing for case ${hearing.caseId} at ${hearing.courtName ?? 'court'}',
+        data: {'type': 'hearing', 'hearingId': hearing.hearingId},
+      );
+      await markReminderSent(doc.id);
     }
   }
 

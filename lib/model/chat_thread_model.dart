@@ -133,3 +133,5 @@ class ChatThread {
     );
   }
 }
+
+typedef ChatThreadModel = ChatThread;

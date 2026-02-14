@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import '../model/billing_Model.dart';
 import '../services/billing_service.dart';
 
@@ -58,7 +59,10 @@ class BillingNotifier extends StateNotifier<BillingModel?> {
     state = billing;
   }
 
-  Future<void> updateBilling(String billingId, Map<String, dynamic> data) async {
+  Future<void> updateBilling(
+    String billingId,
+    Map<String, dynamic> data,
+  ) async {
     await _service.updateBilling(billingId, data);
   }
 
@@ -66,11 +70,19 @@ class BillingNotifier extends StateNotifier<BillingModel?> {
     await _service.recordPayment(billingId, amount);
   }
 
-  Future<void> addInvoice(String billingId, String invoiceId, double amount) async {
+  Future<void> addInvoice(
+    String billingId,
+    String invoiceId,
+    double amount,
+  ) async {
     await _service.addInvoiceToBilling(billingId, invoiceId, amount);
   }
 
-  Future<void> removeInvoice(String billingId, String invoiceId, double amount) async {
+  Future<void> removeInvoice(
+    String billingId,
+    String invoiceId,
+    double amount,
+  ) async {
     await _service.removeInvoiceFromBilling(billingId, invoiceId, amount);
   }
 
@@ -82,7 +94,6 @@ class BillingNotifier extends StateNotifier<BillingModel?> {
     final billing = await _service.getBillingById(billingId);
     state = billing;
   }
-}
 }
 
 // ===============================

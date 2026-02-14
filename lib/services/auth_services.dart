@@ -166,6 +166,67 @@ class AuthService {
     }
   }
 
+  /// Login by either direct email or pre-issued login code.
+  Future<String> loginWithEmailOrCode({
+    required String identifier,
+    required String password,
+  }) async {
+    final trimmed = identifier.trim();
+    if (trimmed.contains('@')) {
+      return loginUser(email: trimmed, password: password);
+    }
+
+    final resolvedEmail = await resolveEmailFromLoginCode(trimmed);
+    if (resolvedEmail == null) {
+      return 'Invalid or expired login code.';
+    }
+    final result = await loginUser(email: resolvedEmail, password: password);
+    if (result == 'success' || result == 'admin_success') {
+      await consumeLoginCode(trimmed, consumedByUid: _auth.currentUser?.uid);
+    }
+    return result;
+  }
+
+  Future<String?> resolveEmailFromLoginCode(String code) async {
+    try {
+      final snapshot = await _firestore
+          .collection('login_codes')
+          .where('code', isEqualTo: code)
+          .where('isActive', isEqualTo: true)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isEmpty) {
+        return null;
+      }
+
+      final data = snapshot.docs.first.data();
+      final expiresAt = data['expiresAt'];
+      if (expiresAt is Timestamp && expiresAt.toDate().isBefore(DateTime.now())) {
+        return null;
+      }
+      return data['email']?.toString();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> consumeLoginCode(String code, {String? consumedByUid}) async {
+    final snapshot = await _firestore
+        .collection('login_codes')
+        .where('code', isEqualTo: code)
+        .limit(1)
+        .get();
+    if (snapshot.docs.isEmpty) {
+      return;
+    }
+    await snapshot.docs.first.reference.update({
+      'isActive': false,
+      'consumedByUid': consumedByUid,
+      'consumedAt': Timestamp.now(),
+    });
+  }
+
   // =========================
   // ROLE DETECTION
   // =========================

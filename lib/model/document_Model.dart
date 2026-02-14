@@ -15,6 +15,9 @@ class DocumentModel {
   final List<String> tags; // for organization
   final bool isConfidential;
   final String? visibleTo; // "lawyer_only", "client_only", "both"
+  final bool isApprovedForClient;
+  final DateTime? approvedAt;
+  final String? approvedBy;
 
   const DocumentModel({
     required this.documentId,
@@ -31,6 +34,9 @@ class DocumentModel {
     this.tags = const [],
     this.isConfidential = false,
     this.visibleTo = "both",
+    this.isApprovedForClient = true,
+    this.approvedAt,
+    this.approvedBy,
   });
 
   factory DocumentModel.fromJson(Map<String, dynamic> json) {
@@ -58,6 +64,13 @@ class DocumentModel {
       tags: (json['tags'] as List?)?.cast<String>() ?? [],
       isConfidential: json['isConfidential'] ?? false,
       visibleTo: json['visibleTo']?.toString() ?? 'both',
+      isApprovedForClient: json['isApprovedForClient'] ?? true,
+      approvedAt: json['approvedAt'] is Timestamp
+          ? (json['approvedAt'] as Timestamp).toDate()
+          : (json['approvedAt'] != null
+                ? DateTime.tryParse(json['approvedAt']?.toString() ?? '')
+                : null),
+      approvedBy: json['approvedBy']?.toString(),
     );
   }
 
@@ -77,14 +90,22 @@ class DocumentModel {
       'tags': tags,
       'isConfidential': isConfidential,
       'visibleTo': visibleTo,
+      'isApprovedForClient': isApprovedForClient,
+      'approvedAt': approvedAt != null ? Timestamp.fromDate(approvedAt!) : null,
+      'approvedBy': approvedBy,
     };
   }
 
   DocumentModel copyWith({
+    String? fileUrl,
+    DateTime? uploadedAt,
     String? description,
     List<String>? tags,
     bool? isConfidential,
     String? visibleTo,
+    bool? isApprovedForClient,
+    DateTime? approvedAt,
+    String? approvedBy,
     int? version,
     DateTime? updatedAt,
   }) {
@@ -92,17 +113,20 @@ class DocumentModel {
       documentId: documentId,
       caseId: caseId,
       uploadedBy: uploadedBy,
-      fileUrl: fileUrl,
+      fileUrl: fileUrl ?? this.fileUrl,
       fileType: fileType,
       fileName: fileName,
       fileSize: fileSize,
       version: version ?? this.version,
-      uploadedAt: uploadedAt,
+      uploadedAt: uploadedAt ?? this.uploadedAt,
       updatedAt: updatedAt ?? this.updatedAt,
       description: description ?? this.description,
       tags: tags ?? this.tags,
       isConfidential: isConfidential ?? this.isConfidential,
       visibleTo: visibleTo ?? this.visibleTo,
+      isApprovedForClient: isApprovedForClient ?? this.isApprovedForClient,
+      approvedAt: approvedAt ?? this.approvedAt,
+      approvedBy: approvedBy ?? this.approvedBy,
     );
   }
 

@@ -74,6 +74,7 @@ class DocumentService {
         description: description,
         tags: tags,
         isConfidential: isConfidential,
+        isApprovedForClient: !isConfidential,
       );
 
       await saveDocumentMetadata(document);
@@ -100,6 +101,37 @@ class DocumentService {
               )
               .toList();
         });
+  }
+
+  /// Documents visible to client (approved + visibility policy).
+  Stream<List<DocumentModel>> getClientVisibleDocuments(String caseId) {
+    return _firestore
+        .collection(_collection)
+        .where('caseId', isEqualTo: caseId)
+        .where('isApprovedForClient', isEqualTo: true)
+        .orderBy('uploadedAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs
+              .map(
+                (doc) => DocumentModel.fromJson({
+                  ...doc.data() as Map<String, dynamic>,
+                  'documentId': doc.id,
+                }),
+              )
+              .where(
+                (doc) =>
+                    doc.visibleTo == null ||
+                    doc.visibleTo == 'both' ||
+                    doc.visibleTo == 'client_only',
+              )
+              .toList();
+        });
+  }
+
+  /// Backward-compatible alias for older provider naming.
+  Stream<List<DocumentModel>> getDocumentsByCaseId(String caseId) {
+    return getDocumentsByCase(caseId);
   }
 
   /// 🔹 Get document by ID
@@ -130,6 +162,27 @@ class DocumentService {
     } catch (e) {
       throw Exception('Failed to update document: $e');
     }
+  }
+
+  Future<void> approveDocumentForClient({
+    required String documentId,
+    required String approvedBy,
+  }) async {
+    await updateDocument(documentId, {
+      'isApprovedForClient': true,
+      'approvedAt': Timestamp.now(),
+      'approvedBy': approvedBy,
+    });
+  }
+
+  Future<void> revokeClientAccessToDocument({
+    required String documentId,
+    String? reason,
+  }) async {
+    await updateDocument(documentId, {
+      'isApprovedForClient': false,
+      'revokeReason': reason,
+    });
   }
 
   /// 🔹 Version control - create new version
@@ -207,12 +260,14 @@ class DocumentService {
               )
               .where(
                 (doc) =>
-                    doc.fileName?.toLowerCase().contains(query.toLowerCase()) ??
-                    false ||
-                        doc.description?.toLowerCase().contains(
+                    (doc.fileName?.toLowerCase().contains(
                           query.toLowerCase(),
                         ) ??
-                    false ||
+                        false) ||
+                    (doc.description?.toLowerCase().contains(
+                          query.toLowerCase(),
+                        ) ??
+                        false) ||
                         doc.tags.any(
                           (tag) =>
                               tag.toLowerCase().contains(query.toLowerCase()),

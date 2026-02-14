@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'dart:io';
 import '../model/document_Model.dart';
 import '../services/document_service.dart';
@@ -42,7 +43,13 @@ class DocumentStateNotifier
   }) async {
     try {
       state = const AsyncValue.loading();
-      await _service.uploadFile(file, caseId, uploadedBy, description);
+      await _service.uploadAndSaveDocument(
+        file: file,
+        caseId: caseId,
+        uploadedBy: uploadedBy,
+        fileType: file.path.split('.').last,
+        description: description,
+      );
       state = const AsyncValue.data([]);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -56,19 +63,7 @@ class DocumentStateNotifier
   ) async {
     try {
       state = const AsyncValue.loading();
-      await _service.saveDocumentMetadata(
-        DocumentModel(
-          documentId: documentId,
-          caseId: data['caseId'],
-          uploadedBy: data['uploadedBy'],
-          fileUrl: data['fileUrl'],
-          fileType: data['fileType'],
-          version: data['version'] ?? 1,
-          uploadedAt: data['uploadedAt'] ?? DateTime.now(),
-          description: data['description'],
-          isDeleted: data['isDeleted'] ?? false,
-        ),
-      );
+      await _service.updateDocument(documentId, data);
       state = const AsyncValue.data([]);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -90,7 +85,15 @@ class DocumentStateNotifier
   Future<void> updateDocumentVersion(String documentId, File newFile) async {
     try {
       state = const AsyncValue.loading();
-      await _service.updateDocumentVersion(documentId, newFile);
+      final existing = await _service.getDocumentById(documentId);
+      if (existing == null) {
+        throw Exception('Document not found');
+      }
+      await _service.createNewVersion(
+        oldDocument: existing,
+        newFile: newFile,
+        uploadedBy: existing.uploadedBy,
+      );
       state = const AsyncValue.data([]);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -101,7 +104,7 @@ class DocumentStateNotifier
   Future<void> loadDocumentsByCase(String caseId) async {
     try {
       state = const AsyncValue.loading();
-      final documents = await _service.getDocumentsByCaseId(caseId).first;
+      final documents = await _service.getDocumentsByCase(caseId).first;
       state = AsyncValue.data(documents);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -109,9 +112,9 @@ class DocumentStateNotifier
   }
 
   /// Download document
-  Future<File?> downloadDocument(String fileUrl, String documentId) async {
+  Future<String?> downloadDocument(String fileUrl, String documentId) async {
     try {
-      return await _service.downloadDocument(fileUrl);
+      return await _service.getDownloadUrl(documentId);
     } catch (e) {
       print('Error downloading document: $e');
       return null;

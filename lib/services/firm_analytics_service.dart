@@ -3,6 +3,51 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class FirmAnalyticsService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  // Proposal-aligned admin dashboard metrics:
+  // active cases, upcoming deadlines, time billed, invoices issued.
+  Future<Map<String, dynamic>> getMvpDashboardMetrics({
+    required String firmId,
+    Duration upcomingWindow = const Duration(days: 7),
+  }) async {
+    final now = DateTime.now();
+    final until = now.add(upcomingWindow);
+
+    final results = await Future.wait([
+      _db
+          .collection('cases')
+          .where('firmId', isEqualTo: firmId)
+          .where('status', whereIn: const ['pending', 'in_progress'])
+          .get(),
+      _db
+          .collection('deadlines')
+          .where('firmId', isEqualTo: firmId)
+          .where('dueDate', isGreaterThanOrEqualTo: Timestamp.fromDate(now))
+          .where('dueDate', isLessThanOrEqualTo: Timestamp.fromDate(until))
+          .where('status', isNotEqualTo: 'completed')
+          .get(),
+      _db.collection('time_entries').where('firmId', isEqualTo: firmId).get(),
+      _db.collection('invoices').where('firmId', isEqualTo: firmId).get(),
+    ]);
+
+    final activeCases = results[0].docs.length;
+    final upcomingDeadlines = results[1].docs.length;
+    final timeEntries = results[2].docs;
+    final invoices = results[3].docs;
+
+    double totalMinutes = 0;
+    for (final doc in timeEntries) {
+      totalMinutes += ((doc.data()['duration'] ?? 0) as num).toDouble();
+    }
+
+    return {
+      'activeCases': activeCases,
+      'upcomingDeadlines': upcomingDeadlines,
+      'timeBilledHours': totalMinutes / 60.0,
+      'invoicesIssued': invoices.length,
+      'windowDays': upcomingWindow.inDays,
+    };
+  }
+
   // ===============================
   // GET FIRM DASHBOARD STATS
   // ===============================

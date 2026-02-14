@@ -140,7 +140,11 @@ class BackupRestoreService {
     try {
       // Download backup file
       final storageRef = _storage.ref().child(backupPath);
-      final backupJson = await storageRef.getString();
+      final bytes = await storageRef.getData();
+      if (bytes == null) {
+        return false;
+      }
+      final backupJson = utf8.decode(bytes);
       final backupData = jsonDecode(backupJson) as Map<String, dynamic>;
 
       // Restore each collection

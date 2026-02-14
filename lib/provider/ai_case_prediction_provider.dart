@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:riverpod/riverpod.dart';
 import '../model/ai_case_prediction_model.dart';
 import '../services/ai_case_prediction_service.dart';
 

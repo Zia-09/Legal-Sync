@@ -81,10 +81,9 @@ class AICasePredictionService {
     double? updatedConfidence,
   }) async {
     final data = <String, dynamic>{
-      if (predictionConfirmed != null)
-        'predictionConfirmed': predictionConfirmed,
-      if (adminNotes != null) 'adminNotes': adminNotes,
-      if (updatedConfidence != null) 'updatedConfidence': updatedConfidence,
+      'predictionConfirmed': ?predictionConfirmed,
+      'adminNotes': ?adminNotes,
+      'updatedConfidence': ?updatedConfidence,
       'updatedAt': FieldValue.serverTimestamp(),
     };
 

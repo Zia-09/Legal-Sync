@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import '../model/deadline_Model.dart';
 import '../services/deadline_service.dart';
 

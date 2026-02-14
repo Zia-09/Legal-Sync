@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import '../model/leave_Model.dart';
 import '../services/leave_service.dart';
 
@@ -10,29 +11,29 @@ final leaveServiceProvider = Provider((ref) => LeaveService());
 // ===============================
 // Pending Leaves Provider
 // ===============================
-final pendingLeavesProvider =
-    FutureProvider<List<LeaveModel>>((ref) async {
-      final service = ref.watch(leaveServiceProvider);
-      return service.getPendingLeaves();
-    });
+final pendingLeavesProvider = FutureProvider<List<LeaveModel>>((ref) async {
+  final service = ref.watch(leaveServiceProvider);
+  return service.getPendingLeaves();
+});
 
 // ===============================
 // Pending Leaves Stream Provider
 // ===============================
-final streamPendingLeavesProvider =
-    StreamProvider<List<LeaveModel>>((ref) {
-      final service = ref.watch(leaveServiceProvider);
-      return service.streamPendingLeaves();
-    });
+final streamPendingLeavesProvider = StreamProvider<List<LeaveModel>>((ref) {
+  final service = ref.watch(leaveServiceProvider);
+  return service.streamPendingLeaves();
+});
 
 // ===============================
 // Leaves for Lawyer Provider
 // ===============================
-final leavesByLawyerProvider =
-    StreamProvider.family<List<LeaveModel>, String>((ref, lawyerId) {
-      final service = ref.watch(leaveServiceProvider);
-      return service.streamLeavesByLawyer(lawyerId);
-    });
+final leavesByLawyerProvider = StreamProvider.family<List<LeaveModel>, String>((
+  ref,
+  lawyerId,
+) {
+  final service = ref.watch(leaveServiceProvider);
+  return service.streamLeavesByLawyer(lawyerId);
+});
 
 // ===============================
 // Get Leave by ID Provider
@@ -71,7 +72,6 @@ class LeaveNotifier extends StateNotifier<LeaveModel?> {
     final leave = await _service.getLeaveById(leaveId);
     state = leave;
   }
-}
 }
 
 // ===============================

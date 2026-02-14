@@ -1,8 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../model/deadline_Model.dart';
+import 'notification_services.dart';
 
 class DeadlineService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  DeadlineService({
+    FirebaseFirestore? firestore,
+    NotificationService? notificationService,
+  }) : _db = firestore ?? FirebaseFirestore.instance,
+       _notificationService = notificationService ?? NotificationService();
+
+  final FirebaseFirestore _db;
+  final NotificationService _notificationService;
   static const String _collection = 'deadlines';
 
   // ===============================
@@ -13,6 +21,28 @@ class DeadlineService {
     final deadlineWithId = deadline.copyWith();
     await docRef.set({...deadlineWithId.toJson(), 'deadlineId': docRef.id});
     return docRef.id;
+  }
+
+  Future<String> createDeadlineWithReminder({
+    required DeadlineModel deadline,
+    required List<String> recipientUserIds,
+  }) async {
+    final deadlineId = await createDeadline(deadline);
+    final scheduleAt = deadline.remindAt ?? deadline.dueDate;
+
+    await _notificationService.queuePushNotification(
+      userIds: recipientUserIds,
+      title: 'Deadline Reminder',
+      message: '${deadline.title} is due on ${deadline.dueDate.toLocal()}',
+      data: {
+        'type': 'deadline',
+        'deadlineId': deadlineId,
+        'caseId': deadline.caseId,
+      },
+      scheduledAt: scheduleAt,
+    );
+
+    return deadlineId;
   }
 
   // ===============================
@@ -79,7 +109,6 @@ class DeadlineService {
   // GET OVERDUE DEADLINES
   // ===============================
   Stream<List<DeadlineModel>> streamOverdueDeadlines(String lawyerId) {
-    final now = DateTime.now();
     return _db
         .collection(_collection)
         .where('lawyerId', isEqualTo: lawyerId)
@@ -112,6 +141,37 @@ class DeadlineService {
       'notificationSent': true,
       'updatedAt': Timestamp.now(),
     });
+  }
+
+  Future<void> triggerUpcomingDeadlineReminders({
+    required String lawyerId,
+    Duration within = const Duration(days: 1),
+  }) async {
+    final now = DateTime.now();
+    final until = now.add(within);
+    final snapshot = await _db
+        .collection(_collection)
+        .where('lawyerId', isEqualTo: lawyerId)
+        .where('status', isNotEqualTo: 'completed')
+        .where('notificationSent', isEqualTo: false)
+        .where('dueDate', isGreaterThanOrEqualTo: Timestamp.fromDate(now))
+        .where('dueDate', isLessThanOrEqualTo: Timestamp.fromDate(until))
+        .get();
+
+    for (final doc in snapshot.docs) {
+      final deadline = DeadlineModel.fromJson(doc.data());
+      await _notificationService.queuePushNotification(
+        userIds: [lawyerId],
+        title: 'Upcoming Deadline',
+        message: '${deadline.title} is due soon.',
+        data: {
+          'type': 'deadline',
+          'deadlineId': deadline.deadlineId,
+          'caseId': deadline.caseId,
+        },
+      );
+      await markNotificationSent(deadline.deadlineId);
+    }
   }
 
   // ===============================

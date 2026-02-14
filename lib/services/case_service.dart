@@ -1,12 +1,23 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:legal_sync/app_helper/case_status_helper.dart';
 import 'package:legal_sync/model/case_Model.dart';
+import 'package:legal_sync/model/notification_model.dart';
+import 'package:legal_sync/services/case_status_history_service.dart';
+import 'package:legal_sync/services/notification_services.dart';
 
 /// 🔹 CaseService handles all Firestore operations for case management
 class CaseService {
-  CaseService({FirebaseFirestore? firestore})
-    : _firestore = firestore ?? FirebaseFirestore.instance;
+  CaseService({
+    FirebaseFirestore? firestore,
+    CaseStatusHistoryService? statusHistoryService,
+    NotificationService? notificationService,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _statusHistoryService = statusHistoryService ?? CaseStatusHistoryService(),
+       _notificationService = notificationService ?? NotificationService();
 
   final FirebaseFirestore _firestore;
+  final CaseStatusHistoryService _statusHistoryService;
+  final NotificationService _notificationService;
   static const String _collection = 'cases';
 
   // =========================
@@ -22,6 +33,16 @@ class CaseService {
     } catch (e) {
       throw Exception('❌ Failed to create case: $e');
     }
+  }
+
+  Future<String> createCaseWithGeneratedId(CaseModel caseModel) async {
+    final docRef = _firestore.collection(_collection).doc();
+    await docRef.set({
+      ...caseModel.toJson(),
+      'caseId': docRef.id,
+      'createdAt': Timestamp.now(),
+    });
+    return docRef.id;
   }
 
   Future<void> updateCase(String caseId, Map<String, dynamic> data) async {
@@ -58,6 +79,29 @@ class CaseService {
   Stream<List<CaseModel>> getCasesByStatus(String status) => _getCasesStream(
     _firestore.collection(_collection).where('status', isEqualTo: status),
   );
+
+  Stream<List<CaseModel>> getActiveCases() => _getCasesStream(
+    _firestore
+        .collection(_collection)
+        .where(
+          'status',
+          whereIn: const ['pending', 'in_progress', 'in-progress', 'ongoing'],
+        ),
+  );
+
+  Stream<List<CaseModel>> getClosedCases() => _getCasesStream(
+    _firestore
+        .collection(_collection)
+        .where('status', whereIn: const ['closed', 'completed']),
+  );
+
+  Stream<List<CaseModel>> streamAllCases() => getAllCases();
+  Stream<List<CaseModel>> streamCasesByLawyer(String lawyerId) =>
+      getCasesByLawyer(lawyerId);
+  Stream<List<CaseModel>> streamCasesByClient(String clientId) =>
+      getCasesByClient(clientId);
+  Stream<List<CaseModel>> streamActiveCases() => getActiveCases();
+  Stream<List<CaseModel>> streamClosedCases() => getClosedCases();
 
   Stream<List<CaseModel>> getArchivedCases() => _getCasesStream(
     _firestore.collection(_collection).where('isArchived', isEqualTo: true),
@@ -107,6 +151,8 @@ class CaseService {
     }
   }
 
+  Future<CaseModel?> getCase(String caseId) => getCaseById(caseId);
+
   // =========================
   // CASE ACTIONS
   // =========================
@@ -120,7 +166,7 @@ class CaseService {
       await _firestore.collection(_collection).doc(caseId).update({
         'isApproved': isApproved,
         'adminNote': adminNote ?? '',
-        'status': isApproved ? 'waiting_for_lawyer' : 'rejected',
+        'status': isApproved ? CaseStatusHelper.pending : CaseStatusHelper.rejected,
         'updatedAt': Timestamp.now(),
       });
     } catch (e) {
@@ -132,7 +178,7 @@ class CaseService {
     try {
       await _firestore.collection(_collection).doc(caseId).update({
         'lawyerId': lawyerId,
-        'status': 'ongoing',
+        'status': CaseStatusHelper.inProgress,
         'isApproved': true,
         'updatedAt': Timestamp.now(),
       });
@@ -144,7 +190,7 @@ class CaseService {
   Future<void> rejectCaseByLawyer(String caseId, String reason) async {
     try {
       await _firestore.collection(_collection).doc(caseId).update({
-        'status': 'waiting_for_lawyer',
+        'status': CaseStatusHelper.pending,
         'remarks': reason,
         'updatedAt': Timestamp.now(),
       });
@@ -154,14 +200,7 @@ class CaseService {
   }
 
   Future<void> markCaseAsCompleted(String caseId) async {
-    try {
-      await _firestore.collection(_collection).doc(caseId).update({
-        'status': 'completed',
-        'updatedAt': Timestamp.now(),
-      });
-    } catch (e) {
-      throw Exception('❌ Failed to complete case: $e');
-    }
+    await updateCaseStatus(caseId, CaseStatusHelper.closed);
   }
 
   Future<void> reassignLawyer({
@@ -172,7 +211,7 @@ class CaseService {
     try {
       await _firestore.collection(_collection).doc(caseId).update({
         'lawyerId': newLawyerId,
-        'status': 'ongoing',
+        'status': CaseStatusHelper.inProgress,
         'adminNote': adminNote ?? 'Reassigned by admin',
         'updatedAt': Timestamp.now(),
       });
@@ -210,7 +249,7 @@ class CaseService {
     try {
       await _firestore.collection(_collection).doc(caseId).update({
         'feedback': feedback,
-        'status': 'closed',
+        'status': CaseStatusHelper.closed,
         'updatedAt': Timestamp.now(),
       });
     } catch (e) {
@@ -226,6 +265,86 @@ class CaseService {
       });
     } catch (e) {
       throw Exception('❌ Failed to archive case: $e');
+    }
+  }
+
+  Future<void> unarchiveCase(String caseId) async {
+    await archiveCase(caseId, false);
+  }
+
+  Future<void> updateCaseStatus(
+    String caseId,
+    String newStatus, {
+    String? changedBy,
+    String? reason,
+    String? notes,
+    bool notifyParticipants = true,
+  }) async {
+    final caseModel = await getCaseById(caseId);
+    if (caseModel == null) {
+      throw Exception('Case not found');
+    }
+
+    final normalizedCurrent = CaseStatusHelper.normalize(caseModel.status);
+    final normalizedNext = CaseStatusHelper.normalize(newStatus);
+
+    if (!CaseStatusHelper.isKnownStatus(normalizedNext)) {
+      throw Exception('Invalid case status: $newStatus');
+    }
+
+    if (!CaseStatusHelper.canTransition(
+      currentStatus: normalizedCurrent,
+      nextStatus: normalizedNext,
+    )) {
+      throw Exception(
+        'Invalid transition: $normalizedCurrent -> $normalizedNext',
+      );
+    }
+
+    await _firestore.collection(_collection).doc(caseId).update({
+      'status': normalizedNext,
+      'updatedAt': Timestamp.now(),
+    });
+
+    await _statusHistoryService.logStatusChange(
+      caseId: caseId,
+      lawyerId: caseModel.lawyerId,
+      previousStatus: normalizedCurrent,
+      newStatus: normalizedNext,
+      changedBy: changedBy ?? caseModel.lawyerId,
+      reason: reason,
+      notes: notes,
+    );
+
+    if (!notifyParticipants) {
+      return;
+    }
+
+    final title = 'Case Status Updated';
+    final message = '${caseModel.title} is now "$normalizedNext".';
+    final metadata = <String, dynamic>{
+      'caseId': caseId,
+      'previousStatus': normalizedCurrent,
+      'newStatus': normalizedNext,
+    };
+
+    final recipients = <String>{
+      if (caseModel.clientId.isNotEmpty) caseModel.clientId,
+      if (caseModel.lawyerId.isNotEmpty) caseModel.lawyerId,
+    };
+
+    for (final userId in recipients) {
+      await _notificationService.addNotification(
+        NotificationModel(
+          notificationId: _notificationService.generateNotificationId(),
+          userId: userId,
+          title: title,
+          message: message,
+          type: 'case_status',
+          createdAt: DateTime.now(),
+          metadata: metadata,
+        ),
+      );
     }
   }
 

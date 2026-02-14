@@ -40,7 +40,6 @@ class ChatMessage {
     this.aiLanguage,
   });
 
-  /// Safe date parsing
   static DateTime _safeDate(dynamic value) {
     if (value == null) return DateTime.now();
     if (value is Timestamp) return value.toDate();
@@ -50,7 +49,6 @@ class ChatMessage {
     return DateTime.now();
   }
 
-  /// Convert to Firestore map
   Map<String, dynamic> toMap() {
     return {
       "messageId": messageId,
@@ -73,7 +71,6 @@ class ChatMessage {
     };
   }
 
-  /// Create object from Firestore map
   factory ChatMessage.fromMap(Map<String, dynamic> map, String id) {
     return ChatMessage(
       messageId: id,
@@ -98,10 +95,8 @@ class ChatMessage {
     );
   }
 
-  /// 🔹 Convert to JSON (alias for toMap)
   Map<String, dynamic> toJson() => toMap();
 
-  /// Copy with optional updates
   ChatMessage copyWith({
     String? message,
     bool? isRead,
@@ -136,3 +131,5 @@ class ChatMessage {
     );
   }
 }
+
+typedef ChatModel = ChatMessage;

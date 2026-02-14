@@ -56,6 +56,12 @@ class CaseStatusHistoryService {
         );
   }
 
+  Stream<List<CaseStatusHistoryModel>> streamStatusChangesForCase(
+    String caseId,
+  ) {
+    return streamCaseStatusHistory(caseId);
+  }
+
   // ===============================
   // GET LAWYER'S CASE HISTORIES
   // ===============================
@@ -72,6 +78,12 @@ class CaseStatusHistoryService {
               .map((doc) => CaseStatusHistoryModel.fromJson(doc.data()))
               .toList(),
         );
+  }
+
+  Stream<List<CaseStatusHistoryModel>> streamStatusChangesForLawyer(
+    String lawyerId,
+  ) {
+    return streamLawyerStatusHistories(lawyerId);
   }
 
   // ===============================
