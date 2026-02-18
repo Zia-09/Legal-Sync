@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "773141371522",
+    "project_id": "legal-sync-cdbb8",
+    "storage_bucket": "legal-sync-cdbb8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:773141371522:android:cd79b0d6f0d6ec6d33f29b",
+        "android_client_info": {
+          "package_name": "com.example.legal_sync"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCioktIhQz0eAKiHTZZ6Abe7bULgxXGFGE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
