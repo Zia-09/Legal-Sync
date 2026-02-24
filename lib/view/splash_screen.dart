@@ -1,6 +1,6 @@
 // lib/screens/splash/splash_screen.dart
 import 'package:flutter/material.dart';
-import 'package:legal_sync/view/onboarding/onboarding_screen.dart';
+import 'package:legal_sync/view/onboarding/onboarding_screen1.dart';
 
 // import '../home/home_screen.dart'; // You can switch later if you want
 
@@ -20,14 +20,14 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _goNext() async {
     // ⏳ Just wait 5 seconds
-    await Future.delayed(const Duration(seconds: 5));
+    await Future.delayed(const Duration(seconds: 7));
 
     if (!mounted) return;
 
     // 👉 For now always go to Onboarding (UI only)
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+      MaterialPageRoute(builder: (_) => const OnboardingScreen1()),
     );
 
     // 🔁 Later you can change to:
@@ -37,35 +37,43 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0B1C2D), // Same theme color
+      backgroundColor: const Color(0xFF1E1E1E), // Same theme color
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // App Logo
-            Image.asset(
-              "images/hamad.png",
-              width: 140,
-              height: 140,
-              errorBuilder: (context, error, stackTrace) =>
-                  const Icon(Icons.gavel, size: 100, color: Colors.white),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              "LegalSync",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1,
-              ),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              "Smart Legal Solutions",
-              style: TextStyle(color: Colors.white70, fontSize: 14),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset("images/logo.png", width: 250),
+                const SizedBox(height: 4),
+                const Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: "Legal",
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: 38,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      TextSpan(
+                        text: "Sync",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 38,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 40),
+
             const CircularProgressIndicator(color: Colors.white),
           ],
         ),

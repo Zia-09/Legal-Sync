@@ -28,7 +28,9 @@ class NotificationHelper {
             iOS: iosInitializationSettings,
           );
 
-      await _flutterLocalNotificationsPlugin.initialize(initializationSettings);
+      await _flutterLocalNotificationsPlugin.initialize(
+        settings: initializationSettings,
+      );
 
       // Request permissions
       await _flutterLocalNotificationsPlugin
@@ -57,11 +59,11 @@ class NotificationHelper {
   }) async {
     try {
       await _flutterLocalNotificationsPlugin.zonedSchedule(
-        id,
-        title,
-        body,
-        tz.TZDateTime.from(scheduledTime, tz.local),
-        const NotificationDetails(
+        id: id,
+        title: title,
+        body: body,
+        scheduledDate: tz.TZDateTime.from(scheduledTime, tz.local),
+        notificationDetails: const NotificationDetails(
           android: AndroidNotificationDetails(
             'legal_sync_channel',
             'Legal Sync Notifications',
@@ -201,10 +203,10 @@ class NotificationHelper {
     try {
       const int id = 999;
       await _flutterLocalNotificationsPlugin.show(
-        id,
-        title,
-        body,
-        const NotificationDetails(
+        id: id,
+        title: title,
+        body: body,
+        notificationDetails: const NotificationDetails(
           android: AndroidNotificationDetails(
             'legal_sync_channel',
             'Legal Sync Notifications',
@@ -228,7 +230,7 @@ class NotificationHelper {
   /// Cancel scheduled notification
   static Future<void> cancelNotification(int id) async {
     try {
-      await _flutterLocalNotificationsPlugin.cancel(id);
+      await _flutterLocalNotificationsPlugin.cancel(id: id);
     } catch (e) {
       print('Error canceling notification: $e');
     }
