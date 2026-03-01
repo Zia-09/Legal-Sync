@@ -386,8 +386,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(width: 12),
                         _SocialButton(
-                          label: 'Microsoft',
-                          icon: Icons.window,
+                          label: 'Admin',
+                          icon: Icons.admin_panel_settings,
                           iconColor: const Color(0xFF00A4EF),
                           onTap: () {
                             Navigator.pushReplacement(
@@ -398,13 +398,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             );
                           },
-                        ),
-                        const SizedBox(width: 12),
-                        _SocialButton(
-                          label: 'Apple',
-                          icon: Icons.apple,
-                          iconColor: Colors.white,
-                          onTap: () {},
                         ),
                       ],
                     ),
