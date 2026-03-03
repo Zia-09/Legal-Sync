@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:legal_sync/screens/lawyer%20panel/lawyer_dashboard_screen.dart';
-import 'package:legal_sync/screens/lawyer%20panel/lawyer_registration_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:legal_sync/provider/auth_provider.dart';
+import 'package:legal_sync/screens/lawyer panel/lawyer_dashboard_screen.dart';
+import 'package:legal_sync/screens/lawyer panel/lawyer_registration_screen.dart';
+import 'package:legal_sync/screens/lawyer panel/lawyer_forgot_password_screen.dart';
+import 'package:legal_sync/screens/client panel/login_screen.dart';
 
-class LawyerLoginScreen extends StatefulWidget {
+class LawyerLoginScreen extends ConsumerStatefulWidget {
   const LawyerLoginScreen({super.key});
 
   @override
-  State<LawyerLoginScreen> createState() => _LawyerLoginScreenState();
+  ConsumerState<LawyerLoginScreen> createState() => _LawyerLoginScreenState();
 }
 
-class _LawyerLoginScreenState extends State<LawyerLoginScreen> {
+class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -22,11 +26,45 @@ class _LawyerLoginScreenState extends State<LawyerLoginScreen> {
     super.dispose();
   }
 
-  void _login() {
-    if (_formKey.currentState!.validate()) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const LawyerDashboardScreen()),
+  Future<void> _login() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    try {
+      final role = await ref
+          .read(authNotifierProvider.notifier)
+          .login(
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+          );
+
+      if (!mounted) return;
+
+      if (role == 'lawyer') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LawyerDashboardScreen()),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please use the client login for this account.'),
+            backgroundColor: Color(0xFFDC2626),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: const Color(0xFFDC2626),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     }
   }
@@ -48,7 +86,7 @@ class _LawyerLoginScreenState extends State<LawyerLoginScreen> {
                     color: Color(0xFF131D31), // Dark fallback color
                     image: DecorationImage(
                       image: AssetImage(
-                        'assets/images/lawyer_login_bg.jpg',
+                        'images/lawyer_login_bg.jpg',
                       ), // Placeholder
                       fit: BoxFit.cover,
                       colorFilter: ColorFilter.mode(
@@ -63,10 +101,7 @@ class _LawyerLoginScreenState extends State<LawyerLoginScreen> {
                   width: double.infinity,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [
-                        Colors.black.withValues(alpha: 1),
-                        Colors.transparent,
-                      ],
+                      colors: [Colors.black.withOpacity(1), Colors.transparent],
                       begin: Alignment.bottomCenter,
                       end: Alignment.topCenter,
                     ),
@@ -218,29 +253,61 @@ class _LawyerLoginScreenState extends State<LawyerLoginScreen> {
                         return null;
                       },
                     ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  const LawyerForgotPasswordScreen(),
+                            ),
+                          );
+                        },
+                        child: const Text(
+                          'Forgot Password?',
+                          style: TextStyle(
+                            color: Color(0xFFFF6B00),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 32),
 
-                    // Login Button
                     SizedBox(
                       width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: _login,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF6B00),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: const Text(
-                          'Login as Lawyer',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                      height: 54,
+                      child: Consumer(
+                        builder: (context, ref, child) {
+                          final authState = ref.watch(authNotifierProvider);
+                          final isLoading = authState is AsyncLoading;
+                          return ElevatedButton(
+                            onPressed: isLoading ? null : _login,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF131D31),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: isLoading
+                                ? const CircularProgressIndicator(
+                                    color: Colors.white,
+                                  )
+                                : const Text(
+                                    'Login',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(height: 24),

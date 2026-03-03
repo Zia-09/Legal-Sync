@@ -1,19 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:legal_sync/provider/auth_provider.dart';
+import 'package:legal_sync/provider/document_provider.dart';
+import 'package:legal_sync/provider/case_provider.dart';
+import 'package:legal_sync/model/document_Model.dart';
+import 'package:intl/intl.dart';
 
-class LawyerManagementDocumentScreen extends StatefulWidget {
+class LawyerManagementDocumentScreen extends ConsumerStatefulWidget {
   const LawyerManagementDocumentScreen({super.key});
 
   @override
-  State<LawyerManagementDocumentScreen> createState() =>
+  ConsumerState<LawyerManagementDocumentScreen> createState() =>
       _LawyerManagementDocumentScreenState();
 }
 
 class _LawyerManagementDocumentScreenState
-    extends State<LawyerManagementDocumentScreen> {
+    extends ConsumerState<LawyerManagementDocumentScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
   int _selectedTabIndex = 0; // 0: All Documents, 1: Pending Reviews
   String _selectedCaseFilter = 'All cases';
   String _selectedClientFilter = 'All Clients';
-  String _selectedSort = 'Newest First';
   String _selectedTypeFilter = 'All';
 
   final List<String> _documentTypes = [
@@ -25,6 +32,12 @@ class _LawyerManagementDocumentScreenState
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(authStateProvider).value;
+    if (user == null) return const Center(child: CircularProgressIndicator());
+
+    final documentsAsync = ref.watch(documentsByLawyerProvider(user.uid));
+    final casesAsync = ref.watch(casesByLawyerProvider(user.uid));
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FC),
       appBar: AppBar(
@@ -44,22 +57,64 @@ class _LawyerManagementDocumentScreenState
         ),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildTopSnapshotCard(),
-            const SizedBox(height: 20),
-            _buildFilterSection(),
-            const SizedBox(height: 24),
-            _buildClientUploadsList(),
-          ],
-        ),
+      body: documentsAsync.when(
+        data: (documents) {
+          final filteredDocs = _applyFilters(documents);
+          final cases = casesAsync.value ?? [];
+
+          return SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildTopSnapshotCard(documents),
+                const SizedBox(height: 20),
+                _buildFilterSection(cases),
+                const SizedBox(height: 24),
+                _buildClientUploadsList(filteredDocs),
+              ],
+            ),
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, st) => Center(child: Text('Error: $e')),
       ),
     );
   }
 
-  Widget _buildTopSnapshotCard() {
+  List<DocumentModel> _applyFilters(List<DocumentModel> docs) {
+    return docs.where((doc) {
+      // Tab filter (Pending Reviews = 1)
+      if (_selectedTabIndex == 1 && doc.isApprovedForClient) return false;
+
+      // Search filter
+      if (_searchQuery.isNotEmpty) {
+        final query = _searchQuery.toLowerCase();
+        final nameMatch = doc.fileName?.toLowerCase().contains(query) ?? false;
+        final descMatch =
+            doc.description?.toLowerCase().contains(query) ?? false;
+        if (!nameMatch && !descMatch) return false;
+      }
+
+      // Case filter
+      if (_selectedCaseFilter != 'All cases' &&
+          doc.caseId != _selectedCaseFilter) {
+        return false;
+      }
+
+      // Type filter
+      if (_selectedTypeFilter != 'All' &&
+          doc.fileType.toLowerCase() != _selectedTypeFilter.toLowerCase()) {
+        return false;
+      }
+
+      return true;
+    }).toList();
+  }
+
+  Widget _buildTopSnapshotCard(List<DocumentModel> documents) {
+    final pending = documents.where((d) => !d.isApprovedForClient).length;
+    final approved = documents.where((d) => d.isApprovedForClient).length;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       padding: const EdgeInsets.all(20),
@@ -80,11 +135,11 @@ class _LawyerManagementDocumentScreenState
             children: [
               _buildSnapshotItem(
                 'Pending',
-                '3',
+                pending.toString(),
                 const Color(0xFFFF6B00),
               ), // Orange
-              _buildSnapshotItem('Approved', '9', Colors.green),
-              _buildSnapshotItem('Rejected', '12', Colors.red),
+              _buildSnapshotItem('Approved', approved.toString(), Colors.green),
+              _buildSnapshotItem('Rejected', '0', Colors.red),
             ],
           ),
           const SizedBox(height: 16),
@@ -96,9 +151,15 @@ class _LawyerManagementDocumentScreenState
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.white24),
             ),
-            child: const TextField(
-              style: TextStyle(color: Colors.white),
-              decoration: InputDecoration(
+            child: TextField(
+              controller: _searchController,
+              onChanged: (val) {
+                setState(() {
+                  _searchQuery = val;
+                });
+              },
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
                 icon: Icon(Icons.search, color: Colors.white54),
                 hintText: 'Search cases or client...',
                 hintStyle: TextStyle(color: Colors.white54, fontSize: 13),
@@ -135,7 +196,12 @@ class _LawyerManagementDocumentScreenState
     );
   }
 
-  Widget _buildFilterSection() {
+  Widget _buildFilterSection(List<dynamic> cases) {
+    final caseItems = [
+      'All cases',
+      ...cases.map((c) => c.caseNumber as String),
+    ];
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -152,12 +218,24 @@ class _LawyerManagementDocumentScreenState
                   color: Colors.black87,
                 ),
               ),
-              Text(
-                'Reset All',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFFFF6B00),
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _selectedTabIndex = 0;
+                    _selectedCaseFilter = 'All cases';
+                    _selectedClientFilter = 'All Clients';
+                    _selectedTypeFilter = 'All';
+                    _searchQuery = '';
+                    _searchController.clear();
+                  });
+                },
+                child: const Text(
+                  'Reset All',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFFF6B00),
+                  ),
                 ),
               ),
             ],
@@ -182,42 +260,21 @@ class _LawyerManagementDocumentScreenState
           Row(
             children: [
               Expanded(
-                child: _buildFilterDropdown('CASE', _selectedCaseFilter, [
-                  'All cases',
-                  'Case A',
-                ]),
+                child: _buildFilterDropdown(
+                  'CASE',
+                  _selectedCaseFilter,
+                  caseItems,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: _buildFilterDropdown('CLIENT', _selectedClientFilter, [
                   'All Clients',
-                  'John Doe',
                 ]),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          // Sort Dropdown
-          Row(
-            children: [
-              const Text(
-                'SORT BY  ',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black54,
-                  letterSpacing: 1,
-                ),
-              ),
-              Expanded(
-                child: _buildFilterDropdown('SORT BY', _selectedSort, [
-                  'Newest First',
-                  'Oldest First',
-                ], hideLabel: true),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
           // Document Types Chips
           const Text(
             'DOCUMENT TYPE',
@@ -329,7 +386,6 @@ class _LawyerManagementDocumentScreenState
                   setState(() {
                     if (label == 'CASE') _selectedCaseFilter = val;
                     if (label == 'CLIENT') _selectedClientFilter = val;
-                    if (label == 'SORT BY') _selectedSort = val;
                   });
                 }
               },
@@ -370,7 +426,7 @@ class _LawyerManagementDocumentScreenState
     );
   }
 
-  Widget _buildClientUploadsList() {
+  Widget _buildClientUploadsList(List<DocumentModel> docs) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -388,44 +444,74 @@ class _LawyerManagementDocumentScreenState
                 ),
               ),
               Text(
-                '3 documents found',
+                '${docs.length} documents found',
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          _buildDocumentListItem(
-            docTitle: 'Evidence-file-01_ver2.0...',
-            clientName: 'Client: Sarah Miller',
-            caseName: 'Case type: Real Estate',
-            iconType: Icons.description,
-            iconColor: Colors.blue.shade400,
-            statusLabel: 'PENDING',
-            statusColor: const Color(0xFFFF6B00),
-            date: 'Submitted: 14 Aug 2025',
-          ),
-          const SizedBox(height: 12),
-          _buildDocumentListItem(
-            docTitle: 'Agreement_Draft_review...',
-            clientName: 'Client: John Doe',
-            caseName: 'Case type: Corporate',
-            iconType: Icons.picture_as_pdf,
-            iconColor: Colors.red.shade400,
-            statusLabel: 'APPROVED',
-            statusColor: Colors.green,
-            date: 'Submitted: 12 Aug 2025',
-          ),
-          const SizedBox(height: 12),
-          _buildDocumentListItem(
-            docTitle: 'Evidence_site_photo_01...',
-            clientName: 'Client: Marcus Rash',
-            caseName: 'Case type: Property',
-            iconType: Icons.image,
-            iconColor: Colors.purple.shade400,
-            statusLabel: 'PENDING',
-            statusColor: const Color(0xFFFF6B00),
-            date: 'Submitted: 10 Aug 2025',
-          ),
+          if (docs.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 50.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.folder_open_outlined,
+                      size: 64,
+                      color: Colors.grey.shade400,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No Documents Found',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'No documents match the current filters.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ...docs.map(
+              (doc) => Padding(
+                padding: const EdgeInsets.only(bottom: 12.0),
+                child: _buildDocumentListItem(
+                  docId: doc.documentId,
+                  docTitle: doc.fileName ?? 'Untitled Document',
+                  clientName:
+                      'Uploaded by: ${doc.uploadedBy.substring(0, 5)}...',
+                  caseName: 'Case ID: ${doc.caseId.substring(0, 5)}...',
+                  iconType: doc.isPDF
+                      ? Icons.picture_as_pdf
+                      : (doc.isImage ? Icons.image : Icons.description),
+                  iconColor: doc.isPDF
+                      ? Colors.red.shade400
+                      : (doc.isImage
+                            ? Colors.purple.shade400
+                            : Colors.blue.shade400),
+                  statusLabel: doc.isApprovedForClient ? 'APPROVED' : 'PENDING',
+                  statusColor: doc.isApprovedForClient
+                      ? Colors.green
+                      : const Color(0xFFFF6B00),
+                  date:
+                      'Submitted: ${DateFormat('dd MMM yyyy').format(doc.uploadedAt)}',
+                  isPending: !doc.isApprovedForClient,
+                ),
+              ),
+            ),
           const SizedBox(height: 40),
         ],
       ),
@@ -433,6 +519,7 @@ class _LawyerManagementDocumentScreenState
   }
 
   Widget _buildDocumentListItem({
+    required String docId,
     required String docTitle,
     required String clientName,
     required String caseName,
@@ -441,7 +528,10 @@ class _LawyerManagementDocumentScreenState
     required String statusLabel,
     required Color statusColor,
     required String date,
+    bool isPending = false,
   }) {
+    final user = ref.watch(authStateProvider).value;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -528,6 +618,37 @@ class _LawyerManagementDocumentScreenState
             children: [
               Row(
                 children: [
+                  if (isPending && user != null)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12.0),
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          minimumSize: const Size(0, 0),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onPressed: () {
+                          ref
+                              .read(documentStateProvider.notifier)
+                              .approveDocument(docId, user.uid);
+                        },
+                        child: const Text(
+                          'Approve',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
                   Icon(
                     Icons.calendar_today_outlined,
                     size: 14,
@@ -552,10 +673,10 @@ class _LawyerManagementDocumentScreenState
                       color: Colors.grey.shade100,
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.remove_red_eye_outlined,
                       size: 16,
-                      color: Colors.grey.shade700,
+                      color: Colors.black87,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -565,10 +686,10 @@ class _LawyerManagementDocumentScreenState
                       color: Colors.grey.shade100,
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.more_vert,
                       size: 16,
-                      color: Colors.grey.shade700,
+                      color: Colors.black87,
                     ),
                   ),
                 ],

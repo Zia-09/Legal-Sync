@@ -1,65 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:legal_sync/provider/auth_provider.dart';
+import 'package:legal_sync/provider/chat_provider.dart';
+import 'package:legal_sync/provider/lawyer_provider.dart';
+import 'package:legal_sync/model/chat_Model.dart';
 import 'package:legal_sync/screens/lawyer%20panel/lawyer_chat_screen.dart';
+import 'package:intl/intl.dart';
 
-class LawyerMessagesScreen extends StatefulWidget {
+class LawyerMessagesScreen extends ConsumerStatefulWidget {
   const LawyerMessagesScreen({super.key});
 
   @override
-  State<LawyerMessagesScreen> createState() => _LawyerMessagesScreenState();
+  ConsumerState<LawyerMessagesScreen> createState() =>
+      _LawyerMessagesScreenState();
 }
 
-class _LawyerMessagesScreenState extends State<LawyerMessagesScreen> {
-  final List<Map<String, dynamic>> _messages = [
-    {
-      'name': 'Adv. Julian Vance',
-      'message': 'The draft for the property dispute is r...',
-      'time': '10:45 AM',
-      'unreadCount': 2,
-      'avatar': 'https://i.pravatar.cc/150?img=12',
-    },
-    {
-      'name': 'Sarah Jenkins (Legal Asst.)',
-      'message': 'Received the documents from the court el...',
-      'time': '9:20 AM',
-      'unreadCount': 0,
-      'avatar': 'https://i.pravatar.cc/150?img=5',
-    },
-    {
-      'name': 'Robert Miller',
-      'message': 'Thank you for the update on my case status.',
-      'time': 'Yesterday',
-      'unreadCount': 0,
-      'avatar': 'https://i.pravatar.cc/150?img=11',
-    },
-    {
-      'name': 'David Chen',
-      'message': 'Can we schedule a call for Monday morning...',
-      'time': 'Yesterday',
-      'unreadCount': 0,
-      'avatar': 'https://i.pravatar.cc/150?img=13',
-    },
-    {
-      'name': 'Maria Garcia',
-      'message': 'The settlement agreement looks good on ...',
-      'time': 'Oct 24',
-      'unreadCount': 0,
-      'avatar': 'https://i.pravatar.cc/150?img=16',
-    },
-  ];
-
+class _LawyerMessagesScreenState extends ConsumerState<LawyerMessagesScreen> {
   String _selectedFilter = 'All';
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(authStateProvider).value;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FC),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () => Navigator.pop(context),
-        ),
+        automaticallyImplyLeading: false,
         title: const Text(
           'Messages',
           style: TextStyle(
@@ -70,9 +46,30 @@ class _LawyerMessagesScreenState extends State<LawyerMessagesScreen> {
         ),
         centerTitle: true,
         actions: [
-          IconButton(
+          PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, color: Colors.black87),
-            onPressed: () {},
+            onSelected: (val) {
+              if (val == 'mark_all_read') {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('All messages marked as read'),
+                    backgroundColor: Color(0xFFFF6B00),
+                  ),
+                );
+              } else if (val == 'archived') {
+                setState(() => _selectedFilter = 'Archived');
+              }
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(
+                value: 'mark_all_read',
+                child: Text('Mark all as read'),
+              ),
+              const PopupMenuItem(
+                value: 'archived',
+                child: Text('View Archived'),
+              ),
+            ],
           ),
         ],
       ),
@@ -81,29 +78,18 @@ class _LawyerMessagesScreenState extends State<LawyerMessagesScreen> {
           _buildSearchBar(),
           _buildFilters(),
           Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              itemCount: _messages.length,
-              separatorBuilder: (context, index) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final chat = _messages[index];
-                return _buildChatTile(chat);
-              },
-            ),
+            child: user == null
+                ? const Center(child: CircularProgressIndicator())
+                : _buildMessagesList(user.uid),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        backgroundColor: const Color(0xFFFF6B00),
-        child: const Icon(Icons.edit, color: Colors.white),
       ),
     );
   }
 
   Widget _buildSearchBar() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+      margin: const EdgeInsets.fromLTRB(20, 10, 20, 6),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -111,11 +97,26 @@ class _LawyerMessagesScreenState extends State<LawyerMessagesScreen> {
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: TextField(
+        controller: _searchCtrl,
+        onChanged: (val) => setState(() => _searchQuery = val.toLowerCase()),
         decoration: InputDecoration(
           icon: Icon(Icons.search, color: Colors.grey.shade400, size: 20),
           hintText: 'Search conversations...',
           hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
           border: InputBorder.none,
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: Icon(
+                    Icons.close,
+                    color: Colors.grey.shade400,
+                    size: 18,
+                  ),
+                  onPressed: () => setState(() {
+                    _searchQuery = '';
+                    _searchCtrl.clear();
+                  }),
+                )
+              : null,
         ),
       ),
     );
@@ -123,7 +124,7 @@ class _LawyerMessagesScreenState extends State<LawyerMessagesScreen> {
 
   Widget _buildFilters() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
       child: Row(
         children: [
           _buildFilterChip('All'),
@@ -137,13 +138,9 @@ class _LawyerMessagesScreenState extends State<LawyerMessagesScreen> {
   }
 
   Widget _buildFilterChip(String label) {
-    bool isSelected = _selectedFilter == label;
+    final isSelected = _selectedFilter == label;
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedFilter = label;
-        });
-      },
+      onTap: () => setState(() => _selectedFilter = label),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         decoration: BoxDecoration(
@@ -165,16 +162,85 @@ class _LawyerMessagesScreenState extends State<LawyerMessagesScreen> {
     );
   }
 
-  Widget _buildChatTile(Map<String, dynamic> chat) {
+  Widget _buildMessagesList(String lawyerId) {
+    final messagesAsync = ref.watch(userMessagesProvider(lawyerId));
+
+    return messagesAsync.when(
+      data: (messages) {
+        // Get latest message per conversation partner
+        final Map<String, ChatModel> conversations = {};
+        for (final msg in messages) {
+          final partnerId = msg.senderId == lawyerId
+              ? msg.receiverId
+              : msg.senderId;
+          if (!conversations.containsKey(partnerId) ||
+              msg.sentAt.isAfter(conversations[partnerId]!.sentAt)) {
+            conversations[partnerId] = msg;
+          }
+        }
+
+        var convList = conversations.values.toList()
+          ..sort((a, b) => b.sentAt.compareTo(a.sentAt));
+
+        // Apply filter
+        if (_selectedFilter == 'Unread') {
+          convList = convList
+              .where((m) => !m.isRead && m.receiverId == lawyerId)
+              .toList();
+        } else if (_selectedFilter == 'Archived') {
+          convList = [];
+        }
+
+        // Apply search
+        if (_searchQuery.isNotEmpty) {
+          convList = convList
+              .where((m) => m.message.toLowerCase().contains(_searchQuery))
+              .toList();
+        }
+
+        if (convList.isEmpty) {
+          return _buildEmptyState();
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+          itemCount: convList.length,
+          separatorBuilder: (_, __) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            final msg = convList[index];
+            final partnerId = msg.senderId == lawyerId
+                ? msg.receiverId
+                : msg.senderId;
+            return _buildChatTile(msg, partnerId, lawyerId, ref);
+          },
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Error loading messages: $e')),
+    );
+  }
+
+  Widget _buildChatTile(
+    ChatModel msg,
+    String partnerId,
+    String lawyerId,
+    WidgetRef ref,
+  ) {
+    final isUnread = !msg.isRead && msg.receiverId == lawyerId;
+    final partnerAsync = ref.watch(getLawyerByIdProvider(partnerId));
+    final partnerName = partnerAsync.valueOrNull?.name ?? 'Client';
+    final avatarUrl =
+        partnerAsync.valueOrNull?.profileImage ??
+        'https://i.pravatar.cc/150?u=$partnerId';
+    final timeStr = _formatTime(msg.sentAt);
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => LawyerChatScreen(
-              clientName: chat['name'],
-              avatarUrl: chat['avatar'],
-            ),
+            builder: (_) =>
+                LawyerChatScreen(clientName: partnerName, avatarUrl: avatarUrl),
           ),
         );
       },
@@ -182,11 +248,31 @@ class _LawyerMessagesScreenState extends State<LawyerMessagesScreen> {
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 28,
-              backgroundImage: NetworkImage(chat['avatar']),
+            Stack(
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundImage: NetworkImage(avatarUrl),
+                  onBackgroundImageError: (_, __) {},
+                  child: const Icon(Icons.person),
+                ),
+                if (isUnread)
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF6B00),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -195,21 +281,23 @@ class _LawyerMessagesScreenState extends State<LawyerMessagesScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        chat['name'],
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
+                        partnerName,
+                        style: TextStyle(
+                          fontWeight: isUnread
+                              ? FontWeight.bold
+                              : FontWeight.w600,
                           fontSize: 15,
                           color: Colors.black87,
                         ),
                       ),
                       Text(
-                        chat['time'],
+                        timeStr,
                         style: TextStyle(
                           fontSize: 12,
-                          color: chat['unreadCount'] > 0
+                          color: isUnread
                               ? const Color(0xFFFF6B00)
                               : Colors.grey.shade500,
-                          fontWeight: chat['unreadCount'] > 0
+                          fontWeight: isUnread
                               ? FontWeight.bold
                               : FontWeight.normal,
                         ),
@@ -221,13 +309,13 @@ class _LawyerMessagesScreenState extends State<LawyerMessagesScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          chat['message'],
+                          msg.message,
                           style: TextStyle(
                             fontSize: 13,
-                            color: chat['unreadCount'] > 0
+                            color: isUnread
                                 ? Colors.black87
                                 : Colors.grey.shade600,
-                            fontWeight: chat['unreadCount'] > 0
+                            fontWeight: isUnread
                                 ? FontWeight.w500
                                 : FontWeight.normal,
                           ),
@@ -235,16 +323,16 @@ class _LawyerMessagesScreenState extends State<LawyerMessagesScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (chat['unreadCount'] > 0)
+                      if (isUnread)
                         Container(
-                          padding: const EdgeInsets.all(6),
+                          padding: const EdgeInsets.all(5),
                           decoration: const BoxDecoration(
                             color: Color(0xFFFF6B00),
                             shape: BoxShape.circle,
                           ),
-                          child: Text(
-                            chat['unreadCount'].toString(),
-                            style: const TextStyle(
+                          child: const Text(
+                            '1',
+                            style: TextStyle(
                               color: Colors.white,
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
@@ -260,5 +348,41 @@ class _LawyerMessagesScreenState extends State<LawyerMessagesScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildEmptyState() {
+    final label = _selectedFilter == 'Archived'
+        ? 'No archived conversations'
+        : _selectedFilter == 'Unread'
+        ? 'No unread messages'
+        : 'No conversations yet';
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.chat_bubble_outline,
+            size: 60,
+            color: Colors.grey.shade300,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            label,
+            style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTime(DateTime dt) {
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+    if (diff.inMinutes < 1) return 'Now';
+    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
+    if (diff.inDays < 1) return DateFormat('h:mm a').format(dt);
+    if (diff.inDays < 7) return DateFormat('EEE').format(dt);
+    return DateFormat('MMM d').format(dt);
   }
 }

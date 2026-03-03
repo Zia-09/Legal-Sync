@@ -151,9 +151,27 @@ class AppointmentService {
   ) {
     return _appointments
         .where('lawyerId', isEqualTo: lawyerId)
-        .where('status', whereIn: const ['pending', 'approved'])
+        .where('status', isEqualTo: 'approved')
         .where('scheduledAt', isGreaterThanOrEqualTo: Timestamp.now())
         .orderBy('scheduledAt')
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => AppointmentModel.fromJson(
+                  doc.data() as Map<String, dynamic>,
+                ),
+              )
+              .toList(),
+        );
+  }
+
+  Stream<List<AppointmentModel>> streamPendingAppointmentsForLawyer(
+    String lawyerId,
+  ) {
+    return _appointments
+        .where('lawyerId', isEqualTo: lawyerId)
+        .where('status', isEqualTo: 'pending')
         .snapshots()
         .map(
           (snapshot) => snapshot.docs

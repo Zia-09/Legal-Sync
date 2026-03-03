@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:legal_sync/provider/lawyer_provider.dart';
+import 'package:legal_sync/services/supabase_service.dart';
+import 'dart:io';
 
-class LawyerEditProfileScreen extends StatefulWidget {
+class LawyerEditProfileScreen extends ConsumerStatefulWidget {
   const LawyerEditProfileScreen({super.key});
 
   @override
-  State<LawyerEditProfileScreen> createState() =>
+  ConsumerState<LawyerEditProfileScreen> createState() =>
       _LawyerEditProfileScreenState();
 }
 
-class _LawyerEditProfileScreenState extends State<LawyerEditProfileScreen> {
+class _LawyerEditProfileScreenState
+    extends ConsumerState<LawyerEditProfileScreen> {
+  bool _isUploading = false;
   final List<String> _specializations = [
     'Corporate Law',
     'Intellectual Property',
@@ -23,8 +30,66 @@ class _LawyerEditProfileScreenState extends State<LawyerEditProfileScreen> {
     'M&A',
   ];
 
+  Future<void> _pickAndUploadImage(String lawyerId) async {
+    try {
+      final picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70,
+      );
+
+      if (image == null) return;
+
+      setState(() => _isUploading = true);
+
+      // Upload to Supabase
+      final imageUrl = await supabaseService.uploadFile(
+        file: File(image.path),
+        path: 'lawyer_profiles/$lawyerId',
+      );
+
+      // Update Firestore
+      await ref
+          .read(lawyerServiceProvider)
+          .updateLawyer(
+            lawyerId: lawyerId,
+            data: {'profileImageUrl': imageUrl},
+          );
+
+      // Refresh lawyer data
+      ref.invalidate(currentLawyerProvider);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Professional photo updated!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to update photo: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final lawyerAsync = ref.watch(currentLawyerProvider);
+    return lawyerAsync.when(
+      data: (lawyer) => _buildScaffold(lawyer),
+      loading: () => const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: Color(0xFFFF6B00)),
+        ),
+      ),
+      error: (e, st) => Scaffold(body: Center(child: Text('Error: $e'))),
+    );
+  }
+
+  Widget _buildScaffold(dynamic lawyer) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -53,25 +118,44 @@ class _LawyerEditProfileScreenState extends State<LawyerEditProfileScreen> {
             Center(
               child: Stack(
                 children: [
-                  const CircleAvatar(
+                  CircleAvatar(
                     radius: 50,
-                    backgroundImage: NetworkImage(
-                      'https://i.pravatar.cc/150?img=12',
-                    ),
+                    backgroundColor: Colors.grey.shade200,
+                    backgroundImage:
+                        (lawyer != null && lawyer.profileImageUrl.isNotEmpty)
+                        ? NetworkImage(lawyer.profileImageUrl)
+                        : Image.network(
+                                'https://i.pravatar.cc/150?img=12',
+                              ).image
+                              as ImageProvider,
                   ),
                   Positioned(
                     bottom: 0,
                     right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFFF6B00),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.camera_alt,
-                        color: Colors.white,
-                        size: 20,
+                    child: GestureDetector(
+                      onTap: _isUploading
+                          ? null
+                          : () => _pickAndUploadImage(lawyer!.lawyerId),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFF6B00),
+                          shape: BoxShape.circle,
+                        ),
+                        child: _isUploading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.camera_alt,
+                                color: Colors.white,
+                                size: 20,
+                              ),
                       ),
                     ),
                   ),
@@ -82,17 +166,15 @@ class _LawyerEditProfileScreenState extends State<LawyerEditProfileScreen> {
 
             _buildInputField(
               label: 'FULL NAME',
-              hint: 'Jonathan Sterling, Esq.',
-              controller: TextEditingController(
-                text: 'Jonathan Sterling, Esq.',
-              ),
+              hint: 'e.g. Jonathan Sterling',
+              controller: TextEditingController(text: lawyer?.name ?? ''),
             ),
             const SizedBox(height: 20),
 
             _buildInputField(
               label: 'EMAIL ADDRESS',
-              hint: 'j.sterling@lawfirm.com',
-              controller: TextEditingController(text: 'j.sterling@lawfirm.com'),
+              hint: 'e.g. j.sterling@lawfirm.com',
+              controller: TextEditingController(text: lawyer?.email ?? ''),
             ),
             const SizedBox(height: 20),
 
@@ -131,16 +213,14 @@ class _LawyerEditProfileScreenState extends State<LawyerEditProfileScreen> {
             _buildInputField(
               label: 'MOBILE NUMBER',
               hint: '+1 (555) 012-3456',
-              controller: TextEditingController(text: '+1 (555) 012-3456'),
+              controller: TextEditingController(text: lawyer?.phone ?? ''),
             ),
             const SizedBox(height: 20),
 
             _buildInputField(
               label: 'OFFICE ADDRESS',
-              hint: 'Suite 400, Financial District\nSan Francisco, CA 94111',
-              controller: TextEditingController(
-                text: 'Suite 400, Financial District\nSan Francisco, CA 94111',
-              ),
+              hint: 'Enter your office address',
+              controller: TextEditingController(text: lawyer?.location ?? ''),
               maxLines: 3,
             ),
             const SizedBox(height: 40),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:legal_sync/screens/client%20panel/login_screen.dart';
+import 'package:legal_sync/screens/lawyer%20panel/lawyer_login_screen.dart';
 
 class OnboardingPage3 extends StatelessWidget {
   const OnboardingPage3({super.key});
@@ -78,7 +80,64 @@ class OnboardingPage3 extends StatelessWidget {
               ),
 
               const Spacer(),
-              const SizedBox(height: 150),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32.0,
+                  vertical: 24.0,
+                ),
+                child: Column(
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const LoginScreen(),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFFB800), // yellowish
+                          foregroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          "Get started",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const LawyerLoginScreen(),
+                          ),
+                        );
+                      },
+                      child: const Text(
+                        "login as a lawyer",
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 15,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ],

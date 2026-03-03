@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
+
 import '../model/chat_Model.dart';
 import '../services/chat_service.dart';
 
@@ -62,6 +62,18 @@ final unreadMessagesCountProvider = StreamProvider.family<int, String>((
 });
 
 // ===============================
+// Typing Status Provider
+// ===============================
+final typingStatusProvider =
+    StreamProvider.family<bool, ({String senderId, String receiverId})>((
+      ref,
+      params,
+    ) {
+      final service = ref.watch(chatServiceProvider);
+      return service.streamTypingStatus(params.senderId, params.receiverId);
+    });
+
+// ===============================
 // Get Message by ID Provider
 // ===============================
 final getMessageByIdProvider = FutureProvider.family<ChatModel?, String>((
@@ -102,6 +114,18 @@ class ChatNotifier extends StateNotifier<ChatModel?> {
 
   Future<void> markAsReadBatch(List<String> messageIds) async {
     await _service.markAsReadBatch(messageIds);
+  }
+
+  Future<void> setTypingStatus({
+    required String senderId,
+    required String receiverId,
+    required bool isTyping,
+  }) async {
+    await _service.setTypingStatus(
+      senderId: senderId,
+      receiverId: receiverId,
+      isTyping: isTyping,
+    );
   }
 
   Future<void> loadMessage(String messageId) async {

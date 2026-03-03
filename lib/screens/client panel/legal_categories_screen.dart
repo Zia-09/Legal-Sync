@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:legal_sync/provider/lawyer_provider.dart';
+import 'package:legal_sync/model/lawyer_Model.dart';
 import 'home_screen.dart';
 import 'messages_screen.dart';
+import 'case_status_screen.dart';
 import 'app_setting_screen.dart';
 
-class LegalCategoriesScreen extends StatefulWidget {
+class LegalCategoriesScreen extends ConsumerStatefulWidget {
   const LegalCategoriesScreen({super.key});
 
   @override
-  State<LegalCategoriesScreen> createState() => _LegalCategoriesScreenState();
+  ConsumerState<LegalCategoriesScreen> createState() =>
+      _LegalCategoriesScreenState();
 }
 
-class _LegalCategoriesScreenState extends State<LegalCategoriesScreen> {
+class _LegalCategoriesScreenState extends ConsumerState<LegalCategoriesScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
@@ -127,34 +132,44 @@ class _LegalCategoriesScreenState extends State<LegalCategoriesScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E1E1E),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        const Icon(
-                          Icons.notifications_outlined,
-                          color: Colors.white,
-                          size: 20,
+                  GestureDetector(
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('No new notifications'),
+                          backgroundColor: Color(0xFFFF6B00),
                         ),
-                        Positioned(
-                          top: 8,
-                          right: 8,
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFFF6B00),
-                              shape: BoxShape.circle,
+                      );
+                    },
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E1E1E),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          const Icon(
+                            Icons.notifications_outlined,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFFF6B00),
+                                shape: BoxShape.circle,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -262,20 +277,53 @@ class _LegalCategoriesScreenState extends State<LegalCategoriesScreen> {
                         ],
                       ),
                     )
-                  : GridView.builder(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                      physics: const BouncingScrollPhysics(),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                            childAspectRatio: 1.2,
+                  : Consumer(
+                      builder: (context, ref, child) {
+                        final lawyersAsync = ref.watch(allLawyersProvider);
+                        return lawyersAsync.when(
+                          data: (lawyers) {
+                            return GridView.builder(
+                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                              physics: const BouncingScrollPhysics(),
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 2,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 12,
+                                    childAspectRatio: 1.2,
+                                  ),
+                              itemCount: _filteredCategories.length,
+                              itemBuilder: (context, index) {
+                                final cat = _filteredCategories[index];
+                                final label = cat['label'] as String;
+
+                                // Calculate dynamic count
+                                final count = lawyers
+                                    .where(
+                                      (l) =>
+                                          l.specialization
+                                              .toLowerCase()
+                                              .trim() ==
+                                          label.toLowerCase().trim(),
+                                    )
+                                    .length;
+
+                                return _CategoryCard(
+                                  category: cat,
+                                  dynamicCount: count,
+                                );
+                              },
+                            );
+                          },
+                          loading: () => const Center(
+                            child: CircularProgressIndicator(
+                              color: Color(0xFFFF6B00),
+                            ),
                           ),
-                      itemCount: _filteredCategories.length,
-                      itemBuilder: (context, index) {
-                        final cat = _filteredCategories[index];
-                        return _CategoryCard(category: cat);
+                          error: (e, st) => const Center(
+                            child: Text('Error loading lawyer counts'),
+                          ),
+                        );
                       },
                     ),
             ),
@@ -287,12 +335,20 @@ class _LegalCategoriesScreenState extends State<LegalCategoriesScreen> {
   }
 
   Widget _buildBottomNav(BuildContext context) {
-    final items = [
-      {'icon': Icons.home_outlined, 'label': 'Home'},
-      {'icon': Icons.balance_outlined, 'label': 'Categories'},
-      {'icon': Icons.person_search_outlined, 'label': 'Lawyers'},
-      {'icon': Icons.chat_bubble_outline, 'label': 'Chat'},
-      {'icon': Icons.manage_accounts_outlined, 'label': 'Profile'},
+    const items = ['Home', 'Lawyer', 'Cases', 'Chat', 'Setting'];
+    const icons = [
+      Icons.home_outlined,
+      Icons.balance_outlined,
+      Icons.folder_outlined,
+      Icons.chat_bubble_outline,
+      Icons.settings_outlined,
+    ];
+    const activeIcons = [
+      Icons.home,
+      Icons.balance,
+      Icons.folder,
+      Icons.chat_bubble,
+      Icons.settings,
     ];
 
     return Container(
@@ -303,15 +359,19 @@ class _LegalCategoriesScreenState extends State<LegalCategoriesScreen> {
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: List.generate(items.length, (index) {
-          final item = items[index];
-          final isActive = index == 1;
+        children: List.generate(5, (index) {
+          final isActive = index == 1; // Lawyer/Categories is active
           return GestureDetector(
             onTap: () {
               if (index == 0) {
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(builder: (_) => const HomeScreen()),
+                );
+              } else if (index == 2) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CaseStatusScreen()),
                 );
               } else if (index == 3) {
                 Navigator.push(
@@ -325,28 +385,34 @@ class _LegalCategoriesScreenState extends State<LegalCategoriesScreen> {
                 );
               }
             },
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  item['icon'] as IconData,
-                  color: isActive
-                      ? const Color(0xFFFF6B00)
-                      : const Color(0xFF5A5A5A),
-                  size: 24,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  item['label'] as String,
-                  style: TextStyle(
+            child: Container(
+              color: Colors.transparent,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    isActive ? activeIcons[index] : icons[index],
                     color: isActive
                         ? const Color(0xFFFF6B00)
                         : const Color(0xFF5A5A5A),
-                    fontSize: 10,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                    size: 24,
                   ),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  Text(
+                    items[index],
+                    style: TextStyle(
+                      color: isActive
+                          ? const Color(0xFFFF6B00)
+                          : const Color(0xFF5A5A5A),
+                      fontSize: 10,
+                      fontWeight: isActive
+                          ? FontWeight.w600
+                          : FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         }),
@@ -355,15 +421,20 @@ class _LegalCategoriesScreenState extends State<LegalCategoriesScreen> {
   }
 }
 
-class _CategoryCard extends StatelessWidget {
+class _CategoryCard extends ConsumerWidget {
   final Map<String, dynamic> category;
+  final int dynamicCount;
 
-  const _CategoryCard({required this.category});
+  const _CategoryCard({required this.category, required this.dynamicCount});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return GestureDetector(
-      onTap: () {},
+      onTap: () {
+        ref.read(selectedCategoryProvider.notifier).state =
+            category['label'] as String;
+        Navigator.pop(context);
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
@@ -421,7 +492,7 @@ class _CategoryCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        category['count'] as String,
+                        '$dynamicCount Lawyers',
                         style: TextStyle(
                           color: category['color'] as Color,
                           fontSize: 11,

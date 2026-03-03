@@ -1,28 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:legal_sync/model/lawyer_Model.dart';
+import 'package:legal_sync/provider/client_provider.dart';
+import 'package:legal_sync/services/appoinment_services.dart';
 import 'messages_screen.dart';
 
-class LawyerProfileScreen extends StatelessWidget {
-  final String name;
-  final String specialty;
-  final double rating;
-  final int reviews;
-  final String location;
-  final String experience;
+class LawyerProfileScreen extends ConsumerWidget {
+  final LawyerModel? lawyer;
+  final String? name;
+  final String? specialty;
+  final double? rating;
+  final int? reviews;
+  final String? location;
+  final String? experience;
   final bool useProfileImage;
 
   const LawyerProfileScreen({
     super.key,
-    required this.name,
-    required this.specialty,
-    required this.rating,
-    required this.reviews,
-    required this.location,
-    required this.experience,
+    this.lawyer,
+    this.name,
+    this.specialty,
+    this.rating,
+    this.reviews,
+    this.location,
+    this.experience,
     this.useProfileImage = false,
   });
 
+  String get _name => lawyer?.name ?? name ?? 'Lawyer';
+  String get _specialty => lawyer?.specialization ?? specialty ?? 'Specialist';
+  double get _rating => lawyer?.rating ?? rating ?? 0.0;
+  int get _reviews => lawyer?.totalReviews ?? reviews ?? 0;
+  String get _location => lawyer?.location ?? location ?? 'PK';
+  String get _experience => lawyer?.experience ?? experience ?? '8 Years';
+  bool get _hasProfileImage =>
+      (lawyer?.profileImage != null && lawyer!.profileImage!.isNotEmpty) ||
+      useProfileImage;
+  String? get _profileImageUrl => lawyer?.profileImage;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F0F),
       body: CustomScrollView(
@@ -56,7 +73,14 @@ class LawyerProfileScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: IconButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Sharing profile link...'),
+                        backgroundColor: Color(0xFFFF6B00),
+                      ),
+                    );
+                  },
                   icon: const Icon(
                     Icons.share_outlined,
                     color: Colors.white,
@@ -69,11 +93,20 @@ class LawyerProfileScreen extends StatelessWidget {
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  useProfileImage
-                      ? Image.asset(
-                          'assets/images/profile.jpg',
-                          fit: BoxFit.cover,
-                        )
+                  _hasProfileImage
+                      ? (_profileImageUrl != null
+                            ? Image.network(
+                                _profileImageUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Image.asset(
+                                  'images/profile.jpg',
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : Image.asset(
+                                'images/profile.jpg',
+                                fit: BoxFit.cover,
+                              ))
                       : Container(
                           decoration: const BoxDecoration(
                             gradient: LinearGradient(
@@ -84,7 +117,11 @@ class LawyerProfileScreen extends StatelessWidget {
                           ),
                           child: Center(
                             child: Text(
-                              name.split(' ').map((e) => e[0]).take(2).join(),
+                              _name
+                                  .split(' ')
+                                  .map((e) => e.isNotEmpty ? e[0] : '')
+                                  .take(2)
+                                  .join(),
                               style: const TextStyle(
                                 color: Color(0xFFFF6B00),
                                 fontSize: 72,
@@ -133,7 +170,7 @@ class LawyerProfileScreen extends StatelessWidget {
 
                   // Name & Title
                   Text(
-                    name,
+                    _name,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 24,
@@ -142,7 +179,7 @@ class LawyerProfileScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    specialty,
+                    _specialty,
                     style: const TextStyle(
                       color: Color(0xFF9E9E9E),
                       fontSize: 14,
@@ -157,10 +194,10 @@ class LawyerProfileScreen extends StatelessWidget {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFF6B00).withValues(alpha: 0.12),
+                      color: const Color(0xFFFF6B00).withOpacity(0.12),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: const Color(0xFFFF6B00).withValues(alpha: 0.3),
+                        color: const Color(0xFFFF6B00).withOpacity(0.3),
                       ),
                     ),
                     child: Row(
@@ -173,7 +210,7 @@ class LawyerProfileScreen extends StatelessWidget {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          '$experience of Distinguished Experience',
+                          '$_experience of Distinguished Experience',
                           style: const TextStyle(
                             color: Color(0xFFFF6B00),
                             fontSize: 12,
@@ -190,7 +227,74 @@ class LawyerProfileScreen extends StatelessWidget {
                     children: [
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () {},
+                          onPressed: () async {
+                            final clientAsync = ref.read(currentClientProvider);
+                            final client = clientAsync.valueOrNull;
+
+                            if (client == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Please login to book a consultation',
+                                  ),
+                                  backgroundColor: Colors.redAccent,
+                                ),
+                              );
+                              return;
+                            }
+
+                            if (lawyer == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Error: Lawyer details not found',
+                                  ),
+                                  backgroundColor: Colors.redAccent,
+                                ),
+                              );
+                              return;
+                            }
+
+                            try {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Requesting consultation...'),
+                                  backgroundColor: Color(0xFFFF6B00),
+                                ),
+                              );
+
+                              await AppointmentService().requestAppointment(
+                                clientId: client.clientId,
+                                lawyerId: lawyer!.lawyerId,
+                                scheduledAt: DateTime.now().add(
+                                  const Duration(days: 1),
+                                ),
+                                fee: 2500.0, // Placeholder fee
+                              );
+
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Consultation requested successfully!',
+                                    ),
+                                    backgroundColor: Color(0xFF059669),
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Failed to book: ${e.toString()}',
+                                    ),
+                                    backgroundColor: Colors.redAccent,
+                                  ),
+                                );
+                              }
+                            }
+                          },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFFF6B00),
                             foregroundColor: Colors.white,
@@ -266,7 +370,7 @@ class LawyerProfileScreen extends StatelessWidget {
                         ),
                         _VerticalDivider(),
                         _StatItem(
-                          value: '$rating',
+                          value: '$_rating',
                           label: 'Rating',
                           icon: Icons.star,
                           color: const Color(0xFFFFB800),

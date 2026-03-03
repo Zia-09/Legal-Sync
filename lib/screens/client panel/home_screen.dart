@@ -1,59 +1,67 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:legal_sync/provider/auth_provider.dart';
+import 'package:legal_sync/provider/client_provider.dart';
+import 'package:legal_sync/provider/lawyer_provider.dart';
+import 'package:legal_sync/model/lawyer_Model.dart';
 import 'lawyer_profile_screen.dart';
 import 'legal_categories_screen.dart';
 import 'messages_screen.dart';
 import 'case_status_screen.dart';
 import 'search_filter_screen.dart';
 import 'app_setting_screen.dart';
+import 'login_screen.dart';
+import 'widgets/home_widgets.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _currentIndex = 0;
   final TextEditingController _searchCtrl = TextEditingController();
   Map<String, dynamic>? _activeFilters;
 
   final List<Map<String, dynamic>> _categories = [
-    {'icon': Icons.gavel, 'label': 'Civil', 'color': Color(0xFFFF6B00)},
+    {'icon': Icons.gavel, 'label': 'Civil', 'color': const Color(0xFFFF6B00)},
     {
       'icon': Icons.shield_outlined,
       'label': 'Cyber',
-      'color': Color(0xFF7C3AED),
+      'color': const Color(0xFF7C3AED),
     },
     {
       'icon': Icons.local_hospital_outlined,
       'label': 'Medical',
-      'color': Color(0xFF059669),
+      'color': const Color(0xFF059669),
     },
     {
       'icon': Icons.handshake_outlined,
       'label': 'Criminal',
-      'color': Color(0xFFDC2626),
+      'color': const Color(0xFFDC2626),
     },
     {
       'icon': Icons.home_outlined,
       'label': 'Property',
-      'color': Color(0xFF2563EB),
+      'color': const Color(0xFF2563EB),
     },
     {
       'icon': Icons.family_restroom,
       'label': 'Family',
-      'color': Color(0xFFD97706),
+      'color': const Color(0xFFD97706),
     },
     {
       'icon': Icons.business_center_outlined,
       'label': 'Corporate',
-      'color': Color(0xFF0891B2),
+      'color': const Color(0xFF0891B2),
     },
     {
       'icon': Icons.lightbulb_outline,
       'label': 'IP Law',
-      'color': Color(0xFF7C3AED),
+      'color': const Color(0xFF7C3AED),
     },
   ];
 
@@ -124,7 +132,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: const Color(0xFF0F0F0F),
+      drawer: const HomeDrawer(),
       body: SafeArea(
         child: Column(
           children: [
@@ -135,7 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   GestureDetector(
-                    onTap: () {},
+                    onTap: () => _scaffoldKey.currentState?.openDrawer(),
                     child: Container(
                       width: 40,
                       height: 40,
@@ -159,23 +169,79 @@ class _HomeScreenState extends State<HomeScreen> {
                       letterSpacing: 0.5,
                     ),
                   ),
-                  GestureDetector(
-                    onTap: () {},
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E1E1E),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.asset(
-                          'assets/images/profile.jpg',
-                          fit: BoxFit.cover,
+                  Consumer(
+                    builder: (context, ref, child) {
+                      final clientAsync = ref.watch(currentClientProvider);
+                      return clientAsync.when(
+                        data: (client) => GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const AppSettingScreen(),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E1E1E),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: const Color(
+                                  0xFFFF6B00,
+                                ).withValues(alpha: 0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child:
+                                  (client?.profileImage != null &&
+                                      client!.profileImage!.isNotEmpty)
+                                  ? Image.network(
+                                      client.profileImage!,
+                                      fit: BoxFit.cover,
+                                      errorBuilder:
+                                          (context, error, stackTrace) =>
+                                              Image.asset(
+                                                'images/profile.jpg',
+                                                fit: BoxFit.cover,
+                                              ),
+                                    )
+                                  : Image.asset(
+                                      'images/profile.jpg',
+                                      fit: BoxFit.cover,
+                                    ),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
+                        loading: () => Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E1E1E),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFFFF6B00),
+                              ),
+                            ),
+                          ),
+                        ),
+                        error: (_, __) => const Icon(
+                          Icons.account_circle,
+                          color: Colors.white,
+                          size: 40,
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -213,38 +279,63 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
-                                    child: TextField(
-                                      controller: _searchCtrl,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                      ),
-                                      onChanged: (_) => setState(() {}),
-                                      decoration: const InputDecoration(
-                                        hintText: 'Search lawyers, case...',
-                                        hintStyle: TextStyle(
-                                          color: Color(0xFF5A5A5A),
-                                          fontSize: 14,
-                                        ),
-                                        border: InputBorder.none,
-                                        isDense: true,
-                                      ),
+                                    child: Consumer(
+                                      builder: (context, ref, child) {
+                                        return TextField(
+                                          controller: _searchCtrl,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                          ),
+                                          onChanged: (val) {
+                                            ref
+                                                    .read(
+                                                      lawyerSearchQueryProvider
+                                                          .notifier,
+                                                    )
+                                                    .state =
+                                                val;
+                                            setState(() {});
+                                          },
+                                          decoration: const InputDecoration(
+                                            hintText:
+                                                'Search lawyers, cases...',
+                                            hintStyle: TextStyle(
+                                              color: Color(0xFF5A5A5A),
+                                              fontSize: 14,
+                                            ),
+                                            border: InputBorder.none,
+                                            isDense: true,
+                                          ),
+                                        );
+                                      },
                                     ),
                                   ),
                                   if (_searchCtrl.text.isNotEmpty)
-                                    GestureDetector(
-                                      onTap: () {
-                                        _searchCtrl.clear();
-                                        setState(() {});
+                                    Consumer(
+                                      builder: (context, ref, child) {
+                                        return GestureDetector(
+                                          onTap: () {
+                                            _searchCtrl.clear();
+                                            ref
+                                                    .read(
+                                                      lawyerSearchQueryProvider
+                                                          .notifier,
+                                                    )
+                                                    .state =
+                                                '';
+                                            setState(() {});
+                                          },
+                                          child: const Padding(
+                                            padding: EdgeInsets.only(right: 8),
+                                            child: Icon(
+                                              Icons.close,
+                                              color: Color(0xFF6B6B6B),
+                                              size: 18,
+                                            ),
+                                          ),
+                                        );
                                       },
-                                      child: const Padding(
-                                        padding: EdgeInsets.only(right: 8),
-                                        child: Icon(
-                                          Icons.close,
-                                          color: Color(0xFF6B6B6B),
-                                          size: 18,
-                                        ),
-                                      ),
                                     ),
                                 ],
                               ),
@@ -373,60 +464,87 @@ class _HomeScreenState extends State<HomeScreen> {
                     // Categories horizontal scroll
                     SizedBox(
                       height: 88,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: _categories.length,
-                        itemBuilder: (context, index) {
-                          final cat = _categories[index];
-                          return GestureDetector(
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const LegalCategoriesScreen(),
-                              ),
-                            ),
-                            child: Container(
-                              width: 72,
-                              margin: const EdgeInsets.symmetric(horizontal: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF1A1A1A),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: const Color(0xFF252525),
-                                ),
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Container(
-                                    width: 40,
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      color: (cat['color'] as Color).withValues(
-                                        alpha: 0.15,
+                      child: Consumer(
+                        builder: (context, ref, child) {
+                          final selectedCat = ref.watch(
+                            selectedCategoryProvider,
+                          );
+                          return ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            physics: const BouncingScrollPhysics(),
+                            itemCount: _categories.length,
+                            itemBuilder: (context, index) {
+                              final cat = _categories[index];
+                              final isSelected =
+                                  selectedCat == cat['label'] as String;
+                              return GestureDetector(
+                                onTap: () {
+                                  final newCat = isSelected
+                                      ? null
+                                      : cat['label'] as String;
+                                  ref
+                                          .read(
+                                            selectedCategoryProvider.notifier,
+                                          )
+                                          .state =
+                                      newCat;
+                                },
+                                child: Container(
+                                  width: 72,
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? const Color(
+                                            0xFFFF6B00,
+                                          ).withValues(alpha: 0.1)
+                                        : const Color(0xFF1A1A1A),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? const Color(0xFFFF6B00)
+                                          : const Color(0xFF252525),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        width: 40,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          color: (cat['color'] as Color)
+                                              .withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          cat['icon'] as IconData,
+                                          color: cat['color'] as Color,
+                                          size: 20,
+                                        ),
                                       ),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Icon(
-                                      cat['icon'] as IconData,
-                                      color: cat['color'] as Color,
-                                      size: 20,
-                                    ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        cat['label'] as String,
+                                        style: TextStyle(
+                                          color: isSelected
+                                              ? const Color(0xFFFF6B00)
+                                              : const Color(0xFFCCCCCC),
+                                          fontSize: 11,
+                                          fontWeight: isSelected
+                                              ? FontWeight.bold
+                                              : FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    cat['label'] as String,
-                                    style: const TextStyle(
-                                      color: Color(0xFFCCCCCC),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                                ),
+                              );
+                            },
                           );
                         },
                       ),
@@ -468,172 +586,69 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Lawyer cards
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: _lawyers.length,
-                      itemBuilder: (context, index) {
-                        final lawyer = _lawyers[index];
-                        return GestureDetector(
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => LawyerProfileScreen(
-                                name: lawyer['name'] as String,
-                                specialty: lawyer['specialty'] as String,
-                                rating: lawyer['rating'] as double,
-                                reviews: lawyer['reviews'] as int,
-                                location: lawyer['location'] as String,
-                                experience: lawyer['experience'] as String,
-                                useProfileImage: lawyer['useProfile'] as bool,
+                    // Lawyer cards from Riverpod
+                    Consumer(
+                      builder: (context, ref, child) {
+                        final lawyersAsync = ref.watch(filteredLawyersProvider);
+                        return lawyersAsync.when(
+                          data: (realLawyers) {
+                            if (realLawyers.isEmpty) {
+                              final searchQuery = ref.watch(
+                                lawyerSearchQueryProvider,
+                              );
+                              final selectedCat = ref.watch(
+                                selectedCategoryProvider,
+                              );
+
+                              // If filtering/searching, show "No results"
+                              if (searchQuery.isNotEmpty ||
+                                  selectedCat != null) {
+                                return const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 40),
+                                  child: Center(
+                                    child: Text(
+                                      'No lawyers found matching your filters',
+                                      style: TextStyle(
+                                        color: Color(0xFF6B6B6B),
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              return _buildLawyerList(
+                                _lawyers,
+                                isFallback: true,
+                              );
+                            }
+                            return ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                              ),
+                              itemCount: realLawyers.length,
+                              itemBuilder: (context, index) {
+                                final lawyer = realLawyers[index];
+                                return LawyerCard(lawyer: lawyer);
+                              },
+                            );
+                          },
+                          loading: () => const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(30.0),
+                              child: CircularProgressIndicator(
+                                color: Color(0xFFFF6B00),
                               ),
                             ),
                           ),
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1A1A1A),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: const Color(0xFF252525),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: SizedBox(
-                                    width: 64,
-                                    height: 64,
-                                    child: lawyer['useProfile'] as bool
-                                        ? Image.asset(
-                                            'assets/images/profile.jpg',
-                                            fit: BoxFit.cover,
-                                          )
-                                        : Container(
-                                            color: const Color(0xFF2A2A2A),
-                                            child: Center(
-                                              child: Text(
-                                                (lawyer['name'] as String)
-                                                    .split(' ')
-                                                    .map((e) => e[0])
-                                                    .take(2)
-                                                    .join(),
-                                                style: const TextStyle(
-                                                  color: Color(0xFFFF6B00),
-                                                  fontSize: 20,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                  ),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        lawyer['name'] as String,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 3),
-                                      Text(
-                                        lawyer['specialty'] as String,
-                                        style: const TextStyle(
-                                          color: Color(0xFF9E9E9E),
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.star,
-                                            color: Color(0xFFFFB800),
-                                            size: 14,
-                                          ),
-                                          const SizedBox(width: 3),
-                                          Text(
-                                            '${lawyer['rating']}',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            '(${lawyer['reviews']} reviews)',
-                                            style: const TextStyle(
-                                              color: Color(0xFF6B6B6B),
-                                              fontSize: 11,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.location_on_outlined,
-                                          color: Color(0xFF6B6B6B),
-                                          size: 12,
-                                        ),
-                                        const SizedBox(width: 2),
-                                        Text(
-                                          lawyer['location'] as String,
-                                          style: const TextStyle(
-                                            color: Color(0xFF6B6B6B),
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: const Color(
-                                          0xFFFF6B00,
-                                        ).withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        lawyer['experience'] as String,
-                                        style: const TextStyle(
-                                          color: Color(0xFFFF6B00),
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
+                          error: (e, st) =>
+                              _buildLawyerList(_lawyers, isFallback: true),
                         );
                       },
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 30),
                   ],
                 ),
               ),
@@ -641,11 +656,27 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNav(),
+      bottomNavigationBar: _buildBottomNav(context),
     );
   }
 
-  Widget _buildBottomNav() {
+  // Helper to build lawyer cards from hardcoded data (fallback)
+  Widget _buildLawyerList(
+    List<Map<String, dynamic>> lawyers, {
+    bool isFallback = false,
+  }) {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      itemCount: lawyers.length,
+      itemBuilder: (context, index) {
+        return DemoLawyerCard(lawyer: lawyers[index], isFallback: isFallback);
+      },
+    );
+  }
+
+  Widget _buildBottomNav(BuildContext context) {
     const items = ['Home', 'Lawyer', 'Cases', 'Chat', 'Setting'];
     const icons = [
       Icons.home_outlined,
@@ -697,32 +728,36 @@ class _HomeScreenState extends State<HomeScreen> {
                   context,
                   MaterialPageRoute(builder: (_) => const AppSettingScreen()),
                 );
-              } else {
-                setState(() => _currentIndex = index);
               }
             },
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  isActive ? activeIcons[index] : icons[index],
-                  color: isActive
-                      ? const Color(0xFFFF6B00)
-                      : const Color(0xFF5A5A5A),
-                  size: 24,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  items[index],
-                  style: TextStyle(
+            child: Container(
+              color: Colors.transparent, // Fixes tap detection
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    isActive ? activeIcons[index] : icons[index],
                     color: isActive
                         ? const Color(0xFFFF6B00)
                         : const Color(0xFF5A5A5A),
-                    fontSize: 10,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                    size: 24,
                   ),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  Text(
+                    items[index],
+                    style: TextStyle(
+                      color: isActive
+                          ? const Color(0xFFFF6B00)
+                          : const Color(0xFF5A5A5A),
+                      fontSize: 10,
+                      fontWeight: isActive
+                          ? FontWeight.w600
+                          : FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         }),

@@ -1,15 +1,15 @@
-import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:legal_sync/model/document_Model.dart';
-import 'dart:io';
+import 'package:legal_sync/services/supabase_service.dart';
 
 class DocumentService {
-  DocumentService({FirebaseFirestore? firestore, FirebaseStorage? storage})
+  DocumentService({FirebaseFirestore? firestore, SupabaseService? supabase})
     : _firestore = firestore ?? FirebaseFirestore.instance,
-      _storage = storage ?? FirebaseStorage.instance;
+      _supabase = supabase ?? supabaseService;
 
   final FirebaseFirestore _firestore;
-  final FirebaseStorage _storage;
+  final SupabaseService _supabase;
   static const String _collection = 'documents';
   static const String _storagePath = 'case_documents';
 
@@ -20,15 +20,10 @@ class DocumentService {
     required String fileName,
   }) async {
     try {
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final path = '$_storagePath/$caseId/$timestamp-$fileName';
-
-      final ref = _storage.ref().child(path);
-      final uploadTask = await ref.putFile(file);
-
-      return await uploadTask.ref.getDownloadURL();
+      final path = '$_storagePath/$caseId';
+      return await _supabase.uploadFile(file: file, path: path);
     } catch (e) {
-      throw Exception('Failed to upload file: $e');
+      throw Exception('Failed to upload file to Supabase: $e');
     }
   }
 
@@ -121,9 +116,9 @@ class DocumentService {
               )
               .where(
                 (doc) =>
-                    doc.visibleTo == null ||
+                    (doc.visibleTo == null ||
                     doc.visibleTo == 'both' ||
-                    doc.visibleTo == 'client_only',
+                    doc.visibleTo == 'client_only'),
               )
               .toList();
         });
@@ -230,7 +225,7 @@ class DocumentService {
       if (doc != null) {
         // Delete from storage
         try {
-          await _storage.refFromURL(doc.fileUrl).delete();
+          await _supabase.deleteFile(doc.fileUrl);
         } catch (_) {
           // File may already be deleted
         }
@@ -260,7 +255,7 @@ class DocumentService {
               )
               .where(
                 (doc) =>
-                    (doc.fileName?.toLowerCase().contains(
+                    ((doc.fileName?.toLowerCase().contains(
                           query.toLowerCase(),
                         ) ??
                         false) ||
@@ -268,10 +263,28 @@ class DocumentService {
                           query.toLowerCase(),
                         ) ??
                         false) ||
-                        doc.tags.any(
-                          (tag) =>
-                              tag.toLowerCase().contains(query.toLowerCase()),
-                        ),
+                    doc.tags.any(
+                      (tag) => tag.toLowerCase().contains(query.toLowerCase()),
+                    )),
+              )
+              .toList();
+        });
+  }
+
+  /// 🔹 Get all documents for a lawyer (all cases)
+  Stream<List<DocumentModel>> getDocumentsByLawyer(String lawyerId) {
+    return _firestore
+        .collection(_collection)
+        .where('uploadedBy', isEqualTo: lawyerId)
+        .orderBy('uploadedAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs
+              .map(
+                (doc) => DocumentModel.fromJson({
+                  ...doc.data() as Map<String, dynamic>,
+                  'documentId': doc.id,
+                }),
               )
               .toList();
         });

@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:legal_sync/screens/lawyer%20panel/lawyer_login_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:legal_sync/services/supabase_service.dart';
+import 'package:legal_sync/provider/auth_provider.dart';
+import 'package:legal_sync/screens/lawyer panel/lawyer_login_screen.dart';
+import 'dart:io';
 
-class LawyerRegistrationScreen extends StatefulWidget {
+class LawyerRegistrationScreen extends ConsumerStatefulWidget {
   const LawyerRegistrationScreen({super.key});
 
   @override
-  State<LawyerRegistrationScreen> createState() =>
+  ConsumerState<LawyerRegistrationScreen> createState() =>
       _LawyerRegistrationScreenState();
 }
 
-class _LawyerRegistrationScreenState extends State<LawyerRegistrationScreen> {
+class _LawyerRegistrationScreenState
+    extends ConsumerState<LawyerRegistrationScreen> {
   final PageController _pageController = PageController();
   int _currentStep = 0;
 
@@ -52,6 +58,9 @@ class _LawyerRegistrationScreenState extends State<LawyerRegistrationScreen> {
 
   // State Variables - Step 3
   bool _isFileUploaded = false;
+  String? _uploadedFileUrl;
+  bool _isUploading = false;
+  String? _fileName;
 
   @override
   void dispose() {
@@ -96,6 +105,47 @@ class _LawyerRegistrationScreenState extends State<LawyerRegistrationScreen> {
     }
   }
 
+  Future<void> _pickAndUploadFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'png', 'jpeg'],
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      setState(() {
+        _isUploading = true;
+        _fileName = result.files.first.name;
+      });
+
+      final file = File(result.files.first.path!);
+      final downloadUrl = await supabaseService.uploadFile(
+        file: file,
+        path: 'lawyer_documents',
+      );
+
+      setState(() {
+        _uploadedFileUrl = downloadUrl;
+        _isFileUploaded = true;
+        _isUploading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('File uploaded successfully!')),
+        );
+      }
+    } catch (e) {
+      setState(() => _isUploading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+      }
+    }
+  }
+
   void _goToNextPage() {
     setState(() {
       _currentStep++;
@@ -122,34 +172,81 @@ class _LawyerRegistrationScreenState extends State<LawyerRegistrationScreen> {
     }
   }
 
-  void _completeRegistration() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        title: const Text('Registration Complete'),
-        content: const Text(
-          'Your registration has been submitted successfully. Our admin team will verify your details within 24-48 hours. You will be notified once your account is active.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context); // Close dialog
-              Navigator.pop(context); // Go back to login/previous screen
-            },
-            child: Text(
-              'OK',
-              style: TextStyle(color: Theme.of(context).colorScheme.primary),
-            ),
+  void _completeRegistration() async {
+    try {
+      final name =
+          '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}';
+
+      await ref
+          .read(authNotifierProvider.notifier)
+          .registerLawyer(
+            name: name,
+            phone: _phoneController.text.trim(),
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+            specialization: _selectedSpecialization!,
+            experience: _selectedExperience!,
+            idCardDocument: _uploadedFileUrl,
+          );
+
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
-        ],
-      ),
-    );
+          title: const Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.green),
+              SizedBox(width: 8),
+              Text('Registration Submitted'),
+            ],
+          ),
+          content: const Text(
+            'Your registration has been submitted successfully. Our admin team will verify your details within 24-48 hours. You will be notified once your account is active.',
+            style: TextStyle(height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Close dialog
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const LawyerLoginScreen()),
+                  (route) => false,
+                );
+              },
+              child: const Text(
+                'OK',
+                style: TextStyle(
+                  color: Color(0xFFFF6B00),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authNotifierProvider);
+    final isRegistering = authState is AsyncLoading;
+
     // Determine Appbar title based on step
     String appBarTitle = _currentStep == 0
         ? 'Lawyer Portal'
@@ -160,7 +257,7 @@ class _LawyerRegistrationScreenState extends State<LawyerRegistrationScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: _previousStep,
+          onPressed: isRegistering ? null : _previousStep,
         ),
         title: Text(
           appBarTitle,
@@ -174,27 +271,39 @@ class _LawyerRegistrationScreenState extends State<LawyerRegistrationScreen> {
         elevation: 0,
         centerTitle: true,
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // If Step 0, display Hero Image Card
-          if (_currentStep == 0) _buildHeroCard(),
+          Column(
+            children: [
+              // If Step 0, display Hero Image Card
+              if (_currentStep == 0) _buildHeroCard(),
 
-          // Minimal padding for steppers
-          const SizedBox(height: 16),
+              // Minimal padding for steppers
+              const SizedBox(height: 16),
 
-          // Stepper Header
-          _buildHorizontalStepper(),
+              // Stepper Header
+              _buildHorizontalStepper(),
 
-          const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-          // PageView for Forms
-          Expanded(
-            child: PageView(
-              controller: _pageController,
-              physics: const NeverScrollableScrollPhysics(), // Disable swipe
-              children: [_buildStep1(), _buildStep2(), _buildStep3()],
-            ),
+              // PageView for Forms
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  physics:
+                      const NeverScrollableScrollPhysics(), // Disable swipe
+                  children: [_buildStep1(), _buildStep2(), _buildStep3()],
+                ),
+              ),
+            ],
           ),
+          if (isRegistering)
+            Container(
+              color: Colors.black.withValues(alpha: 0.3),
+              child: const Center(
+                child: CircularProgressIndicator(color: Color(0xFFFF6B00)),
+              ),
+            ),
         ],
       ),
     );
@@ -837,15 +946,7 @@ class _LawyerRegistrationScreenState extends State<LawyerRegistrationScreen> {
           ),
           const SizedBox(height: 12),
           GestureDetector(
-            onTap: () {
-              // Mock file upload
-              setState(() {
-                _isFileUploaded = true;
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('File simulated to upload.')),
-              );
-            },
+            onTap: _isUploading ? null : _pickAndUploadFile,
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
               decoration: BoxDecoration(
@@ -860,20 +961,21 @@ class _LawyerRegistrationScreenState extends State<LawyerRegistrationScreen> {
               ),
               child: Column(
                 children: [
-                  Icon(
-                    _isFileUploaded
-                        ? Icons.check_circle_outline
-                        : Icons.cloud_upload_outlined,
-                    color: _isFileUploaded
-                        ? const Color(0xFFFF6B00)
-                        : const Color(
-                            0xFFFF6B00,
-                          ), // Assuming orange cloud icon in figma
-                    size: 48,
-                  ),
+                  if (_isUploading)
+                    const CircularProgressIndicator(color: Color(0xFFFF6B00))
+                  else
+                    Icon(
+                      _isFileUploaded
+                          ? Icons.check_circle_outline
+                          : Icons.cloud_upload_outlined,
+                      color: const Color(0xFFFF6B00),
+                      size: 48,
+                    ),
                   const SizedBox(height: 16),
                   Text(
-                    _isFileUploaded
+                    _isUploading
+                        ? 'Uploading...'
+                        : _isFileUploaded
                         ? 'File Uploaded'
                         : 'Select identity document',
                     style: const TextStyle(
@@ -889,11 +991,7 @@ class _LawyerRegistrationScreenState extends State<LawyerRegistrationScreen> {
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        _isFileUploaded = true;
-                      });
-                    },
+                    onPressed: _isUploading ? null : _pickAndUploadFile,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFFF6B00),
                       shape: RoundedRectangleBorder(
@@ -940,9 +1038,10 @@ class _LawyerRegistrationScreenState extends State<LawyerRegistrationScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _isFileUploaded
-                            ? 'identity_document.pdf'
-                            : 'No file selected yet',
+                        _fileName ??
+                            (_isFileUploaded
+                                ? 'identity_document.pdf'
+                                : 'No file selected yet'),
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
@@ -951,13 +1050,17 @@ class _LawyerRegistrationScreenState extends State<LawyerRegistrationScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _isFileUploaded
+                        _isUploading
+                            ? 'STATUS: UPLOADING...'
+                            : _isFileUploaded
                             ? 'STATUS: READY TO UPLOAD'
                             : 'STATUS: WAITING FOR UPLOAD',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: _isFileUploaded
+                          color: _isUploading
+                              ? Colors.orange
+                              : _isFileUploaded
                               ? Colors.green
                               : Colors.grey.shade600,
                           letterSpacing: 0.5,

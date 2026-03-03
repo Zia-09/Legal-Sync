@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:legal_sync/model/admin_model.dart';
 import 'package:legal_sync/model/client_Model.dart';
 import 'package:legal_sync/model/lawyer_Model.dart';
 
@@ -12,53 +11,52 @@ class AuthService {
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
 
-  // 🔒 Hardcoded Admin Credentials
-  static const String _adminEmail = "admin@lawconnect.com";
-  static const String _adminPassword = "Admin@12345";
-
-  static const String _adminsCollection = "admins";
-  static const String _clientsCollection = "clients";
-  static const String _lawyersCollection = "lawyers";
+  static const String _usersCollection = 'users';
+  static const String _clientsCollection = 'clients';
+  static const String _lawyersCollection = 'lawyers';
 
   // =========================
-  // ADMIN INITIALIZATION
+  // GET USER ROLE FROM FIRESTORE
+  // Returns "admin", "lawyer", "client", or null if not found
   // =========================
-  Future<void> ensureAdminExists() async {
+  Future<String?> getUserRole(String uid) async {
     try {
-      final adminDoc = await _firestore
-          .collection(_adminsCollection)
-          .doc('mainAdmin')
-          .get();
-
-      if (!adminDoc.exists) {
-        final admin = AdminModel(
-          adminId: 'mainAdmin',
-          name: 'Super Admin',
-          email: _adminEmail,
-          phone: '+923000000000',
-          profileImage: null,
-          approvedLawyers: const [],
-          rejectedLawyers: const [],
-          suspendedAccounts: const [],
-          role: 'super_admin',
-          isActive: true,
-          joinedAt: Timestamp.now(),
-          lastActive: null,
-        );
-
-        await _firestore
-            .collection(_adminsCollection)
-            .doc('mainAdmin')
-            .set(admin.toJson());
-        print("✅ Default Admin created in Firestore");
-      }
+      final doc = await _firestore.collection(_usersCollection).doc(uid).get();
+      if (!doc.exists) return null;
+      return doc.data()?['role'] as String?;
     } catch (e) {
-      print("⚠️ Error creating admin: $e");
+      return null;
+    }
+  }
+
+  // =========================
+  // LOGIN
+  // Returns "success" on successful sign-in, or an error message string.
+  // Role-based navigation is handled by the UI after calling getUserRole().
+  // =========================
+  Future<String> loginUser({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      await _auth.signInWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+      return 'success';
+    } on FirebaseAuthException catch (e) {
+      return e.message ?? 'Invalid email or password.';
+    } catch (e) {
+      return e.toString();
     }
   }
 
   // =========================
   // SIGN UP
+  // Creates user in Firebase Auth + Firestore (lawyers / clients).
+  // Also writes a `users/{uid}` document with the role field so
+  // role-based routing works at login time.
+  // Admin accounts are NOT created through the app.
   // =========================
   Future<String> signUpUser({
     required String email,
@@ -70,25 +68,34 @@ class AuthService {
     double? consultationFee,
     String? location,
     String? experience,
+    String? idCardDocument,
   }) async {
     try {
-      if (email.trim() == _adminEmail) {
-        return "Admin registration not allowed through app.";
+      if (role != 'client' && role != 'lawyer') {
+        return 'Invalid role selected.';
       }
 
       final userCredential = await _auth.createUserWithEmailAndPassword(
-        email: email,
+        email: email.trim(),
         password: password,
       );
 
       final String uid = userCredential.user!.uid;
       final Timestamp now = Timestamp.now();
 
+      // Write the role document so getUserRole() works on login
+      await _firestore.collection(_usersCollection).doc(uid).set({
+        'role': role,
+        'name': name,
+        'email': email.trim(),
+        'createdAt': now,
+      });
+
       if (role == 'client') {
         final client = ClientModel(
           clientId: uid,
           name: name,
-          email: email,
+          email: email.trim(),
           phone: phone,
           joinedAt: now,
         );
@@ -96,157 +103,50 @@ class AuthService {
             .collection(_clientsCollection)
             .doc(uid)
             .set(client.toJson());
-      } else if (role == 'lawyer') {
+      } else {
         final lawyer = LawyerModel(
           lawyerId: uid,
           name: name,
-          email: email,
+          email: email.trim(),
           phone: phone,
           specialization: specialization ?? '',
           consultationFee: consultationFee ?? 0.0,
           location: location ?? '',
           experience: experience ?? '',
+          idCardDocument: idCardDocument,
           joinedAt: now,
           isApproved: false,
-          approvalStatus: "pending",
+          approvalStatus: 'pending',
           aiScore: 0.0,
         );
         await _firestore
             .collection(_lawyersCollection)
             .doc(uid)
             .set(lawyer.toJson());
-      } else {
-        return "Invalid role selected.";
       }
 
-      return "success";
+      return 'success';
     } on FirebaseAuthException catch (e) {
-      return e.message ?? "Something went wrong during sign-up.";
+      return e.message ?? 'Something went wrong during sign-up.';
     } catch (e) {
       return e.toString();
     }
   }
 
   // =========================
-  // LOGIN
+  // FORGOT PASSWORD
+  // Sends a password reset email via Firebase Auth.
+  // Returns 'success' or an error message string.
   // =========================
-  Future<String> loginUser({
-    required String email,
-    required String password,
-  }) async {
+  Future<String> forgotPassword({required String email}) async {
     try {
-      if (email.trim() == _adminEmail && password == _adminPassword) {
-        await ensureAdminExists();
-        return "admin_success";
-      }
-
-      final userCredential = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
-      final user = userCredential.user;
-      if (user == null) return "Login failed. Please try again.";
-
-      final role = await _detectUserRole(user.uid);
-
-      if (role == 'lawyer') {
-        final approved = await checkLawyerApproval(user.uid);
-        if (!approved) {
-          await _auth.signOut();
-          return "Your lawyer account is pending admin approval.";
-        }
-      }
-
-      return "success";
+      await _auth.sendPasswordResetEmail(email: email.trim());
+      return 'success';
     } on FirebaseAuthException catch (e) {
-      return e.message ?? "Invalid email or password.";
+      return e.message ?? 'Failed to send reset email.';
     } catch (e) {
       return e.toString();
     }
-  }
-
-  /// Login by either direct email or pre-issued login code.
-  Future<String> loginWithEmailOrCode({
-    required String identifier,
-    required String password,
-  }) async {
-    final trimmed = identifier.trim();
-    if (trimmed.contains('@')) {
-      return loginUser(email: trimmed, password: password);
-    }
-
-    final resolvedEmail = await resolveEmailFromLoginCode(trimmed);
-    if (resolvedEmail == null) {
-      return 'Invalid or expired login code.';
-    }
-    final result = await loginUser(email: resolvedEmail, password: password);
-    if (result == 'success' || result == 'admin_success') {
-      await consumeLoginCode(trimmed, consumedByUid: _auth.currentUser?.uid);
-    }
-    return result;
-  }
-
-  Future<String?> resolveEmailFromLoginCode(String code) async {
-    try {
-      final snapshot = await _firestore
-          .collection('login_codes')
-          .where('code', isEqualTo: code)
-          .where('isActive', isEqualTo: true)
-          .limit(1)
-          .get();
-
-      if (snapshot.docs.isEmpty) {
-        return null;
-      }
-
-      final data = snapshot.docs.first.data();
-      final expiresAt = data['expiresAt'];
-      if (expiresAt is Timestamp && expiresAt.toDate().isBefore(DateTime.now())) {
-        return null;
-      }
-      return data['email']?.toString();
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Future<void> consumeLoginCode(String code, {String? consumedByUid}) async {
-    final snapshot = await _firestore
-        .collection('login_codes')
-        .where('code', isEqualTo: code)
-        .limit(1)
-        .get();
-    if (snapshot.docs.isEmpty) {
-      return;
-    }
-    await snapshot.docs.first.reference.update({
-      'isActive': false,
-      'consumedByUid': consumedByUid,
-      'consumedAt': Timestamp.now(),
-    });
-  }
-
-  // =========================
-  // ROLE DETECTION
-  // =========================
-  Future<String?> _detectUserRole(String uid) async {
-    final client = await _firestore
-        .collection(_clientsCollection)
-        .doc(uid)
-        .get();
-    if (client.exists) return 'client';
-
-    final lawyer = await _firestore
-        .collection(_lawyersCollection)
-        .doc(uid)
-        .get();
-    if (lawyer.exists) return 'lawyer';
-
-    final admin = await _firestore.collection(_adminsCollection).doc(uid).get();
-    if (admin.exists) return 'admin';
-
-    return null;
   }
 
   // =========================
@@ -255,16 +155,18 @@ class AuthService {
   Future<void> logoutUser() async => await _auth.signOut();
 
   // =========================
-  // GET CURRENT USER
+  // CURRENT USER
   // =========================
   User? get currentUser => _auth.currentUser;
 
+  // =========================
+  // GET RAW USER DATA
+  // =========================
   Future<Map<String, dynamic>?> getUserData(String uid, String role) async {
     try {
       final doc = await _firestore.collection('${role}s').doc(uid).get();
       return doc.exists ? doc.data() : null;
     } catch (e) {
-      print("Error fetching user data: $e");
       return null;
     }
   }
@@ -286,14 +188,7 @@ class AuthService {
         'rejectionReason': isApproved ? null : rejectionReason,
         'aiScore': isApproved ? 0.75 : 0.0,
       });
-
-      final adminRef = _firestore.collection(_adminsCollection).doc(adminId);
-      await adminRef.update({
-        isApproved ? 'approvedLawyers' : 'rejectedLawyers':
-            FieldValue.arrayUnion([lawyerId]),
-      });
-
-      return "success";
+      return 'success';
     } catch (e) {
       return e.toString();
     }
@@ -307,7 +202,6 @@ class AuthService {
           .get();
       return doc.exists && (doc.data()?['isApproved'] == true);
     } catch (e) {
-      print("Approval check error: $e");
       return false;
     }
   }
@@ -318,8 +212,9 @@ class AuthService {
   Future<String> deleteUser(String uid, String role) async {
     try {
       await _firestore.collection('${role}s').doc(uid).delete();
+      await _firestore.collection(_usersCollection).doc(uid).delete();
       if (role != 'admin') await _auth.currentUser?.delete();
-      return "success";
+      return 'success';
     } catch (e) {
       return e.toString();
     }

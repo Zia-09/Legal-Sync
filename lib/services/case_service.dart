@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:io';
 import 'package:legal_sync/app_helper/case_status_helper.dart';
 import 'package:legal_sync/model/case_Model.dart';
 import 'package:legal_sync/model/notification_model.dart';
@@ -12,7 +14,8 @@ class CaseService {
     CaseStatusHistoryService? statusHistoryService,
     NotificationService? notificationService,
   }) : _firestore = firestore ?? FirebaseFirestore.instance,
-       _statusHistoryService = statusHistoryService ?? CaseStatusHistoryService(),
+       _statusHistoryService =
+           statusHistoryService ?? CaseStatusHistoryService(),
        _notificationService = notificationService ?? NotificationService();
 
   final FirebaseFirestore _firestore;
@@ -166,7 +169,9 @@ class CaseService {
       await _firestore.collection(_collection).doc(caseId).update({
         'isApproved': isApproved,
         'adminNote': adminNote ?? '',
-        'status': isApproved ? CaseStatusHelper.pending : CaseStatusHelper.rejected,
+        'status': isApproved
+            ? CaseStatusHelper.pending
+            : CaseStatusHelper.rejected,
         'updatedAt': Timestamp.now(),
       });
     } catch (e) {
@@ -239,6 +244,37 @@ class CaseService {
       });
     } catch (e) {
       throw Exception('❌ Failed to add document: $e');
+    }
+  }
+
+  Future<String> uploadCaseDocument(String caseId, File file) async {
+    try {
+      final fileName =
+          '${DateTime.now().millisecondsSinceEpoch}_${file.path.split('/').last}';
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('cases')
+          .child(caseId)
+          .child('documents')
+          .child(fileName);
+
+      await ref.putFile(file);
+      final downloadUrl = await ref.getDownloadURL();
+      await addDocument(caseId, downloadUrl);
+      return downloadUrl;
+    } catch (e) {
+      throw Exception('❌ Failed to upload document: $e');
+    }
+  }
+
+  Future<void> addCaseNote(String caseId, String note) async {
+    try {
+      await _firestore.collection(_collection).doc(caseId).update({
+        'notes': FieldValue.arrayUnion([note]),
+        'updatedAt': Timestamp.now(),
+      });
+    } catch (e) {
+      throw Exception('❌ Failed to add note: $e');
     }
   }
 

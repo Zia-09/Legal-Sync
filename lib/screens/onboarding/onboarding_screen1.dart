@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:legal_sync/screens/onboarding/onboarding_screen2.dart';
+import 'package:legal_sync/screens/onboarding/onboarding_screen3.dart';
 
 class OnboardingPage1 extends StatelessWidget {
   const OnboardingPage1({super.key});
@@ -79,7 +81,60 @@ class OnboardingPage1 extends StatelessWidget {
               ),
 
               const Spacer(),
-              const SizedBox(height: 80),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32.0,
+                  vertical: 30.0,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const OnboardingPage3(),
+                          ),
+                        );
+                      },
+                      child: const Text(
+                        "Skip",
+                        style: TextStyle(color: Colors.white70, fontSize: 16),
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const OnboardingPage2(),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFFB800),
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 32,
+                          vertical: 12,
+                        ),
+                      ),
+                      child: const Text(
+                        "Next",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ],

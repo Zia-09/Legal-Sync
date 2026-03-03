@@ -264,4 +264,16 @@ class LawyerModel {
     final match = RegExp(r'(\d+(\.\d+)?)').firstMatch(experience!.trim());
     return double.tryParse(match?.group(1) ?? '0') ?? 0.0;
   }
+
+  /// ✅ Get profile image URL or empty string
+  String get profileImageUrl => profileImage ?? '';
+
+  /// ✅ Check if lawyer is currently online
+  bool get isOnline {
+    if (status.toLowerCase() != 'active') return false;
+    if (lastActive == null) return false;
+    // Consider online if active in the last 5 minutes
+    final fiveMinutesAgo = DateTime.now().subtract(const Duration(minutes: 5));
+    return lastActive!.toDate().isAfter(fiveMinutesAgo);
+  }
 }

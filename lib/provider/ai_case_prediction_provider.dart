@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../model/ai_case_prediction_model.dart';
 import '../services/ai_case_prediction_service.dart';
 
-import 'package:flutter_riverpod/legacy.dart';
+
 
 // ===============================
 // AI Case Prediction Service Provider

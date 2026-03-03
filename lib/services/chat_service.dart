@@ -33,6 +33,7 @@ class ChatService {
     String messageType = 'text',
     String? fileUrl,
     String? replyTo,
+    String? caseId,
   }) async {
     final chatId = _getChatId(senderId, receiverId);
     final docRef = _messagesRef(chatId).doc();
@@ -45,6 +46,7 @@ class ChatService {
       messageType: messageType,
       fileUrl: fileUrl,
       replyTo: replyTo,
+      caseId: caseId,
       sentAt: DateTime.now(),
     );
 
@@ -112,6 +114,34 @@ class ChatService {
     ).doc(messageId).update({'isDeleted': true, 'message': 'Message deleted'});
   }
 
+  /// =========================
+  /// TYPING STATUS
+  /// =========================
+  Future<void> setTypingStatus({
+    required String senderId,
+    required String receiverId,
+    required bool isTyping,
+  }) async {
+    final chatId = _getChatId(senderId, receiverId);
+    await _db
+        .collection(_collection)
+        .doc(chatId)
+        .collection('typing')
+        .doc(senderId)
+        .set({'isTyping': isTyping, 'updatedAt': FieldValue.serverTimestamp()});
+  }
+
+  Stream<bool> streamTypingStatus(String senderId, String receiverId) {
+    final chatId = _getChatId(senderId, receiverId);
+    return _db
+        .collection(_collection)
+        .doc(chatId)
+        .collection('typing')
+        .doc(receiverId)
+        .snapshots()
+        .map((doc) => doc.data()?['isTyping'] ?? false);
+  }
+
   // =========================
   // LEGACY/PROVIDER COMPAT HELPERS
   // =========================
@@ -175,6 +205,7 @@ class ChatService {
       messageType: message.messageType,
       fileUrl: message.fileUrl,
       replyTo: message.replyTo,
+      caseId: message.caseId,
     );
   }
 

@@ -12,6 +12,7 @@ class ChatMessage {
   final bool isRead;
   final bool isEdited;
   final bool isDeleted;
+  final String? caseId;
 
   final double? aiConfidence;
   final String? aiCategory;
@@ -28,6 +29,7 @@ class ChatMessage {
     this.messageType = "text",
     this.fileUrl,
     this.replyTo,
+    this.caseId,
     required this.sentAt,
     this.isRead = false,
     this.isEdited = false,
@@ -62,6 +64,7 @@ class ChatMessage {
       "isRead": isRead,
       "isEdited": isEdited,
       "isDeleted": isDeleted,
+      "caseId": caseId,
       "aiConfidence": aiConfidence,
       "aiCategory": aiCategory,
       "aiReviewedByAdmin": aiReviewedByAdmin,
@@ -84,6 +87,7 @@ class ChatMessage {
       isRead: map["isRead"] ?? false,
       isEdited: map["isEdited"] ?? false,
       isDeleted: map["isDeleted"] ?? false,
+      caseId: map["caseId"],
       aiConfidence: (map["aiConfidence"] is num)
           ? (map["aiConfidence"] as num).toDouble()
           : null,
@@ -102,6 +106,7 @@ class ChatMessage {
     bool? isRead,
     bool? isEdited,
     bool? isDeleted,
+    String? caseId,
     String? fileUrl,
     double? aiConfidence,
     String? aiCategory,
@@ -118,6 +123,7 @@ class ChatMessage {
       messageType: messageType,
       fileUrl: fileUrl ?? this.fileUrl,
       replyTo: replyTo,
+      caseId: caseId ?? this.caseId,
       sentAt: sentAt,
       isRead: isRead ?? this.isRead,
       isEdited: isEdited ?? this.isEdited,

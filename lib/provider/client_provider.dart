@@ -1,5 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
+import 'package:legal_sync/provider/auth_provider.dart';
 import '../model/client_Model.dart';
 import '../services/client_services.dart';
 
@@ -7,6 +8,26 @@ import '../services/client_services.dart';
 // Client Service Provider
 // ===============================
 final clientServiceProvider = Provider((ref) => ClientService());
+
+// ===============================
+// Current Client Provider
+// ===============================
+final currentClientProvider = StreamProvider<ClientModel?>((ref) {
+  final authState = ref.watch(authStateProvider);
+  final user = authState.value;
+  if (user == null) return Stream.value(null);
+
+  // We need a stream for a single client. Let's add it if not exists.
+  // For now we can use snapshots directly or add it to service.
+  return FirebaseFirestore.instance
+      .collection('clients')
+      .doc(user.uid)
+      .snapshots()
+      .map((doc) {
+        if (!doc.exists || doc.data() == null) return null;
+        return ClientModel.fromJson({...doc.data()!, 'clientId': doc.id});
+      });
+});
 
 // ===============================
 // All Clients Provider

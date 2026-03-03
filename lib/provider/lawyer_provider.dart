@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import '../model/lawyer_Model.dart';
 import '../services/lawyer_services.dart';
+import 'auth_provider.dart';
 
 // ===============================
 // Lawyer Service Provider
@@ -185,6 +185,67 @@ final lawyerStateNotifierProvider =
     });
 
 // ===============================
+// Current Lawyer Provider
+// ===============================
+final currentLawyerProvider = FutureProvider<LawyerModel?>((ref) async {
+  final authState = await ref.watch(authStateProvider.future);
+  if (authState == null) return null;
+
+  final service = ref.read(lawyerServiceProvider);
+  return service.getLawyerById(authState.uid);
+});
+
+// ===============================
 // Selected Lawyer Provider
 // ===============================
 final selectedLawyerProvider = StateProvider<LawyerModel?>((ref) => null);
+
+// ===============================
+// Search & Filter Providers
+// ===============================
+final lawyerSearchQueryProvider = StateProvider<String>((ref) => '');
+
+final selectedCategoryProvider = StateProvider<String?>((ref) => null);
+
+final filteredLawyersProvider = StreamProvider<List<LawyerModel>>((ref) {
+  final allLawyersAsync = ref.watch(allLawyersProvider);
+  final searchQuery = ref.watch(lawyerSearchQueryProvider).toLowerCase();
+  final selectedCategory = ref.watch(selectedCategoryProvider);
+
+  return allLawyersAsync.when(
+    data: (lawyers) {
+      Iterable<LawyerModel> filtered = lawyers;
+
+      // Filter by search query
+      if (searchQuery.isNotEmpty) {
+        filtered = filtered.where(
+          (l) =>
+              l.name.toLowerCase().contains(searchQuery) ||
+              l.specialization.toLowerCase().contains(searchQuery) ||
+              (l.location?.toLowerCase().contains(searchQuery) ?? false),
+        );
+      }
+
+      // Filter by category
+      if (selectedCategory != null && selectedCategory != 'All') {
+        filtered = filtered.where(
+          (l) =>
+              l.specialization.toLowerCase().trim() ==
+              selectedCategory.toLowerCase().trim(),
+        );
+      }
+
+      // Sort by Rating and Reviews (Premium feel)
+      final sortedList = filtered.toList()
+        ..sort((a, b) {
+          int ratingComparison = b.rating.compareTo(a.rating);
+          if (ratingComparison != 0) return ratingComparison;
+          return b.totalReviews.compareTo(a.totalReviews);
+        });
+
+      return Stream.value(sortedList);
+    },
+    loading: () => const Stream.empty(),
+    error: (e, st) => const Stream.empty(),
+  );
+});

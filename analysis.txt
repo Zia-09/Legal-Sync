@@ -1,0 +1,42 @@
+﻿Analyzing lib...                                                
+
+warning - Dead code - lib\model\case_Model.dart:269:20 - dead_code
+   info - Unnecessary 'this.' qualifier - lib\model\case_Model.dart:269:23 - unnecessary_this
+warning - The left operand can't be null, so the right operand is never executed - lib\model\case_Model.dart:269:23 - dead_null_aware_expression
+   info - Unnecessary 'this.' qualifier - lib\model\case_Model.dart:270:29 - unnecessary_this
+warning - The left operand can't be null, so the right operand is never executed - lib\model\case_Model.dart:270:29 - dead_null_aware_expression
+  error - Undefined name 'authStateProvider' - lib\provider\lawyer_provider.dart:191:37 - undefined_identifier
+  error - The getter 'uid' isn't defined for the type 'Object' - lib\provider\lawyer_provider.dart:195:42 - undefined_getter
+warning - The value of the field '_demoTimeline' isn't used - lib\screens\client panel\case_status_screen.dart:25:29 - unused_field
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\client panel\case_status_screen.dart:803:28 - use_build_context_synchronously
+warning - The operand can't be 'null', so the condition is always 'true' - lib\screens\client panel\case_status_screen.dart:812:15 - unnecessary_null_comparison
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\client panel\case_status_screen.dart:813:30 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\client panel\case_status_screen.dart:822:30 - use_build_context_synchronously
+   info - Unnecessary use of multiple underscores - lib\screens\client panel\home_screen.dart:237:36 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\screens\client panel\home_screen.dart:864:43 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\screens\client panel\home_screen.dart:864:47 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\screens\client panel\home_screen.dart:1068:22 - unnecessary_underscores
+warning - The declaration '_reviews' isn't referenced - lib\screens\client panel\lawyer_profile_screen.dart:33:11 - unused_element
+warning - The declaration '_location' isn't referenced - lib\screens\client panel\lawyer_profile_screen.dart:34:14 - unused_element
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\client panel\lawyer_profile_screen.dart:72:39 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\screens\client panel\lawyer_profile_screen.dart:101:51 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\screens\client panel\lawyer_profile_screen.dart:101:55 - unnecessary_underscores
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\client panel\lawyer_profile_screen.dart:197:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\client panel\lawyer_profile_screen.dart:200:56 - deprecated_member_use
+warning - Unused import: 'package:legal_sync/model/lawyer_Model.dart' - lib\screens\client panel\legal_categories_screen.dart:4:8 - unused_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\client panel\legal_categories_screen.dart:455:55 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\client panel\legal_categories_screen.dart:473:61 - deprecated_member_use
+warning - The declaration '_unreadChats' isn't referenced - lib\screens\client panel\messages_screen.dart:34:23 - unused_element
+warning - The declaration '_groupChats' isn't referenced - lib\screens\client panel\messages_screen.dart:36:23 - unused_element
+   info - Unnecessary use of multiple underscores - lib\screens\client panel\messages_screen.dart:703:30 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\screens\client panel\messages_screen.dart:882:46 - unnecessary_underscores
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\client panel\messages_screen.dart:1014:60 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\lawyer panel\create_case_screen.dart:250:44 - deprecated_member_use
+   info - Statements in an if should be enclosed in a block - lib\screens\lawyer panel\lawyer_dashboard_screen.dart:125:11 - curly_braces_in_flow_control_structures
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\lawyer panel\lawyer_login_screen.dart:104:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\lawyer panel\lawyer_management_document_screen.dart:150:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\lawyer panel\lawyer_management_document_screen.dart:319:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\lawyer panel\lawyer_management_document_screen.dart:516:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\lawyer panel\lawyer_management_document_screen.dart:530:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\lawyer panel\lawyer_management_document_screen.dart:572:38 - deprecated_member_use
+

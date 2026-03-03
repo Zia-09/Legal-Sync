@@ -1,35 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:legal_sync/provider/auth_provider.dart';
+import 'package:legal_sync/provider/case_provider.dart';
+import 'package:legal_sync/provider/appointment_provider.dart';
+import 'package:legal_sync/provider/lawyer_provider.dart';
+import 'package:legal_sync/provider/notification_provider.dart';
+import 'package:legal_sync/provider/hearing_provider.dart';
+import 'package:legal_sync/model/lawyer_Model.dart';
 import 'package:legal_sync/screens/lawyer%20panel/all_consultation_request_screen.dart';
 import 'package:legal_sync/screens/lawyer%20panel/lawyer_management_document_screen.dart';
 import 'package:legal_sync/screens/lawyer%20panel/lawyer_messages_screen.dart';
 import 'package:legal_sync/screens/lawyer%20panel/lawyer_settings_screen.dart';
 import 'package:legal_sync/screens/lawyer%20panel/create_case_screen.dart';
 import 'package:legal_sync/screens/lawyer%20panel/lawyer_notifications_screen.dart';
+import 'package:intl/intl.dart';
 
-class LawyerDashboardScreen extends StatefulWidget {
+class LawyerDashboardScreen extends ConsumerStatefulWidget {
   const LawyerDashboardScreen({super.key});
 
   @override
-  State<LawyerDashboardScreen> createState() => _LawyerDashboardScreenState();
+  ConsumerState<LawyerDashboardScreen> createState() =>
+      _LawyerDashboardScreenState();
 }
 
-class _LawyerDashboardScreenState extends State<LawyerDashboardScreen> {
+class _LawyerDashboardScreenState extends ConsumerState<LawyerDashboardScreen> {
   int _selectedIndex = 0;
-
-  // We will build the navigation logic here.
-  // Assuming 0: Home, 1: Documents, 2: Messages, 3: Profile
-  final List<Widget> _pages = [
-    const _LawyerHomeContent(),
-    const LawyerManagementDocumentScreen(), // Wired to Document Screen
-    const LawyerMessagesScreen(), // Points to the new Inbox/Messages screen
-    const LawyerSettingsScreen(), // Wired to Settings Screen
-  ];
 
   @override
   Widget build(BuildContext context) {
+    final pages = [
+      const _LawyerHomeContent(),
+      const LawyerManagementDocumentScreen(),
+      const LawyerMessagesScreen(),
+      const LawyerSettingsScreen(),
+    ];
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FC),
-      body: _pages[_selectedIndex],
+      body: pages[_selectedIndex],
       floatingActionButton: _selectedIndex == 0 || _selectedIndex == 1
           ? FloatingActionButton(
               onPressed: () {
@@ -44,17 +52,11 @@ class _LawyerDashboardScreenState extends State<LawyerDashboardScreen> {
           : null,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
-        onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
+        onTap: (index) => setState(() => _selectedIndex = index),
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
         selectedItemColor: const Color(0xFFFF6B00),
         unselectedItemColor: Colors.grey.shade400,
-        showSelectedLabels: true,
-        showUnselectedLabels: true,
         selectedLabelStyle: const TextStyle(
           fontWeight: FontWeight.w600,
           fontSize: 12,
@@ -90,67 +92,128 @@ class _LawyerDashboardScreenState extends State<LawyerDashboardScreen> {
   }
 }
 
-// Extracting Home Content to separate widget for clean dashboard file structure
-class _LawyerHomeContent extends StatelessWidget {
+// ─── Lawyer Home Content ──────────────────────────────────────────────────────
+
+class _LawyerHomeContent extends ConsumerWidget {
   const _LawyerHomeContent();
 
   @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(context),
-            const SizedBox(height: 16),
-            _buildSummaryCards(),
-            const SizedBox(height: 24),
-            _buildConsultationRequests(context),
-            const SizedBox(height: 24),
-            _buildSchedule(),
-            const SizedBox(height: 24),
-            _buildPendingDocuments(),
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authStateProvider).value;
+    if (user == null) return const Center(child: CircularProgressIndicator());
+
+    final lawyerAsync = ref.watch(getLawyerByIdProvider(user.uid));
+    final casesAsync = ref.watch(casesByLawyerProvider(user.uid));
+    final consultationAsync = ref.watch(
+      streamPendingAppointmentsForLawyerProvider(user.uid),
+    );
+    final hearingsAsync = ref.watch(streamUpcomingHearingsProvider(user.uid));
+    final unreadCountAsync = ref.watch(
+      unreadNotificationsCountProvider(user.uid),
+    );
+
+    return lawyerAsync.when(
+      data: (lawyer) {
+        if (lawyer == null) {
+          return const Center(child: Text('Lawyer data not found'));
+        }
+        return SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(context, lawyer, unreadCountAsync.value ?? 0),
+                const SizedBox(height: 16),
+                casesAsync.when(
+                  data: (cases) => _buildSummaryCards(cases),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(child: Text('Error: $e')),
+                ),
+                const SizedBox(height: 24),
+                consultationAsync.when(
+                  data: (requests) =>
+                      _buildConsultationRequests(context, ref, requests),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(child: Text('Error: $e')),
+                ),
+                const SizedBox(height: 24),
+                hearingsAsync.when(
+                  data: (hearings) => _buildSchedule(hearings),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(child: Text('Error: $e')),
+                ),
+                const SizedBox(height: 32),
+              ],
+            ),
+          ),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Error: $e')),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20.0),
+  Widget _buildHeader(
+    BuildContext context,
+    LawyerModel lawyer,
+    int unreadCount,
+  ) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      color: Colors.white,
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              const CircleAvatar(
-                radius: 24,
-                backgroundImage: NetworkImage(
-                  'https://i.pravatar.cc/150?img=11',
-                ), // Mock lawyer avatar
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Welcome Back,',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                  ),
-                  const Text(
-                    'Adv. Sarah Jenkins',
-                    style: TextStyle(
-                      color: Colors.black87,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+          CircleAvatar(
+            radius: 22,
+            backgroundColor: const Color(0xFFFF6B00),
+            backgroundImage:
+                lawyer.profileImage != null && lawyer.profileImage!.isNotEmpty
+                ? NetworkImage(lawyer.profileImage!)
+                : null,
+            child: lawyer.profileImage == null || lawyer.profileImage!.isEmpty
+                ? const Icon(Icons.person, color: Colors.white, size: 22)
+                : null,
           ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Welcome Back,',
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                ),
+                Text(
+                  lawyer.name,
+                  style: const TextStyle(
+                    color: Colors.black87,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          // Search icon
+          GestureDetector(
+            onTap: () {
+              showSearch(context: context, delegate: _LawyerSearchDelegate());
+            },
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.search, color: Colors.black87, size: 20),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Notification icon
           GestureDetector(
             onTap: () {
               Navigator.push(
@@ -160,23 +223,46 @@ class _LawyerHomeContent extends StatelessWidget {
                 ),
               );
             },
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
+            child: Stack(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    shape: BoxShape.circle,
                   ),
-                ],
-              ),
-              child: const Icon(
-                Icons.notifications_none,
-                color: Colors.black87,
-              ),
+                  child: const Icon(
+                    Icons.notifications_none,
+                    color: Colors.black87,
+                    size: 20,
+                  ),
+                ),
+                if (unreadCount > 0)
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFF6B00),
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Text(
+                        unreadCount > 9 ? '9+' : unreadCount.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
@@ -184,17 +270,51 @@ class _LawyerHomeContent extends StatelessWidget {
     );
   }
 
-  Widget _buildSummaryCards() {
+  Widget _buildSummaryCards(List<dynamic> cases) {
+    final total = cases.length;
+    final active = cases.where((c) => c.status == 'active').length;
+    final pending = cases.where((c) => c.status == 'pending').length;
+    final closed = cases
+        .where((c) => c.status == 'closed' || c.status == 'completed')
+        .length;
+
+    // Simple percentage calculation relative to total
+    final activePercent = total > 0 ? (active / total * 100).round() : 0;
+    final pendingPercent = total > 0 ? (pending / total * 100).round() : 0;
+    final closedPercent = total > 0 ? (closed / total * 100).round() : 0;
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
-          _buildStatCard('Total Cases', '124', '+5%', true),
+          _buildStatCard(
+            'Total Cases',
+            total.toString(),
+            '$activePercent% active',
+            true,
+          ),
           const SizedBox(width: 12),
-          _buildStatCard('Active Cases', '18', '+12%', true),
+          _buildStatCard(
+            'Active Cases',
+            active.toString(),
+            '+$activePercent%',
+            true,
+          ),
           const SizedBox(width: 12),
-          _buildStatCard('Pending Tasks', '7', '-2%', false),
+          _buildStatCard(
+            'Pending',
+            pending.toString(),
+            '+$pendingPercent%',
+            pendingPercent >= 0,
+          ),
+          const SizedBox(width: 12),
+          _buildStatCard(
+            'Completed',
+            closed.toString(),
+            '+$closedPercent%',
+            true,
+          ),
         ],
       ),
     );
@@ -221,7 +341,7 @@ class _LawyerHomeContent extends StatelessWidget {
             title,
             style: TextStyle(
               color: Colors.grey.shade600,
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -240,14 +360,14 @@ class _LawyerHomeContent extends StatelessWidget {
               Icon(
                 isPositive ? Icons.arrow_upward : Icons.arrow_downward,
                 color: isPositive ? Colors.green : Colors.red,
-                size: 12,
+                size: 11,
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 2),
               Text(
                 percentage,
                 style: TextStyle(
                   color: isPositive ? Colors.green : Colors.red,
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -258,7 +378,11 @@ class _LawyerHomeContent extends StatelessWidget {
     );
   }
 
-  Widget _buildConsultationRequests(BuildContext context) {
+  Widget _buildConsultationRequests(
+    BuildContext context,
+    WidgetRef ref,
+    List<dynamic> requests,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -266,23 +390,21 @@ class _LawyerHomeContent extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'New Consultation Requests',
-                style: TextStyle(
+              Text(
+                'Consultation Requests (${requests.length})',
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
                 ),
               ),
               GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const AllConsultationRequestScreen(),
-                    ),
-                  );
-                },
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AllConsultationRequestScreen(),
+                  ),
+                ),
                 child: Text(
                   'View All',
                   style: TextStyle(
@@ -295,31 +417,59 @@ class _LawyerHomeContent extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          _buildConsultationCard(
-            name: 'Johnnathan Doe',
-            priority: 'HIGH PRIORITY',
-            priorityColor: Colors.red.shade100,
-            priorityTextColor: Colors.red.shade700,
-            topic: 'Corporate Litigation & Asset Protection',
-            time: '10:30 AM',
-            avatarUrl: 'https://i.pravatar.cc/150?img=33',
-          ),
-          const SizedBox(height: 12),
-          _buildConsultationCard(
-            name: 'Sarah Miller',
-            priority: 'STANDARD',
-            priorityColor: Colors.blue.shade50,
-            priorityTextColor: Colors.blue.shade700,
-            topic: 'Real Estate Contract Review',
-            time: '11:45 AM',
-            avatarUrl: 'https://i.pravatar.cc/150?img=5',
-          ),
+          if (requests.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.inbox_outlined,
+                    size: 40,
+                    color: Colors.grey.shade400,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'No pending consultation requests',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                  ),
+                ],
+              ),
+            )
+          else
+            ...requests
+                .take(2)
+                .map(
+                  (req) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildConsultationCard(
+                      context,
+                      ref,
+                      appointmentId: req.appointmentId,
+                      name: 'Client ID: ${req.clientId.substring(0, 5)}...',
+                      priority: 'CONSULTATION',
+                      priorityColor: Colors.red.shade50,
+                      priorityTextColor: Colors.red,
+                      topic: req.adminNote ?? 'Legal Consultation Request',
+                      time: DateFormat('h:mm a').format(req.scheduledAt),
+                      avatarUrl: 'https://i.pravatar.cc/150?u=${req.clientId}',
+                    ),
+                  ),
+                ),
         ],
       ),
     );
   }
 
-  Widget _buildConsultationCard({
+  Widget _buildConsultationCard(
+    BuildContext context,
+    WidgetRef ref, {
+    required String appointmentId,
     required String name,
     required String priority,
     required Color priorityColor,
@@ -384,12 +534,12 @@ class _LawyerHomeContent extends StatelessWidget {
                     Text(
                       name,
                       style: const TextStyle(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.bold,
                         color: Colors.black87,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       topic,
                       style: TextStyle(
@@ -402,14 +552,16 @@ class _LawyerHomeContent extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () {},
+                  onPressed: () => ref
+                      .read(appointmentStateProvider.notifier)
+                      .rejectAppointment(appointmentId),
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -427,10 +579,12 @@ class _LawyerHomeContent extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () {},
+                  onPressed: () => ref
+                      .read(appointmentStateProvider.notifier)
+                      .approveAppointment(appointmentId),
                   icon: const Icon(
                     Icons.check_circle_outline,
-                    size: 18,
+                    size: 16,
                     color: Colors.white,
                   ),
                   label: const Text(
@@ -441,7 +595,7 @@ class _LawyerHomeContent extends StatelessWidget {
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
                     backgroundColor: const Color(0xFFFF6B00),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -457,14 +611,14 @@ class _LawyerHomeContent extends StatelessWidget {
     );
   }
 
-  Widget _buildSchedule() {
+  Widget _buildSchedule(List<dynamic> hearings) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            "Today's Schedule",
+            'Upcoming Hearings',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -472,21 +626,35 @@ class _LawyerHomeContent extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          _buildScheduleItem(
-            time: '09:00 AM',
-            title: 'Court Hearing - Room 4B',
-            subtitle: 'State VS Miller | In-person',
-            color: Colors.orange.shade100,
-            iconColor: Colors.orange.shade700,
-          ),
-          const SizedBox(height: 12),
-          _buildScheduleItem(
-            time: '11:00 AM',
-            title: 'Client Lunch Meeting',
-            subtitle: 'New Business Inc.',
-            color: Colors.blue.shade50,
-            iconColor: Colors.blue.shade700,
-          ),
+          if (hearings.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Text(
+                'No upcoming hearings scheduled',
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+            )
+          else
+            ...hearings
+                .take(3)
+                .map(
+                  (hearing) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildScheduleItem(
+                      time: DateFormat('h:mm a').format(hearing.scheduledAt),
+                      title: hearing.hearingType,
+                      subtitle:
+                          'Room: ${hearing.courtRoom ?? 'TBD'} | ${hearing.modeOfConduct}',
+                      iconColor: const Color(0xFFFF6B00),
+                    ),
+                  ),
+                ),
         ],
       ),
     );
@@ -496,7 +664,6 @@ class _LawyerHomeContent extends StatelessWidget {
     required String time,
     required String title,
     required String subtitle,
-    required Color color,
     required Color iconColor,
   }) {
     return Container(
@@ -516,7 +683,7 @@ class _LawyerHomeContent extends StatelessWidget {
             ),
             child: Text(
               time,
-              style: TextStyle(
+              style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
                 color: Colors.black87,
@@ -557,75 +724,27 @@ class _LawyerHomeContent extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildPendingDocuments() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Pending Documents",
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildDocumentItem(
-            icon: Icons.picture_as_pdf,
-            docName: 'Agreement_Draft_v2.pdf',
-            size: '2.4 MB',
-            color: Colors.red.shade400,
-          ),
-          const SizedBox(height: 8),
-          _buildDocumentItem(
-            icon: Icons.description,
-            docName: 'Evidence_List.docx',
-            size: '1.1 MB',
-            color: Colors.blue.shade400,
-          ),
-        ],
-      ),
-    );
-  }
+// ─── Simple Search Delegate ───────────────────────────────────────────────────
 
-  Widget _buildDocumentItem({
-    required IconData icon,
-    required String docName,
-    required String size,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              docName,
-              style: const TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: 13,
-                color: Colors.black87,
-              ),
-            ),
-          ),
-          Text(
-            size,
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-          ),
-          const SizedBox(width: 8),
-          Icon(Icons.more_vert, color: Colors.grey.shade400, size: 18),
-        ],
-      ),
-    );
-  }
+class _LawyerSearchDelegate extends SearchDelegate<String> {
+  @override
+  List<Widget> buildActions(BuildContext context) => [
+    IconButton(icon: const Icon(Icons.clear), onPressed: () => query = ''),
+  ];
+
+  @override
+  Widget buildLeading(BuildContext context) => IconButton(
+    icon: const Icon(Icons.arrow_back),
+    onPressed: () => close(context, ''),
+  );
+
+  @override
+  Widget buildResults(BuildContext context) =>
+      Center(child: Text('Searching: $query'));
+
+  @override
+  Widget buildSuggestions(BuildContext context) =>
+      const Center(child: Text('Search for cases, clients...'));
 }

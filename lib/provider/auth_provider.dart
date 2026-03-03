@@ -1,159 +1,164 @@
-import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:legal_sync/model/app_user_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:legal_sync/services/auth_services.dart';
 
-class AuthProvider extends ChangeNotifier {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+// ─────────────────────────────────────────────
+// Auth Service Provider (singleton)
+// ─────────────────────────────────────────────
+final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
-  AppUserModel? _currentUser;
-  bool _isLoading = false;
+// ─────────────────────────────────────────────
+// Firebase Auth State Stream
+// Emits User? whenever sign-in state changes.
+// ─────────────────────────────────────────────
+final authStateProvider = StreamProvider<User?>((ref) {
+  return FirebaseAuth.instance.authStateChanges();
+});
 
-  /// ==========================
-  /// Getters
-  /// ==========================
-  AppUserModel? get currentUser => _currentUser;
-  bool get isAuthenticated => _currentUser != null;
-  bool get isLoading => _isLoading;
+// ─────────────────────────────────────────────
+// Current User Role Provider
+// Reads role from Firestore users/{uid} after Auth state resolves.
+// Returns: "admin" | "lawyer" | "client" | null
+// ─────────────────────────────────────────────
+final userRoleProvider = FutureProvider<String?>((ref) async {
+  final authState = await ref.watch(authStateProvider.future);
+  if (authState == null) return null;
 
-  UserRole? get role => _currentUser?.role;
+  final service = ref.read(authServiceProvider);
+  return service.getUserRole(authState.uid);
+});
 
-  bool get isAdmin => role == UserRole.admin;
-  bool get isLawyer => role == UserRole.lawyer;
-  bool get isClient => role == UserRole.client;
+// ─────────────────────────────────────────────
+// Auth Notifier — handles login / register / logout / forgotPassword
+// ─────────────────────────────────────────────
+class AuthNotifier extends StateNotifier<AsyncValue<void>> {
+  final AuthService _service;
 
-  /// ==========================
-  /// Constructor
-  /// ==========================
-  AuthProvider() {
-    _listenAuthChanges();
-  }
+  AuthNotifier(this._service) : super(const AsyncValue.data(null));
 
-  /// ==========================
-  /// Listen Firebase Auth State
-  /// ==========================
-  void _listenAuthChanges() {
-    _auth.authStateChanges().listen((user) async {
-      if (user == null) {
-        _currentUser = null;
-        notifyListeners();
-      } else {
-        await _loadUserFromFirestore(user.uid);
-      }
-    });
-  }
-
-  /// ==========================
-  /// Load User from Firestore
-  /// ==========================
-  Future<void> _loadUserFromFirestore(String uid) async {
-    try {
-      final doc = await _firestore.collection('users').doc(uid).get();
-
-      if (!doc.exists) {
-        _currentUser = null;
-        notifyListeners();
-        return;
-      }
-
-      _currentUser = AppUserModel.fromJson(doc.data()!);
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Load user error: $e');
-      _currentUser = null;
-      notifyListeners();
-    }
-  }
-
-  /// ==========================
-  /// Login
-  /// ==========================
-  Future<void> login({required String email, required String password}) async {
-    _setLoading(true);
-
-    try {
-      final result = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
-      await _loadUserFromFirestore(result.user!.uid);
-    } on FirebaseAuthException catch (e) {
-      throw Exception(e.message ?? 'Login failed');
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  /// ==========================
-  /// Register (Admin / Lawyer / Client)
-  /// ==========================
-  Future<void> register({
+  /// Sign in with email & password.
+  /// Returns the role string ("admin"/"lawyer"/"client") on success.
+  /// Throws a String error message on failure.
+  Future<String> login({
     required String email,
     required String password,
-    required AppUserModel userModel,
   }) async {
-    _setLoading(true);
-
+    state = const AsyncValue.loading();
     try {
-      final result = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      final result = await _service.loginUser(email: email, password: password);
+      if (result != 'success') {
+        state = const AsyncValue.data(null);
+        throw result; // error message string
+      }
 
-      final uid = result.user!.uid;
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) throw 'Authentication failed.';
 
-      final newUser = userModel.copyWith(userId: uid);
+      final role = await _service.getUserRole(uid);
+      if (role == null) {
+        await _service.logoutUser();
+        throw 'Account not configured. Please contact support.';
+      }
 
-      await _firestore.collection('users').doc(uid).set(newUser.toJson());
-
-      _currentUser = newUser;
-      notifyListeners();
-    } on FirebaseAuthException catch (e) {
-      throw Exception(e.message ?? 'Registration failed');
-    } finally {
-      _setLoading(false);
+      state = const AsyncValue.data(null);
+      return role;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
     }
   }
 
-  /// ==========================
-  /// Logout
-  /// ==========================
+  /// Register a new client account.
+  /// Throws a String error message on failure.
+  Future<void> registerClient({
+    required String name,
+    required String phone,
+    required String email,
+    required String password,
+  }) async {
+    state = const AsyncValue.loading();
+    try {
+      final result = await _service.signUpUser(
+        email: email,
+        password: password,
+        name: name,
+        phone: phone,
+        role: 'client',
+      );
+      if (result != 'success') {
+        state = const AsyncValue.data(null);
+        throw result;
+      }
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
+  /// Register a new lawyer account.
+  /// Throws a String error message on failure.
+  Future<void> registerLawyer({
+    required String name,
+    required String phone,
+    required String email,
+    required String password,
+    required String specialization,
+    required String experience,
+    required String? idCardDocument,
+  }) async {
+    state = const AsyncValue.loading();
+    try {
+      final result = await _service.signUpUser(
+        email: email,
+        password: password,
+        name: name,
+        phone: phone,
+        role: 'lawyer',
+        specialization: specialization,
+        experience: experience,
+        idCardDocument: idCardDocument,
+      );
+      if (result != 'success') {
+        state = const AsyncValue.data(null);
+        throw result;
+      }
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
+  /// Send password reset email.
+  /// Throws a String error message on failure.
+  Future<void> forgotPassword({required String email}) async {
+    state = const AsyncValue.loading();
+    try {
+      final result = await _service.forgotPassword(email: email);
+      if (result != 'success') {
+        state = const AsyncValue.data(null);
+        throw result;
+      }
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
+  /// Sign out.
   Future<void> logout() async {
-    await _auth.signOut();
-    _currentUser = null;
-    notifyListeners();
-  }
-
-  /// ==========================
-  /// RBAC Guards
-  /// ==========================
-  bool canAccessAdminPanel() {
-    return role == UserRole.admin;
-  }
-
-  /// Safe lawyer access check
-  /// assignments = { clientId: lawyerId }
-  bool canAccessLawyerData({
-    required String lawyerId,
-    required String clientId,
-    required Map<String, String> assignments,
-  }) {
-    // Only admin or assigned lawyer can access
-    if (isAdmin) return true;
-
-    final assignedLawyerId = assignments[clientId];
-    if (assignedLawyerId == null) return false;
-
-    return assignedLawyerId == lawyerId;
-  }
-
-  /// ==========================
-  /// Helpers
-  /// ==========================
-  void _setLoading(bool value) {
-    _isLoading = value;
-    notifyListeners();
+    await _service.logoutUser();
+    state = const AsyncValue.data(null);
   }
 }
+
+// ─────────────────────────────────────────────
+// Auth Notifier Provider (used by screens)
+// ─────────────────────────────────────────────
+final authNotifierProvider =
+    StateNotifierProvider<AuthNotifier, AsyncValue<void>>((ref) {
+      final service = ref.watch(authServiceProvider);
+      return AuthNotifier(service);
+    });

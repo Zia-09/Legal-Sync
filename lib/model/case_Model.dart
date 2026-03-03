@@ -20,6 +20,8 @@ class CaseModel {
   final String? adminNote;
   final String priority;
   final bool isArchived;
+  final List<String> notes;
+  final List<Map<String, dynamic>> hearings;
 
   final double? aiConfidence;
   final String? predictedOutcome;
@@ -52,6 +54,8 @@ class CaseModel {
     this.aiReviewedByAdmin,
     this.aiModelVersion,
     this.aiPredictedAt,
+    this.notes = const [],
+    this.hearings = const [],
   });
 
   // AI Prediction Fields comment (for clarity)
@@ -95,6 +99,8 @@ class CaseModel {
       'aiPredictedAt': aiPredictedAt != null
           ? Timestamp.fromDate(aiPredictedAt!)
           : null,
+      'notes': notes,
+      'hearings': hearings,
     };
   }
 
@@ -129,6 +135,8 @@ class CaseModel {
       'aiPredictedAt': aiPredictedAt != null
           ? Timestamp.fromDate(aiPredictedAt!)
           : null,
+      'notes': notes,
+      'hearings': hearings,
     };
   }
 
@@ -163,6 +171,12 @@ class CaseModel {
       aiReviewedByAdmin: json['aiReviewedByAdmin'],
       aiModelVersion: json['aiModelVersion']?.toString(),
       aiPredictedAt: _safeDate(json['aiPredictedAt']),
+      notes: (json['notes'] as List?)?.cast<String>() ?? const [],
+      hearings:
+          (json['hearings'] as List?)
+              ?.map((e) => e as Map<String, dynamic>)
+              .toList() ??
+          const [],
     );
   }
 
@@ -196,6 +210,12 @@ class CaseModel {
       aiReviewedByAdmin: map['aiReviewedByAdmin'],
       aiModelVersion: map['aiModelVersion']?.toString(),
       aiPredictedAt: _safeDate(map['aiPredictedAt']),
+      notes: (map['notes'] as List?)?.cast<String>() ?? const [],
+      hearings:
+          (map['hearings'] as List?)
+              ?.map((e) => e as Map<String, dynamic>)
+              .toList() ??
+          const [],
     );
   }
 
@@ -220,6 +240,8 @@ class CaseModel {
     bool? aiReviewedByAdmin,
     String? aiModelVersion,
     DateTime? aiPredictedAt,
+    List<String>? notes,
+    List<Map<String, dynamic>>? hearings,
   }) {
     return CaseModel(
       caseId: caseId,
@@ -246,6 +268,8 @@ class CaseModel {
       aiReviewedByAdmin: aiReviewedByAdmin ?? this.aiReviewedByAdmin,
       aiModelVersion: aiModelVersion ?? this.aiModelVersion,
       aiPredictedAt: aiPredictedAt ?? this.aiPredictedAt,
+      notes: notes ?? this.notes,
+      hearings: hearings ?? this.hearings,
     );
   }
 }

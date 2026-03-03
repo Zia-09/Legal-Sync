@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
+
 import '../model/admin_Model.dart';
 import '../services/admin_service.dart';
 

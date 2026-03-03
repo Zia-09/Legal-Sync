@@ -1,592 +1,890 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:legal_sync/provider/client_provider.dart';
+import 'package:legal_sync/provider/case_provider.dart';
+import 'package:legal_sync/provider/lawyer_provider.dart';
+import 'package:legal_sync/model/case_Model.dart';
+import 'package:legal_sync/services/case_service.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:io';
 import 'messages_screen.dart';
 import 'home_screen.dart';
 import 'app_setting_screen.dart';
+import 'widgets/case_status_widgets.dart';
 
-class CaseStatusScreen extends StatefulWidget {
+class CaseStatusScreen extends ConsumerStatefulWidget {
   const CaseStatusScreen({super.key});
 
   @override
-  State<CaseStatusScreen> createState() => _CaseStatusScreenState();
+  ConsumerState<CaseStatusScreen> createState() => _CaseStatusScreenState();
 }
 
-class _CaseStatusScreenState extends State<CaseStatusScreen> {
+class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
   int _currentIndex = 2;
 
-  final List<_TimelineStep> _timeline = [
-    _TimelineStep(
-      date: 'Jan 24',
-      title: 'Case Registered',
-      status: TimelineStatus.done,
-      subtitle: 'Case successfully filed',
-    ),
-    _TimelineStep(
-      date: 'Jan 30',
-      title: 'Lawyer Assigned',
-      status: TimelineStatus.done,
-      subtitle: 'Adv. Zia Ullah assigned',
-    ),
-    _TimelineStep(
-      date: 'Jan 30',
-      title: 'Document Verification',
-      status: TimelineStatus.active,
-      subtitle: 'Last Update: 10 Jan 2025',
-    ),
-    _TimelineStep(
-      date: 'Feb 20',
-      title: 'Court Hearing Scheduled',
-      status: TimelineStatus.pending,
-      subtitle: 'Date Expected: 4 Feb 2025',
-    ),
-    _TimelineStep(
-      date: 'Mar 10',
-      title: 'Court Hearing Confirmed',
-      status: TimelineStatus.pending,
-      subtitle: 'Pending decision',
-    ),
-  ];
+  List<TimelineStep> _buildTimeline(CaseModel caseModel) {
+    final List<TimelineStep> timeline = [];
+    final df = DateFormat('MMM dd');
+
+    // Step 1: Registered
+    timeline.add(
+      TimelineStep(
+        date: df.format(caseModel.createdAt),
+        title: 'Case Registered',
+        status: TimelineStatus.done,
+        subtitle: 'Case successfully filed',
+      ),
+    );
+
+    // Step 2: Lawyer Assigned (assuming all cases in this screen have a lawyer)
+    timeline.add(
+      const TimelineStep(
+        date: '---',
+        title: 'Lawyer Assigned',
+        status: TimelineStatus.done,
+        subtitle: 'Professional counsel assigned',
+      ),
+    );
+
+    // Step 3: Current Status
+    TimelineStatus currentStatus = TimelineStatus.active;
+    if (caseModel.status.toLowerCase() == 'closed' ||
+        caseModel.status.toLowerCase() == 'resolved') {
+      currentStatus = TimelineStatus.done;
+    }
+
+    timeline.add(
+      TimelineStep(
+        date: df.format(caseModel.updatedAt ?? caseModel.createdAt),
+        title: 'Current Status: ${caseModel.status.toUpperCase()}',
+        status: currentStatus,
+        subtitle: caseModel.remarks ?? 'Processing case details',
+      ),
+    );
+
+    // Step 4: Hearing
+    if (caseModel.hearingDate != null) {
+      bool isPast = caseModel.hearingDate!.isBefore(DateTime.now());
+      timeline.add(
+        TimelineStep(
+          date: df.format(caseModel.hearingDate!),
+          title: 'Court Hearing',
+          status: isPast ? TimelineStatus.done : TimelineStatus.pending,
+          subtitle: caseModel.courtName ?? 'Court room to be assigned',
+        ),
+      );
+    }
+
+    return timeline;
+  }
+
+  double _calculateProgress(String status) {
+    switch (status.toLowerCase()) {
+      case 'registered':
+        return 0.2;
+      case 'lawyer assigned':
+        return 0.4;
+      case 'document verification':
+        return 0.6;
+      case 'hearing scheduled':
+        return 0.8;
+      case 'closed':
+      case 'resolved':
+      case 'verdict':
+        return 1.0;
+      default:
+        return 0.1;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F0F0F),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E1E1E),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.arrow_back_ios_new,
-                        color: Colors.white,
-                        size: 16,
-                      ),
-                    ),
-                  ),
-                  const Expanded(
-                    child: Center(
-                      child: Text(
-                        'Case Status',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E1E1E),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.more_vert,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                ],
+    final clientAsync = ref.watch(currentClientProvider);
+
+    return clientAsync.when(
+      data: (client) {
+        if (client == null) {
+          return _buildScaffoldWithContent(
+            const Center(
+              child: Text(
+                'Please login to view case status',
+                style: TextStyle(color: Colors.white),
               ),
             ),
-            const SizedBox(height: 16),
+          );
+        }
 
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Case Summary Card
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Color(0xFF1E1A10), Color(0xFF1A1200)],
-                        ),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: const Color(
-                            0xFFFF6B00,
-                          ).withValues(alpha: 0.25),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 5,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(
-                                    0xFFFF6B00,
-                                  ).withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: const Color(
-                                      0xFFFF6B00,
-                                    ).withValues(alpha: 0.5),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Case # CL-2025-8475',
-                                  style: TextStyle(
-                                    color: Color(0xFFFF6B00),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              const Spacer(),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(
-                                    0xFF059669,
-                                  ).withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Text(
-                                  'Active',
-                                  style: TextStyle(
-                                    color: Color(0xFF059669),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          _CaseDetailRow(
-                            label: 'Court',
-                            value: 'Supreme Court - Civil Division',
-                          ),
-                          const SizedBox(height: 6),
-                          _CaseDetailRow(
-                            label: 'Filed',
-                            value: 'October 15, 2023',
-                          ),
-                          const SizedBox(height: 6),
-                          _CaseDetailRow(label: 'Type', value: 'Civil Lawsuit'),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
+        return ref
+            .watch(casesByClientProvider(client.clientId))
+            .when(
+              data: (cases) {
+                if (cases.isEmpty) {
+                  return _buildEmptyState();
+                }
+                final currentCase = cases.first;
+                final timeline = _buildTimeline(currentCase);
+                final progress = _calculateProgress(currentCase.status);
 
-                    // Case Progress
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1A1A1A),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFF252525)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'Case Progress',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              Text(
-                                '65%',
-                                style: const TextStyle(
-                                  color: Color(0xFFFF6B00),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: LinearProgressIndicator(
-                              value: 0.65,
-                              backgroundColor: const Color(0xFF2A2A2A),
-                              valueColor: const AlwaysStoppedAnimation<Color>(
-                                Color(0xFFFF6B00),
-                              ),
-                              minHeight: 8,
+                return Scaffold(
+                  backgroundColor: const Color(0xFF0F0F0F),
+                  body: SafeArea(
+                    child: Column(
+                      children: [
+                        _buildHeader(context),
+                        const SizedBox(height: 16),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildSummaryCard(currentCase),
+                                const SizedBox(height: 20),
+                                _buildProgressCard(progress),
+                                const SizedBox(height: 20),
+                                _buildTimelineCard(timeline),
+                                const SizedBox(height: 20),
+                                _buildConsultantCard(currentCase),
+                                const SizedBox(height: 20),
+                                _buildHearingUpdates(currentCase),
+                                const SizedBox(height: 20),
+                                _buildKeyDocuments(currentCase),
+                                const SizedBox(height: 20),
+                                _buildQuickActions(currentCase),
+                                const SizedBox(height: 30),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          const Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Filed',
-                                style: TextStyle(
-                                  color: Color(0xFF6B6B6B),
-                                  fontSize: 10,
-                                ),
-                              ),
-                              Text(
-                                'Hearing',
-                                style: TextStyle(
-                                  color: Color(0xFF6B6B6B),
-                                  fontSize: 10,
-                                ),
-                              ),
-                              Text(
-                                'Verdict',
-                                style: TextStyle(
-                                  color: Color(0xFF6B6B6B),
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Timeline
-                    const Text(
-                      'Case Timeline',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1A1A1A),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFF252525)),
-                      ),
-                      child: Column(
-                        children: List.generate(_timeline.length, (i) {
-                          return _TimelineTile(
-                            step: _timeline[i],
-                            isLast: i == _timeline.length - 1,
-                          );
-                        }),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Case Consultant
-                    const Text(
-                      'Case Consultant',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1A1A1A),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFF252525)),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 56,
-                                height: 56,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF2A2A2A),
-                                  borderRadius: BorderRadius.circular(28),
-                                  border: Border.all(
-                                    color: const Color(
-                                      0xFFFF6B00,
-                                    ).withValues(alpha: 0.4),
-                                    width: 2,
-                                  ),
-                                ),
-                                child: const Center(
-                                  child: Text(
-                                    'ZU',
-                                    style: TextStyle(
-                                      color: Color(0xFFFF6B00),
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              const Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Adv. Zia Ullah',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    SizedBox(height: 3),
-                                    Text(
-                                      'Civil Law Specialist • 12 Years Exp.',
-                                      style: TextStyle(
-                                        color: Color(0xFF9E9E9E),
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                    SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.star,
-                                          color: Color(0xFFFFB800),
-                                          size: 12,
-                                        ),
-                                        SizedBox(width: 3),
-                                        Text(
-                                          '4.8 (180 reviews)',
-                                          style: TextStyle(
-                                            color: Color(0xFF9E9E9E),
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: () {},
-                                  icon: const Icon(
-                                    Icons.call_outlined,
-                                    size: 16,
-                                    color: Color(0xFF2563EB),
-                                  ),
-                                  label: const Text(
-                                    'Call now',
-                                    style: TextStyle(
-                                      color: Color(0xFF2563EB),
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  style: OutlinedButton.styleFrom(
-                                    side: const BorderSide(
-                                      color: Color(0xFF2563EB),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 10,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => const MessagesScreen(),
-                                      ),
-                                    );
-                                  },
-                                  icon: const Icon(
-                                    Icons.chat_bubble_outline,
-                                    size: 16,
-                                    color: Colors.white,
-                                  ),
-                                  label: const Text(
-                                    'Chat',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF059669),
-                                    elevation: 0,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 10,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Hearing Updates
-                    const Text(
-                      'Hearing Updates',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    _HearingUpdateCard(
-                      date: 'Today, 14:30',
-                      title: 'Third Hearing completed',
-                      subtitle: 'Judge requested additional evidence',
-                      isRecent: true,
-                    ),
-                    const SizedBox(height: 10),
-                    _HearingUpdateCard(
-                      date: 'Dec 5, 2023',
-                      title: 'Second Hearing Postponed',
-                      subtitle: 'Rescheduled to Jan 10, 2024',
-                      isRecent: false,
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Key Documents
-                    const Text(
-                      'Key Documents',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    SizedBox(
-                      height: 90,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        children: const [
-                          _DocumentChip(
-                            name: 'Complaint.pdf',
-                            icon: Icons.picture_as_pdf,
-                            color: Color(0xFFDC2626),
-                          ),
-                          SizedBox(width: 10),
-                          _DocumentChip(
-                            name: 'Evidence.xlsx',
-                            icon: Icons.table_chart_outlined,
-                            color: Color(0xFF059669),
-                          ),
-                          SizedBox(width: 10),
-                          _DocumentChip(
-                            name: 'Notice.jpg',
-                            icon: Icons.image_outlined,
-                            color: Color(0xFF2563EB),
-                          ),
-                          SizedBox(width: 10),
-                          _DocumentChip(
-                            name: 'Add Doc',
-                            icon: Icons.add_circle_outline,
-                            color: Color(0xFFFF6B00),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Quick Actions
-                    const Text(
-                      'Quick Actions',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 2.4,
-                      children: [
-                        _QuickActionButton(
-                          label: 'Upload File',
-                          icon: Icons.upload_file,
-                          color: const Color(0xFFFF6B00),
-                          onTap: () {},
-                        ),
-                        _QuickActionButton(
-                          label: 'Schedule',
-                          icon: Icons.calendar_month_outlined,
-                          color: const Color(0xFF2563EB),
-                          onTap: () {},
-                        ),
-                        _QuickActionButton(
-                          label: 'Add Notes',
-                          icon: Icons.note_add_outlined,
-                          color: const Color(0xFF7C3AED),
-                          onTap: () {},
-                        ),
-                        _QuickActionButton(
-                          label: 'Update Status',
-                          icon: Icons.update,
-                          color: const Color(0xFF059669),
-                          onTap: () {},
                         ),
                       ],
                     ),
-                    const SizedBox(height: 30),
-                  ],
+                  ),
+                  bottomNavigationBar: _buildBottomNav(context),
+                );
+              },
+              loading: () => const Scaffold(
+                backgroundColor: Color(0xFF0F0F0F),
+                body: Center(
+                  child: CircularProgressIndicator(color: Color(0xFFFF6B00)),
                 ),
               ),
+              error: (e, st) => _buildScaffoldWithContent(
+                Center(
+                  child: Text(
+                    'Error: ${e.toString()}',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+              ),
+            );
+      },
+      loading: () => const Scaffold(
+        backgroundColor: Color(0xFF0F0F0F),
+        body: Center(
+          child: CircularProgressIndicator(color: Color(0xFFFF6B00)),
+        ),
+      ),
+      error: (e, st) => _buildScaffoldWithContent(
+        Center(
+          child: Text(
+            'Auth Error: ${e.toString()}',
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1E1E),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.arrow_back_ios_new,
+                color: Colors.white,
+                size: 16,
+              ),
+            ),
+          ),
+          const Expanded(
+            child: Center(
+              child: Text(
+                'Case Status',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.white, size: 20),
+            onSelected: (value) {
+              if (value == 'refresh') {
+                setState(() {});
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'refresh',
+                child: Text('Refresh Case Data'),
+              ),
+              const PopupMenuItem(value: 'help', child: Text('Get Help')),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard(CaseModel caseModel) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF1E1A10), Color(0xFF1A1200)],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFFFF6B00).withValues(alpha: 0.25),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF6B00).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: const Color(0xFFFF6B00).withValues(alpha: 0.5),
+                  ),
+                ),
+                child: Text(
+                  'Case # ${caseModel.caseId.toUpperCase()}',
+                  style: const TextStyle(
+                    color: Color(0xFFFF6B00),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF059669).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  caseModel.status.toUpperCase(),
+                  style: const TextStyle(
+                    color: Color(0xFF059669),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          CaseDetailRow(
+            label: 'Court',
+            value: caseModel.courtName ?? 'To be assigned',
+          ),
+          const SizedBox(height: 6),
+          CaseDetailRow(
+            label: 'Filed',
+            value: DateFormat('MMMM dd, yyyy').format(caseModel.createdAt),
+          ),
+          const SizedBox(height: 6),
+          CaseDetailRow(label: 'Type', value: '${caseModel.caseType} Lawsuit'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressCard(double progress) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF252525)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Case Progress',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                '${(progress * 100).toInt()}%',
+                style: const TextStyle(
+                  color: Color(0xFFFF6B00),
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: progress,
+              backgroundColor: const Color(0xFF2A2A2A),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                Color(0xFFFF6B00),
+              ),
+              minHeight: 8,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimelineCard(List<TimelineStep> timeline) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Case Timeline',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A1A),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF252525)),
+          ),
+          child: Column(
+            children: List.generate(timeline.length, (i) {
+              return TimelineTile(
+                step: timeline[i],
+                isLast: i == timeline.length - 1,
+              );
+            }),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildConsultantCard(CaseModel caseModel) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Case Consultant',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 14),
+        Consumer(
+          builder: (context, ref, child) {
+            final lawyerAsync = ref.watch(
+              getLawyerByIdProvider(caseModel.lawyerId),
+            );
+            return lawyerAsync.when(
+              data: (lawyer) {
+                if (lawyer == null) {
+                  return const Text(
+                    'Lawyer not assigned yet',
+                    style: TextStyle(color: Colors.white),
+                  );
+                }
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A1A1A),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFF252525)),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2A2A2A),
+                              borderRadius: BorderRadius.circular(28),
+                              border: Border.all(
+                                color: const Color(
+                                  0xFFFF6B00,
+                                ).withValues(alpha: 0.4),
+                                width: 2,
+                              ),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(28),
+                              child:
+                                  (lawyer.profileImage != null &&
+                                      lawyer.profileImage!.isNotEmpty)
+                                  ? Image.network(
+                                      lawyer.profileImage!,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : Center(
+                                      child: Text(
+                                        lawyer.name.isNotEmpty
+                                            ? lawyer.name
+                                                  .substring(0, 1)
+                                                  .toUpperCase()
+                                            : 'L',
+                                        style: const TextStyle(
+                                          color: Color(0xFFFF6B00),
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  lawyer.name,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  lawyer.specialization,
+                                  style: const TextStyle(
+                                    color: Color(0xFF9E9E9E),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.star,
+                                      color: Color(0xFFFFB800),
+                                      size: 12,
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      '${lawyer.rating} (${lawyer.totalReviews} reviews)',
+                                      style: const TextStyle(
+                                        color: Color(0xFF9E9E9E),
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {},
+                              icon: const Icon(
+                                Icons.call_outlined,
+                                size: 16,
+                                color: Color(0xFF2563EB),
+                              ),
+                              label: const Text(
+                                'Call now',
+                                style: TextStyle(
+                                  color: Color(0xFF2563EB),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(
+                                  color: Color(0xFF2563EB),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const MessagesScreen(),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(
+                                Icons.chat_bubble_outline,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                              label: const Text(
+                                'Chat',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF059669),
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+              loading: () => const Center(
+                child: CircularProgressIndicator(color: Color(0xFFFF6B00)),
+              ),
+              error: (e, st) => const Text('Failed to load lawyer details'),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHearingUpdates(CaseModel caseModel) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Hearing Updates',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 14),
+        if (caseModel.hearingDate != null)
+          HearingUpdateCard(
+            date: DateFormat('MMM dd, HH:mm').format(caseModel.hearingDate!),
+            title: 'Upcoming Hearing',
+            subtitle: caseModel.courtName ?? 'Court room to be assigned',
+            isRecent: true,
+          )
+        else
+          const Text(
+            'No hearing scheduled yet',
+            style: TextStyle(color: Color(0xFF6B6B6B), fontSize: 13),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildKeyDocuments(CaseModel caseModel) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Key Documents',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          height: 90,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            itemCount: caseModel.documentUrls.length + 1,
+            itemBuilder: (context, index) {
+              if (index == caseModel.documentUrls.length) {
+                return GestureDetector(
+                  onTap: () => _uploadFile(caseModel.caseId),
+                  child: const DocumentChip(
+                    name: 'Add Doc',
+                    icon: Icons.add_circle_outline,
+                    color: Color(0xFFFF6B00),
+                  ),
+                );
+              }
+              final url = caseModel.documentUrls[index];
+              final name = url.split('/').last.split('?').first;
+              return Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: DocumentChip(
+                  name: name,
+                  icon: name.endsWith('.pdf')
+                      ? Icons.picture_as_pdf
+                      : Icons.image_outlined,
+                  color: const Color(0xFF2563EB),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickActions(CaseModel caseModel) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Quick Actions',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 14),
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 2.4,
+          children: [
+            QuickActionButton(
+              label: 'Upload File',
+              icon: Icons.upload_file,
+              color: const Color(0xFFFF6B00),
+              onTap: () => _uploadFile(caseModel.caseId),
+            ),
+            QuickActionButton(
+              label: 'Schedule',
+              icon: Icons.calendar_month_outlined,
+              color: const Color(0xFF2563EB),
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Opening meeting scheduler...'),
+                    backgroundColor: Color(0xFF2563EB),
+                  ),
+                );
+              },
+            ),
+            QuickActionButton(
+              label: 'Add Notes',
+              icon: Icons.note_add_outlined,
+              color: const Color(0xFF7C3AED),
+              onTap: () => _showAddNoteDialog(caseModel.caseId),
+            ),
+            QuickActionButton(
+              label: 'Contact Support',
+              icon: Icons.support_agent,
+              color: const Color(0xFF059669),
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Connecting to legal support...'),
+                    backgroundColor: Color(0xFF059669),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _uploadFile(String caseId) async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'png', 'docx'],
+      );
+
+      if (result == null) return;
+      final path = result.files.single.path;
+      if (path == null) return;
+      File file = File(path);
+      if (!context.mounted) return;
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Uploading document...'),
+          backgroundColor: Color(0xFFFF6B00),
+        ),
+      );
+
+      final url = await CaseService().uploadCaseDocument(caseId, file);
+
+      if (context.mounted) {
+        if (url != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Document uploaded successfully!'),
+              backgroundColor: Color(0xFF059669),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Upload failed: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showAddNoteDialog(String caseId) {
+    final TextEditingController noteController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text(
+          'Add Case Note',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: TextField(
+          controller: noteController,
+          style: const TextStyle(color: Colors.white),
+          maxLines: 3,
+          decoration: InputDecoration(
+            hintText: 'Enter your note here...',
+            hintStyle: const TextStyle(color: Color(0xFF6B6B6B)),
+            enabledBorder: OutlineInputBorder(
+              borderSide: const BorderSide(color: Color(0xFF333333)),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderSide: const BorderSide(color: Color(0xFFFF6B00)),
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Color(0xFF6B6B6B)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (noteController.text.isNotEmpty) {
+                await CaseService().addCaseNote(caseId, noteController.text);
+                if (context.mounted) Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF6B00),
+            ),
+            child: const Text('Add Note'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return _buildScaffoldWithContent(
+      Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.folder_open, color: Color(0xFF3A3A3A), size: 64),
+            const SizedBox(height: 16),
+            const Text(
+              'No active cases found',
+              style: TextStyle(color: Colors.white, fontSize: 18),
+            ),
+            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const HomeScreen()),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF6B00),
+              ),
+              child: const Text('Go to Home'),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildScaffoldWithContent(Widget content) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F0F0F),
+      body: SafeArea(child: content),
       bottomNavigationBar: _buildBottomNav(context),
     );
   }
@@ -680,319 +978,4 @@ class _CaseStatusScreenState extends State<CaseStatusScreen> {
   }
 }
 
-// ─── Supporting widgets ───────────────────────────────────────────────────────
-
-class _CaseDetailRow extends StatelessWidget {
-  final String label;
-  final String value;
-  const _CaseDetailRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 52,
-          child: Text(
-            label,
-            style: const TextStyle(color: Color(0xFF6B6B6B), fontSize: 12),
-          ),
-        ),
-        const Text(
-          ':  ',
-          style: TextStyle(color: Color(0xFF6B6B6B), fontSize: 12),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: const TextStyle(
-              color: Color(0xFFDDDDDD),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-enum TimelineStatus { done, active, pending }
-
-class _TimelineStep {
-  final String date;
-  final String title;
-  final TimelineStatus status;
-  final String subtitle;
-  const _TimelineStep({
-    required this.date,
-    required this.title,
-    required this.status,
-    required this.subtitle,
-  });
-}
-
-class _TimelineTile extends StatelessWidget {
-  final _TimelineStep step;
-  final bool isLast;
-  const _TimelineTile({required this.step, required this.isLast});
-
-  @override
-  Widget build(BuildContext context) {
-    Color dotColor;
-    IconData dotIcon;
-    switch (step.status) {
-      case TimelineStatus.done:
-        dotColor = const Color(0xFF059669);
-        dotIcon = Icons.check_circle;
-        break;
-      case TimelineStatus.active:
-        dotColor = const Color(0xFFFFB800);
-        dotIcon = Icons.radio_button_checked;
-        break;
-      case TimelineStatus.pending:
-        dotColor = const Color(0xFF3A3A3A);
-        dotIcon = Icons.radio_button_unchecked;
-        break;
-    }
-
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 54,
-            child: Text(
-              step.date,
-              style: const TextStyle(color: Color(0xFF6B6B6B), fontSize: 11),
-            ),
-          ),
-          Column(
-            children: [
-              Icon(dotIcon, color: dotColor, size: 20),
-              if (!isLast)
-                Expanded(
-                  child: Container(
-                    width: 2,
-                    color: const Color(0xFF252525),
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    step.title,
-                    style: TextStyle(
-                      color: step.status == TimelineStatus.pending
-                          ? const Color(0xFF6B6B6B)
-                          : Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    step.subtitle,
-                    style: const TextStyle(
-                      color: Color(0xFF6B6B6B),
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HearingUpdateCard extends StatelessWidget {
-  final String date;
-  final String title;
-  final String subtitle;
-  final bool isRecent;
-
-  const _HearingUpdateCard({
-    required this.date,
-    required this.title,
-    required this.subtitle,
-    required this.isRecent,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isRecent
-              ? const Color(0xFFFF6B00).withValues(alpha: 0.3)
-              : const Color(0xFF252525),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: isRecent
-                  ? const Color(0xFFFF6B00).withValues(alpha: 0.12)
-                  : const Color(0xFF252525),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              isRecent ? Icons.gavel : Icons.history,
-              color: isRecent
-                  ? const Color(0xFFFF6B00)
-                  : const Color(0xFF6B6B6B),
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  date,
-                  style: TextStyle(
-                    color: isRecent
-                        ? const Color(0xFFFF6B00)
-                        : const Color(0xFF6B6B6B),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    color: Color(0xFF9E9E9E),
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DocumentChip extends StatelessWidget {
-  final String name;
-  final IconData icon;
-  final Color color;
-  const _DocumentChip({
-    required this.name,
-    required this.icon,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {},
-      child: Container(
-        width: 85,
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFF252525)),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: color, size: 18),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              name,
-              style: const TextStyle(
-                color: Color(0xFFCCCCCC),
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickActionButton extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-  const _QuickActionButton({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withValues(alpha: 0.25)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 18),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+// ──────────────────────────────────────────────────────────────────────────────
