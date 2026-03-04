@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/services/auth_services.dart';
+import 'package:legal_sync/services/notification_services.dart';
 
 // ─────────────────────────────────────────────
 // Auth Service Provider (singleton)
@@ -123,6 +124,20 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
         state = const AsyncValue.data(null);
         throw result;
       }
+
+      // Notify admin
+      try {
+        await NotificationService().createNotification(
+          userId: 'admin',
+          title: 'New Lawyer Registration',
+          message:
+              '$name has submitted a registration request and is waiting for verification.',
+          type: 'system',
+        );
+      } catch (e) {
+        // Ignore notification errors
+      }
+
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);

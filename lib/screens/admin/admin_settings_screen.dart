@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:legal_sync/provider/auth_provider.dart';
+import 'package:legal_sync/screens/client%20panel/login_screen.dart';
 
-class AdminSettingsScreen extends StatefulWidget {
+class AdminSettingsScreen extends ConsumerStatefulWidget {
   const AdminSettingsScreen({super.key});
 
   @override
-  State<AdminSettingsScreen> createState() => _AdminSettingsScreenState();
+  ConsumerState<AdminSettingsScreen> createState() =>
+      _AdminSettingsScreenState();
 }
 
-class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
+class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
   int _selectedTabIndex = 0;
   bool _lawyerVerConfig = true;
   bool _publicReviews = true;
@@ -15,18 +19,34 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   bool _pushNotifs = false;
   bool _twoFactor = false;
 
+  void _handleLogout() async {
+    try {
+      await ref.read(authNotifierProvider.notifier).logout();
+      if (!mounted) return;
+      // Navigate to Client Login Screen as the base entry point
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to logout: $e')));
+    }
+  }
+
+  void showComingSoon(String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$feature feature coming soon!'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF1E3A8A),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    void showComingSoon(String feature) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$feature feature coming soon!'),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: const Color(0xFF1E3A8A),
-        ),
-      );
-    }
-
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
@@ -40,10 +60,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
         ),
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1F2937)),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: null, // Removed back arrow because it is in IndexedStack
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -341,6 +358,33 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
               ),
             if (_selectedTabIndex == 1) _buildNotificationSettings(),
             if (_selectedTabIndex == 2) _buildSecuritySettings(),
+
+            const SizedBox(height: 32),
+            // Logout Button Added Here
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _handleLogout,
+                  icon: const Icon(Icons.logout, color: Colors.white),
+                  label: const Text(
+                    'Logout',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFDC2626),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),

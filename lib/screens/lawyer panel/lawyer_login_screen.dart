@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/provider/auth_provider.dart';
-import 'package:legal_sync/screens/lawyer panel/lawyer_dashboard_screen.dart';
-import 'package:legal_sync/screens/lawyer panel/lawyer_registration_screen.dart';
-import 'package:legal_sync/screens/lawyer panel/lawyer_forgot_password_screen.dart';
-import 'package:legal_sync/screens/client panel/login_screen.dart';
+import 'package:legal_sync/screens/admin/admin_dashboard_screen.dart';
+import 'package:legal_sync/screens/lawyer%20panel/lawyer_dashboard_screen.dart';
+import 'package:legal_sync/screens/lawyer%20panel/lawyer_registration_screen.dart';
+import 'package:legal_sync/screens/lawyer%20panel/lawyer_forgot_password_screen.dart';
+import 'package:legal_sync/screens/client%20panel/login_screen.dart';
+
+// ─── Static Admin Credentials ────────────────────────────────────────────────
+// Shared with client login. Not shown in UI.
+const String _adminEmail = 'admin@legalsync.com';
+const String _adminPassword = 'Admin@1234';
 
 class LawyerLoginScreen extends ConsumerStatefulWidget {
   const LawyerLoginScreen({super.key});
@@ -29,22 +35,38 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    // ─── Admin shortcut ───────────────────────────────────────────────────────
+    if (email == _adminEmail && password == _adminPassword) {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
+      );
+      return;
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     try {
       final role = await ref
           .read(authNotifierProvider.notifier)
-          .login(
-            email: _emailController.text.trim(),
-            password: _passwordController.text,
-          );
+          .login(email: email, password: password);
 
       if (!mounted) return;
 
-      if (role == 'lawyer') {
+      if (role == 'admin' || role == 'lawyer') {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const LawyerDashboardScreen()),
+          MaterialPageRoute(
+            builder: (_) => role == 'admin'
+                ? const AdminDashboardScreen()
+                : const LawyerDashboardScreen(),
+          ),
         );
       } else {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Please use the client login for this account.'),

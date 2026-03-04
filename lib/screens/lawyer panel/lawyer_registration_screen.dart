@@ -824,42 +824,33 @@ class _LawyerRegistrationScreenState
             const SizedBox(height: 30),
             Row(
               children: [
-                Expanded(
-                  flex: 1,
-                  child: SizedBox(
-                    height: 50,
-                    child: OutlinedButton(
-                      onPressed: _previousStep,
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFFFF6B00)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+                SizedBox(
+                  height: 50,
+                  child: OutlinedButton.icon(
+                    onPressed: _previousStep,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      side: const BorderSide(color: Color(0xFFFF6B00)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.arrow_back,
-                            color: Color(0xFFFF6B00),
-                            size: 18,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            'Back',
-                            style: TextStyle(color: Color(0xFFFF6B00)),
-                          ),
-                        ],
-                      ),
+                    ),
+                    icon: const Icon(
+                      Icons.arrow_back,
+                      color: Color(0xFFFF6B00),
+                      size: 18,
+                    ),
+                    label: const Text(
+                      'Back',
+                      style: TextStyle(color: Color(0xFFFF6B00)),
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 Expanded(
-                  flex: 2,
                   child: SizedBox(
                     height: 50,
-                    child: ElevatedButton(
+                    child: ElevatedButton.icon(
                       onPressed: _nextStep,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFFF6B00),
@@ -868,24 +859,18 @@ class _LawyerRegistrationScreenState
                         ),
                         elevation: 0,
                       ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Next Step',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          SizedBox(width: 8),
-                          Icon(
-                            Icons.arrow_forward,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ],
+                      icon: const Icon(
+                        Icons.arrow_forward,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        'Next Step',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
@@ -1093,39 +1078,30 @@ class _LawyerRegistrationScreenState
           const SizedBox(height: 40),
           Row(
             children: [
-              Expanded(
-                flex: 1,
-                child: SizedBox(
-                  height: 50,
-                  child: OutlinedButton(
-                    onPressed: _previousStep,
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFFFF6B00)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+              SizedBox(
+                height: 50,
+                child: OutlinedButton.icon(
+                  onPressed: _previousStep,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    side: const BorderSide(color: Color(0xFFFF6B00)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.arrow_back,
-                          color: Color(0xFFFF6B00),
-                          size: 18,
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          'Back',
-                          style: TextStyle(color: Color(0xFFFF6B00)),
-                        ),
-                      ],
-                    ),
+                  ),
+                  icon: const Icon(
+                    Icons.arrow_back,
+                    color: Color(0xFFFF6B00),
+                    size: 18,
+                  ),
+                  label: const Text(
+                    'Back',
+                    style: TextStyle(color: Color(0xFFFF6B00)),
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
-                flex: 2,
                 child: SizedBox(
                   height: 50,
                   child: ElevatedButton(
@@ -1137,12 +1113,15 @@ class _LawyerRegistrationScreenState
                       ),
                       elevation: 0,
                     ),
-                    child: const Text(
-                      'Complete Registration',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        'Complete Registration',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),

@@ -776,17 +776,15 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
         ),
       );
 
-      final url = await CaseService().uploadCaseDocument(caseId, file);
+      await CaseService().uploadCaseDocument(caseId, file);
 
       if (context.mounted) {
-        if (url != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Document uploaded successfully!'),
-              backgroundColor: Color(0xFF059669),
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Document uploaded successfully!'),
+            backgroundColor: Color(0xFF059669),
+          ),
+        );
       }
     } catch (e) {
       if (context.mounted) {

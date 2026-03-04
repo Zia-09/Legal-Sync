@@ -1,8 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:legal_sync/model/lawyer_Model.dart';
+import 'package:legal_sync/provider/lawyer_provider.dart';
+import 'package:legal_sync/services/lawyer_services.dart';
 import 'admin_verification_detail_screen.dart';
 
-class AdminVerificationListScreen extends StatelessWidget {
+class AdminVerificationListScreen extends ConsumerStatefulWidget {
   const AdminVerificationListScreen({super.key});
+
+  @override
+  ConsumerState<AdminVerificationListScreen> createState() =>
+      _AdminVerificationListScreenState();
+}
+
+class _AdminVerificationListScreenState
+    extends ConsumerState<AdminVerificationListScreen> {
+  int _selectedTabIndex = 0; // 0: All, 1: Pending, 2: Verified, 3: Rejected
+  late TextEditingController _searchCtrl;
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,29 +57,65 @@ class AdminVerificationListScreen extends StatelessWidget {
           Container(
             color: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _TabItem(title: 'All', count: '(247)', isSelected: true),
-                _TabItem(
-                  title: 'Pending',
-                  count: '(23)',
-                  color: const Color(0xFFE67E22),
-                  isSelected: false,
-                ),
-                _TabItem(
-                  title: 'Verified',
-                  count: '(204)',
-                  color: const Color(0xFF059669),
-                  isSelected: false,
-                ),
-                _TabItem(
-                  title: 'Rejected',
-                  count: '(20)',
-                  color: const Color(0xFFDC2626),
-                  isSelected: false,
-                ),
-              ],
+            child: Consumer(
+              builder: (context, ref, _) {
+                final lawyersAsync = ref.watch(allLawyersProvider);
+                int allCount = 0;
+                int pendingCount = 0;
+                int verifiedCount = 0;
+                int rejectedCount = 0;
+
+                if (lawyersAsync.value != null) {
+                  for (var l in lawyersAsync.value!) {
+                    allCount++;
+                    final st = l.approvalStatus.toLowerCase();
+                    if (st == 'pending') {
+                      pendingCount++;
+                    } else if (st == 'verified' || st == 'approved') {
+                      verifiedCount++;
+                    } else if (st == 'rejected') {
+                      rejectedCount++;
+                    } else if (!l.isApproved) {
+                      pendingCount++; // Fallback if approvalStatus is null but not approved
+                    } else {
+                      verifiedCount++;
+                    }
+                  }
+                }
+
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _TabItem(
+                      title: 'All',
+                      count: '($allCount)',
+                      isSelected: _selectedTabIndex == 0,
+                      onTap: () => setState(() => _selectedTabIndex = 0),
+                    ),
+                    _TabItem(
+                      title: 'Pending',
+                      count: '($pendingCount)',
+                      color: const Color(0xFFE67E22),
+                      isSelected: _selectedTabIndex == 1,
+                      onTap: () => setState(() => _selectedTabIndex = 1),
+                    ),
+                    _TabItem(
+                      title: 'Verified',
+                      count: '($verifiedCount)',
+                      color: const Color(0xFF059669),
+                      isSelected: _selectedTabIndex == 2,
+                      onTap: () => setState(() => _selectedTabIndex = 2),
+                    ),
+                    _TabItem(
+                      title: 'Rejected',
+                      count: '($rejectedCount)',
+                      color: const Color(0xFFDC2626),
+                      isSelected: _selectedTabIndex == 3,
+                      onTap: () => setState(() => _selectedTabIndex = 3),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
 
@@ -66,11 +129,23 @@ class AdminVerificationListScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: Colors.grey.shade300),
               ),
-              child: const TextField(
+              child: TextField(
+                controller: _searchCtrl,
+                onChanged: (val) =>
+                    setState(() => _searchQuery = val.toLowerCase()),
                 decoration: InputDecoration(
                   hintText: 'Search by name, Bar ID or city',
-                  hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
-                  icon: Icon(Icons.search, color: Colors.grey),
+                  hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
+                  icon: const Icon(Icons.search, color: Colors.grey),
+                  suffixIcon: _searchCtrl.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.close, size: 18),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                        )
+                      : null,
                   border: InputBorder.none,
                 ),
               ),
@@ -78,60 +153,87 @@ class AdminVerificationListScreen extends StatelessWidget {
           ),
 
           // List
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: [
-                _VerificationCard(
-                  name: 'Adv. Muhammad Ali',
-                  barId: 'PBC/2018/12345',
-                  status: 'PENDING',
-                  statusColor: const Color(0xFFE67E22),
-                  tag: 'Civil Law',
-                  location: 'Peshawar, KPK',
-                  onViewDetails: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const AdminVerificationDetailScreen(
-                          name: 'Adv. Muhammad Ali',
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                _VerificationCard(
-                  name: 'Adv. Fatima Sheikh',
-                  barId: 'LHC/2015/05876',
-                  status: 'VERIFIED',
-                  statusColor: const Color(0xFF059669),
-                  tag: 'Criminal Law',
-                  location: 'Lahore, Punjab',
-                  isVerified: true,
-                ),
-                _VerificationCard(
-                  name: 'Adv. Ahmed Shah',
-                  barId: 'KBC/2020/05443',
-                  status: 'PENDING',
-                  statusColor: const Color(0xFFE67E22),
-                  tag: 'Corporate Law',
-                  location: 'Karachi, Sindh',
-                  onViewDetails: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const AdminVerificationDetailScreen(
-                          name: 'Adv. Ahmed Shah',
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
+          Expanded(child: _buildLawyersList()),
         ],
       ),
+    );
+  }
+
+  List<LawyerModel> _filterLawyers(List<LawyerModel> lawyers) {
+    return lawyers.where((l) {
+      if (_searchQuery.isNotEmpty) {
+        if (!l.name.toLowerCase().contains(_searchQuery) &&
+            !(l.location?.toLowerCase().contains(_searchQuery) ?? false) &&
+            !(l.email.toLowerCase().contains(_searchQuery))) {
+          return false;
+        }
+      }
+
+      final status = l.approvalStatus.toLowerCase();
+      bool isPending =
+          status == 'pending' || (!l.isApproved && status != 'rejected');
+      bool isVerified =
+          status == 'verified' || status == 'approved' || l.isApproved;
+      bool isRejected = status == 'rejected';
+
+      if (_selectedTabIndex == 1 && !isPending) return false;
+      if (_selectedTabIndex == 2 && !isVerified) return false;
+      if (_selectedTabIndex == 3 && !isRejected) return false;
+
+      return true;
+    }).toList();
+  }
+
+  Widget _buildLawyersList() {
+    final lawyersAsync = ref.watch(allLawyersProvider);
+
+    return lawyersAsync.when(
+      data: (lawyers) {
+        final filtered = _filterLawyers(lawyers);
+        if (filtered.isEmpty) {
+          return const Center(child: Text('No verification requests found.'));
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: filtered.length,
+          itemBuilder: (context, index) {
+            final l = filtered[index];
+            final status = l.approvalStatus.toUpperCase();
+            final Color statusColor;
+            if (status == 'VERIFIED' || status == 'APPROVED') {
+              statusColor = const Color(0xFF059669);
+            } else if (status == 'REJECTED') {
+              statusColor = const Color(0xFFDC2626);
+            } else {
+              statusColor = const Color(0xFFE67E22);
+            }
+
+            return _VerificationCard(
+              lawyer: l,
+              name: l.name,
+              barId:
+                  'Id: ${l.lawyerId.substring(0, 8)}', // Simulated Bar ID for now
+              status: status,
+              statusColor: statusColor,
+              tag: l.specialization,
+              location: l.location ?? 'Unknown location',
+              isVerified: status == 'VERIFIED' || status == 'APPROVED',
+              onViewDetails: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AdminVerificationDetailScreen(lawyer: l),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: Color(0xFF1E3A8A)),
+      ),
+      error: (err, stack) => Center(child: Text('Error: $err')),
     );
   }
 }
@@ -141,52 +243,57 @@ class _TabItem extends StatelessWidget {
   final String count;
   final Color? color;
   final bool isSelected;
+  final VoidCallback onTap;
 
   const _TabItem({
     required this.title,
     required this.count,
     this.color,
     required this.isSelected,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.only(bottom: 12, top: 12),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: isSelected ? const Color(0xFF1E3A8A) : Colors.transparent,
-            width: 2,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.only(bottom: 12, top: 12),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: isSelected ? const Color(0xFF1E3A8A) : Colors.transparent,
+              width: 2,
+            ),
           ),
         ),
-      ),
-      child: RichText(
-        text: TextSpan(
-          children: [
-            TextSpan(
-              text: '$title ',
-              style: TextStyle(
-                color: isSelected
-                    ? const Color(0xFF1E3A8A)
-                    : Colors.grey.shade600,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
+        child: RichText(
+          text: TextSpan(
+            children: [
+              TextSpan(
+                text: '$title ',
+                style: TextStyle(
+                  color: isSelected
+                      ? const Color(0xFF1E3A8A)
+                      : Colors.grey.shade600,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
               ),
-            ),
-            TextSpan(
-              text: count,
-              style: TextStyle(
-                color:
-                    color ??
-                    (isSelected
-                        ? const Color(0xFF1E3A8A)
-                        : Colors.grey.shade400),
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
+              TextSpan(
+                text: count,
+                style: TextStyle(
+                  color:
+                      color ??
+                      (isSelected
+                          ? const Color(0xFF1E3A8A)
+                          : Colors.grey.shade400),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -194,6 +301,7 @@ class _TabItem extends StatelessWidget {
 }
 
 class _VerificationCard extends StatelessWidget {
+  final LawyerModel lawyer;
   final String name;
   final String barId;
   final String status;
@@ -204,6 +312,7 @@ class _VerificationCard extends StatelessWidget {
   final VoidCallback? onViewDetails;
 
   const _VerificationCard({
+    required this.lawyer,
     required this.name,
     required this.barId,
     required this.status,
@@ -213,6 +322,35 @@ class _VerificationCard extends StatelessWidget {
     this.isVerified = false,
     this.onViewDetails,
   });
+
+  void _updateStatus(
+    BuildContext context,
+    String newStatus,
+    bool isApproved,
+  ) async {
+    try {
+      await LawyerService().updateLawyer(
+        lawyerId: lawyer.lawyerId,
+        data: {'isApproved': isApproved, 'approvalStatus': newStatus},
+      );
+      if (isApproved) {
+        // Send email message simulated via snackbar
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Verification Email sent to ${lawyer.email}!'),
+            backgroundColor: const Color(0xFF059669),
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Update failed: $e'),
+          backgroundColor: const Color(0xFFDC2626),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -238,11 +376,20 @@ class _VerificationCard extends StatelessWidget {
               CircleAvatar(
                 radius: 24,
                 backgroundColor: const Color(0xFF1E3A8A).withValues(alpha: 0.1),
-                child: const Icon(
-                  Icons.person,
-                  color: Color(0xFF1E3A8A),
-                  size: 28,
-                ),
+                child: lawyer.profileImage != null
+                    ? ClipOval(
+                        child: Image.network(
+                          lawyer.profileImage!,
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.person,
+                        color: Color(0xFF1E3A8A),
+                        size: 28,
+                      ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -330,18 +477,18 @@ class _VerificationCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          if (isVerified)
+          if (isVerified || status == 'REJECTED')
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: () {},
+                onPressed: onViewDetails,
                 icon: const Icon(
-                  Icons.history,
+                  Icons.remove_red_eye_outlined,
                   size: 16,
                   color: Color(0xFF1E3A8A),
                 ),
                 label: const Text(
-                  'Verification History',
+                  'View Details',
                   style: TextStyle(color: Color(0xFF1E3A8A)),
                 ),
                 style: OutlinedButton.styleFrom(
@@ -381,7 +528,8 @@ class _VerificationCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () {},
+                        onPressed: () =>
+                            _updateStatus(context, 'verified', true),
                         icon: const Icon(
                           Icons.check_circle_outline,
                           size: 16,
@@ -402,7 +550,8 @@ class _VerificationCard extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () {},
+                        onPressed: () =>
+                            _updateStatus(context, 'rejected', false),
                         icon: const Icon(
                           Icons.cancel_outlined,
                           size: 16,

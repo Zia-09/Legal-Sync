@@ -1,14 +1,36 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:legal_sync/model/case_Model.dart';
+import 'package:legal_sync/provider/case_provider.dart';
+import 'package:legal_sync/provider/client_provider.dart';
+import 'package:legal_sync/provider/lawyer_provider.dart';
+import 'package:intl/intl.dart';
 
-class AdminCasesScreen extends StatefulWidget {
+class AdminCasesScreen extends ConsumerStatefulWidget {
   const AdminCasesScreen({super.key});
 
   @override
-  State<AdminCasesScreen> createState() => _AdminCasesScreenState();
+  ConsumerState<AdminCasesScreen> createState() => _AdminCasesScreenState();
 }
 
-class _AdminCasesScreenState extends State<AdminCasesScreen> {
-  int _selectedTabIndex = 0;
+class _AdminCasesScreenState extends ConsumerState<AdminCasesScreen> {
+  int _selectedTabIndex = 0; // 0: Active, 1: Resolved, 2: Pending
+  late TextEditingController _searchCtrl;
+  String _searchQuery = '';
+  String _selectedCategory = 'All';
+  String _selectedDate = 'This Month';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,23 +47,16 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
         ),
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1F2937)),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading:
+            null, // Removed back arrow because this is part of IndexedStack bottom nav
         actions: [
-          IconButton(
-            icon: const Icon(Icons.search, color: Color(0xFF1F2937)),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Search feature coming soon!'),
-                  behavior: SnackBarBehavior.floating,
-                  backgroundColor: Color(0xFF1E3A8A),
-                ),
-              );
-            },
-          ),
+          if (_searchQuery.isEmpty)
+            IconButton(
+              icon: const Icon(Icons.search, color: Color(0xFF1F2937)),
+              onPressed: () {
+                // Focus on search input logically
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.filter_list, color: Color(0xFF1F2937)),
             onPressed: () => _showFilterBottomSheet(context),
@@ -59,12 +74,89 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
                 color: const Color(0xFFF3F4F6),
                 borderRadius: BorderRadius.circular(24),
               ),
-              child: Row(
-                children: [
-                  _buildSegmentedTab(0, 'Active (1,453)'),
-                  _buildSegmentedTab(1, 'Resolved (842)'),
-                  _buildSegmentedTab(2, 'Pending (120)'),
-                ],
+              child: Consumer(
+                builder: (context, ref, _) {
+                  final casesAsync = ref.watch(allCasesProvider);
+                  int activeCount = 0;
+                  int resolvedCount = 0;
+                  int pendingCount = 0;
+
+                  if (casesAsync.hasError) {
+                    return const Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _TabPlaceholder('Active', 0),
+                        _TabPlaceholder('Resolved', 0),
+                        _TabPlaceholder('Pending', 0),
+                      ],
+                    );
+                  }
+
+                  if (casesAsync.value != null) {
+                    for (var c in casesAsync.value!) {
+                      final status = c.status.toLowerCase();
+                      if (status == 'active' || status == 'in_progress') {
+                        activeCount++;
+                      } else if (status == 'resolved' ||
+                          status == 'closed' ||
+                          status == 'completed') {
+                        resolvedCount++;
+                      } else if (status == 'pending') {
+                        pendingCount++;
+                      }
+                    }
+                  }
+
+                  return Row(
+                    children: [
+                      _buildSegmentedTab(0, 'Active', activeCount),
+                      _buildSegmentedTab(1, 'Resolved', resolvedCount),
+                      _buildSegmentedTab(2, 'Pending', pendingCount),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+
+          // Search Bar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            child: Container(
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: TextField(
+                controller: _searchCtrl,
+                onChanged: (val) =>
+                    setState(() => _searchQuery = val.toLowerCase()),
+                decoration: InputDecoration(
+                  hintText: 'Search by case title...',
+                  hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    color: Colors.grey,
+                    size: 20,
+                  ),
+                  suffixIcon: _searchCtrl.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(
+                            Icons.close,
+                            color: Colors.grey,
+                            size: 18,
+                          ),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                        )
+                      : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                ),
               ),
             ),
           ),
@@ -90,17 +182,34 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
                     ),
                   ),
                 ),
-                Text(
-                  'SHOWING ${_selectedTabIndex == 0
-                      ? "1,453"
-                      : _selectedTabIndex == 1
-                      ? "842"
-                      : "120"} RESULTS',
-                  style: const TextStyle(
-                    color: Colors.grey,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
+                Consumer(
+                  builder: (context, ref, _) {
+                    final casesAsync = ref.watch(allCasesProvider);
+                    int count = 0;
+
+                    if (casesAsync.hasError) {
+                      return const Text(
+                        'SHOWING 0 RESULTS',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      );
+                    }
+
+                    if (casesAsync.value != null) {
+                      count = _filterCases(casesAsync.value!).length;
+                    }
+                    return Text(
+                      'SHOWING $count RESULTS',
+                      style: const TextStyle(
+                        color: Colors.grey,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -135,18 +244,41 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
           Expanded(child: _buildCasesList()),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Add case manually coming soon!'),
-              behavior: SnackBarBehavior.floating,
-              backgroundColor: Color(0xFF1E3A8A),
+    );
+  }
+
+  Widget _buildSegmentedTab(int index, String title, int count) {
+    bool isSelected = _selectedTabIndex == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedTabIndex = index),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 4,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: Text(
+              '$title ($count)',
+              style: TextStyle(
+                color: isSelected
+                    ? const Color(0xFF1E3A8A)
+                    : const Color(0xFF6B7280),
+                fontWeight: FontWeight.bold,
+                fontSize: 11,
+              ),
             ),
-          );
-        },
-        backgroundColor: const Color(0xFF1E3A8A),
-        child: const Icon(Icons.add, color: Colors.white),
+          ),
+        ),
       ),
     );
   }
@@ -158,9 +290,6 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        String selectedCategory = 'All';
-        String selectedDate = 'This Month';
-
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModalState) {
             return Container(
@@ -199,41 +328,25 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: [
-                      _FilterChip(
-                        label: 'All',
-                        isSelected: selectedCategory == 'All',
-                        onTap: () =>
-                            setModalState(() => selectedCategory = 'All'),
-                      ),
-                      _FilterChip(
-                        label: 'Civil Law',
-                        isSelected: selectedCategory == 'Civil Law',
-                        onTap: () =>
-                            setModalState(() => selectedCategory = 'Civil Law'),
-                      ),
-                      _FilterChip(
-                        label: 'Criminal Law',
-                        isSelected: selectedCategory == 'Criminal Law',
-                        onTap: () => setModalState(
-                          () => selectedCategory = 'Criminal Law',
-                        ),
-                      ),
-                      _FilterChip(
-                        label: 'Family Law',
-                        isSelected: selectedCategory == 'Family Law',
-                        onTap: () => setModalState(
-                          () => selectedCategory = 'Family Law',
-                        ),
-                      ),
-                      _FilterChip(
-                        label: 'Corporate Law',
-                        isSelected: selectedCategory == 'Corporate Law',
-                        onTap: () => setModalState(
-                          () => selectedCategory = 'Corporate Law',
-                        ),
-                      ),
-                    ],
+                    children:
+                        [
+                              'All',
+                              'Civil Law',
+                              'Criminal Law',
+                              'Family Law',
+                              'Corporate Law',
+                            ]
+                            .map(
+                              (c) => _FilterChip(
+                                label: c,
+                                isSelected: _selectedCategory == c,
+                                onTap: () {
+                                  setModalState(() => _selectedCategory = c);
+                                  setState(() => _selectedCategory = c);
+                                },
+                              ),
+                            )
+                            .toList(),
                   ),
                   const SizedBox(height: 24),
                   const Text(
@@ -247,43 +360,25 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,
-                    children: [
-                      _FilterChip(
-                        label: 'This Month',
-                        isSelected: selectedDate == 'This Month',
-                        onTap: () =>
-                            setModalState(() => selectedDate = 'This Month'),
-                      ),
-                      _FilterChip(
-                        label: 'Last Month',
-                        isSelected: selectedDate == 'Last Month',
-                        onTap: () =>
-                            setModalState(() => selectedDate = 'Last Month'),
-                      ),
-                      _FilterChip(
-                        label: 'This Year',
-                        isSelected: selectedDate == 'This Year',
-                        onTap: () =>
-                            setModalState(() => selectedDate = 'This Year'),
-                      ),
-                    ],
+                    children:
+                        ['All Time', 'This Month', 'Last Month', 'This Year']
+                            .map(
+                              (d) => _FilterChip(
+                                label: d,
+                                isSelected: _selectedDate == d,
+                                onTap: () {
+                                  setModalState(() => _selectedDate = d);
+                                  setState(() => _selectedDate = d);
+                                },
+                              ),
+                            )
+                            .toList(),
                   ),
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Filtered by: $selectedCategory, $selectedDate',
-                            ),
-                            behavior: SnackBarBehavior.floating,
-                            backgroundColor: const Color(0xFF1E3A8A),
-                          ),
-                        );
-                      },
+                      onPressed: () => Navigator.pop(context),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF1E3A8A),
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -309,161 +404,172 @@ class _AdminCasesScreenState extends State<AdminCasesScreen> {
     );
   }
 
-  Widget _buildSegmentedTab(int index, String title) {
-    bool isSelected = _selectedTabIndex == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _selectedTabIndex = index),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 4,
-                    ),
-                  ]
-                : null,
-          ),
-          child: Center(
-            child: Text(
-              title,
-              style: TextStyle(
-                color: isSelected
-                    ? const Color(0xFF1E3A8A)
-                    : const Color(0xFF6B7280),
-                fontWeight: FontWeight.bold,
-                fontSize: 11,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+  List<CaseModel> _filterCases(List<CaseModel> cases) {
+    return cases.where((c) {
+      if (_searchQuery.isNotEmpty &&
+          !c.title.toLowerCase().contains(_searchQuery)) {
+        return false;
+      }
+      if (_selectedCategory != 'All' && c.caseType != _selectedCategory) {
+        return false;
+      }
+
+      final status = c.status.toLowerCase();
+      if (_selectedTabIndex == 0 &&
+          !(status == 'active' || status == 'in_progress'))
+        return false;
+      if (_selectedTabIndex == 1 &&
+          !(status == 'resolved' ||
+              status == 'closed' ||
+              status == 'completed'))
+        return false;
+      if (_selectedTabIndex == 2 && status != 'pending') return false;
+
+      if (_selectedDate != 'All Time') {
+        final now = DateTime.now();
+        final caseDate = c.createdAt;
+        if (_selectedDate == 'This Month' &&
+            (caseDate.month != now.month || caseDate.year != now.year))
+          return false;
+        if (_selectedDate == 'Last Month') {
+          final lastMonth = now.month == 1 ? 12 : now.month - 1;
+          final lastMonthYear = now.month == 1 ? now.year - 1 : now.year;
+          if (caseDate.month != lastMonth || caseDate.year != lastMonthYear)
+            return false;
+        }
+        if (_selectedDate == 'This Year' && caseDate.year != now.year)
+          return false;
+      }
+
+      return true;
+    }).toList();
   }
 
   Widget _buildCasesList() {
-    // Generate different mock data depending on tab selected
-    if (_selectedTabIndex == 0) {
-      return ListView(
-        children: [
-          _CaseRowItem(
-            caseId: '#LS-2026-894',
-            title: 'Property Dispute v. Ali Developers',
-            clientName: 'Client: Zubair Khan',
-            lawyerName: 'Adv. Sarah Malik',
-            category: 'Civil Law',
-            date: 'Next Hearing: 15 Mar 2026',
-            status: 'ACTIVE',
-            statusColor: const Color(0xFF059669),
+    final casesAsync = ref.watch(allCasesProvider);
+    final lawyersAsync = ref.watch(allLawyersProvider);
+    final clientsAsync = ref.watch(allClientsProvider);
+
+    return casesAsync.when(
+      data: (cases) {
+        final filtered = _filterCases(cases);
+        if (filtered.isEmpty) {
+          return const Center(child: Text('No cases found.'));
+        }
+        return ListView.builder(
+          shrinkWrap: false,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 20),
+          itemCount: filtered.length,
+          itemBuilder: (context, index) {
+            final c = filtered[index];
+
+            // Resolve names safely
+            String clName = 'Unknown Client';
+            if (clientsAsync.value != null) {
+              final cl = clientsAsync.value!
+                  .where((client) => client.clientId == c.clientId)
+                  .firstOrNull;
+              if (cl != null) clName = cl.name;
+            }
+            String lwName = 'Unassigned';
+            if (lawyersAsync.value != null && c.lawyerId.isNotEmpty) {
+              final lw = lawyersAsync.value!
+                  .where((lawyer) => lawyer.lawyerId == c.lawyerId)
+                  .firstOrNull;
+              if (lw != null) lwName = lw.name;
+            }
+
+            final dateStr = c.hearingDate != null
+                ? 'Next Hearing: ${DateFormat('dd MMM yyyy').format(c.hearingDate!)}'
+                : 'Created: ${DateFormat('dd MMM yyyy').format(c.createdAt)}';
+
+            return _CaseRowItem(
+              caseModel: c,
+              clientName: clName,
+              lawyerName: lwName,
+              dateStr: dateStr,
+              statusColor: _getStatusColor(c.status),
+            );
+          },
+        );
+      },
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: Color(0xFF1E3A8A)),
+      ),
+      error: (err, stack) {
+        print('❌ Cases Error: $err');
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  color: Color(0xFFDC2626),
+                  size: 48,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Unable to Load Cases',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Please check your internet connection',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => ref.refresh(allCasesProvider),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E3A8A),
+                  ),
+                  child: const Text(
+                    'Retry',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
           ),
-          _CaseRowItem(
-            caseId: '#LS-2026-872',
-            title: 'Divorce Settlement & Custody',
-            clientName: 'Client: Ayesha Siddiqui',
-            lawyerName: 'Adv. Ahmed Khan',
-            category: 'Family Law',
-            date: 'Next Hearing: 18 Mar 2026',
-            status: 'ACTIVE',
-            statusColor: const Color(0xFF059669),
-          ),
-          _CaseRowItem(
-            caseId: '#LS-2026-855',
-            title: 'Breach of Employment Contract',
-            clientName: 'Client: Umar Farooq',
-            lawyerName: 'Barrister Bilal',
-            category: 'Corporate Law',
-            date: 'Next Hearing: 22 Mar 2026',
-            status: 'IN PROGRESS',
-            statusColor: const Color(0xFFE67E22),
-          ),
-          _CaseRowItem(
-            caseId: '#LS-2026-821',
-            title: 'Fraudulent Check Issuance (Sec 489-F)',
-            clientName: 'Client: Hassan Trade Co.',
-            lawyerName: 'Adv. Ahmed Khan',
-            category: 'Criminal Law',
-            date: 'Next Hearing: 05 Apr 2026',
-            status: 'ACTIVE',
-            statusColor: const Color(0xFF059669),
-          ),
-        ],
-      );
-    } else if (_selectedTabIndex == 1) {
-      return ListView(
-        children: [
-          _CaseRowItem(
-            caseId: '#LS-2025-430',
-            title: 'Land Encroachment Settlement',
-            clientName: 'Client: Munir Associates',
-            lawyerName: 'Adv. Zoya Malik',
-            category: 'Civil Law',
-            date: 'Resolved: 02 Jan 2026',
-            status: 'RESOLVED',
-            statusColor: const Color(0xFF1E3A8A),
-          ),
-          _CaseRowItem(
-            caseId: '#LS-2025-392',
-            title: 'Tax Evasion Allegations',
-            clientName: 'Client: IT Solutions Ltd',
-            lawyerName: 'Adv. Sarah Malik',
-            category: 'Corporate Law',
-            date: 'Resolved: 28 Dec 2025',
-            status: 'CLOSED',
-            statusColor: const Color(0xFF6B7280),
-          ),
-        ],
-      );
-    } else {
-      return ListView(
-        children: [
-          _CaseRowItem(
-            caseId: '#LS-2026-905',
-            title: 'Intellectual Property Infringement',
-            clientName: 'Client: StartupTech',
-            lawyerName: 'Unassigned',
-            category: 'Corporate Law',
-            date: 'Filed: 26 Feb 2026',
-            status: 'PENDING',
-            statusColor: const Color(0xFFDC2626),
-          ),
-          _CaseRowItem(
-            caseId: '#LS-2026-911',
-            title: 'Tenant Eviction Notice',
-            clientName: 'Client: Waqar Properties',
-            lawyerName: 'Unassigned',
-            category: 'Civil Law',
-            date: 'Filed: 27 Feb 2026',
-            status: 'PENDING',
-            statusColor: const Color(0xFFDC2626),
-          ),
-        ],
-      );
+        );
+      },
+    );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'active':
+      case 'in_progress':
+      case 'ongoing':
+        return const Color(0xFF059669);
+      case 'resolved':
+      case 'closed':
+      case 'completed':
+        return const Color(0xFF1E3A8A);
+      case 'pending':
+        return const Color(0xFFDC2626);
+      default:
+        return Colors.grey;
     }
   }
 }
 
 class _CaseRowItem extends StatelessWidget {
-  final String caseId;
-  final String title;
+  final CaseModel caseModel;
   final String clientName;
   final String lawyerName;
-  final String category;
-  final String date;
-  final String status;
+  final String dateStr;
   final Color statusColor;
 
   const _CaseRowItem({
-    required this.caseId,
-    required this.title,
+    required this.caseModel,
     required this.clientName,
     required this.lawyerName,
-    required this.category,
-    required this.date,
-    required this.status,
+    required this.dateStr,
     required this.statusColor,
   });
 
@@ -493,7 +599,7 @@ class _CaseRowItem extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      caseId,
+                      '#${caseModel.caseId.substring(0, 8)}',
                       style: const TextStyle(
                         color: Color(0xFF1E3A8A),
                         fontWeight: FontWeight.bold,
@@ -501,14 +607,16 @@ class _CaseRowItem extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      category,
+                      caseModel.caseType ?? 'General',
                       style: const TextStyle(color: Colors.grey, fontSize: 10),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  title,
+                  caseModel.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
@@ -520,9 +628,16 @@ class _CaseRowItem extends StatelessWidget {
                   children: [
                     const Icon(Icons.person, size: 12, color: Colors.grey),
                     const SizedBox(width: 4),
-                    Text(
-                      clientName,
-                      style: const TextStyle(color: Colors.grey, fontSize: 11),
+                    Expanded(
+                      child: Text(
+                        'Client: $clientName',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 11,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -531,15 +646,22 @@ class _CaseRowItem extends StatelessWidget {
                   children: [
                     const Icon(Icons.gavel, size: 12, color: Colors.grey),
                     const SizedBox(width: 4),
-                    Text(
-                      'Lawyer: $lawyerName',
-                      style: const TextStyle(color: Colors.grey, fontSize: 11),
+                    Expanded(
+                      child: Text(
+                        'Lawyer: $lawyerName',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 11,
+                        ),
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  date,
+                  dateStr,
                   style: const TextStyle(
                     color: Color(0xFFE67E22),
                     fontSize: 11,
@@ -559,7 +681,7 @@ class _CaseRowItem extends StatelessWidget {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  status,
+                  caseModel.status.toUpperCase(),
                   style: TextStyle(
                     color: statusColor,
                     fontSize: 9,
@@ -571,9 +693,10 @@ class _CaseRowItem extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.chevron_right, color: Colors.grey),
                 onPressed: () {
+                  // Navigate to Case Details Screen using context
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Viewing details for $caseId'),
+                      content: Text('Viewing details for ${caseModel.title}'),
                       behavior: SnackBarBehavior.floating,
                       backgroundColor: const Color(0xFF1E3A8A),
                     ),
@@ -585,6 +708,32 @@ class _CaseRowItem extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TabPlaceholder extends StatelessWidget {
+  final String title;
+  final int count;
+
+  const _TabPlaceholder(this.title, this.count);
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Center(
+          child: Text(
+            '$title ($count)',
+            style: const TextStyle(
+              color: Color(0xFF6B7280),
+              fontWeight: FontWeight.bold,
+              fontSize: 11,
+            ),
+          ),
+        ),
       ),
     );
   }

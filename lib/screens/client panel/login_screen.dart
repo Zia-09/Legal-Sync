@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/provider/auth_provider.dart';
@@ -6,6 +7,11 @@ import 'package:legal_sync/screens/client%20panel/forgot_password_screen.dart';
 import 'package:legal_sync/screens/client%20panel/home_screen.dart';
 import 'package:legal_sync/screens/client%20panel/register_screen.dart';
 import 'package:legal_sync/screens/lawyer%20panel/lawyer_dashboard_screen.dart';
+
+// ─── Static Admin Credentials ────────────────────────────────────────────────
+// These are checked before any Firebase call. Do NOT expose in UI.
+const String _adminEmail = 'admin@legalsync.com';
+const String _adminPassword = 'Admin@1234';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -30,13 +36,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    // ─── Admin shortcut ───────────────────────────────────────────────────────
+    if (email == _adminEmail && password == _adminPassword) {
+      try {
+        await FirebaseAuth.instance.signInAnonymously();
+      } catch (_) {}
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
+      );
+      return;
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     try {
       final role = await ref
           .read(authNotifierProvider.notifier)
-          .login(
-            email: _emailController.text.trim(),
-            password: _passwordController.text,
-          );
+          .login(email: email, password: password);
 
       if (!mounted) return;
 

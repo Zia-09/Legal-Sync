@@ -30,8 +30,6 @@ class LawyerProfileScreen extends ConsumerWidget {
   String get _name => lawyer?.name ?? name ?? 'Lawyer';
   String get _specialty => lawyer?.specialization ?? specialty ?? 'Specialist';
   double get _rating => lawyer?.rating ?? rating ?? 0.0;
-  int get _reviews => lawyer?.totalReviews ?? reviews ?? 0;
-  String get _location => lawyer?.location ?? location ?? 'PK';
   String get _experience => lawyer?.experience ?? experience ?? '8 Years';
   bool get _hasProfileImage =>
       (lawyer?.profileImage != null && lawyer!.profileImage!.isNotEmpty) ||

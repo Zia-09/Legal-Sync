@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:legal_sync/provider/auth_provider.dart';
 import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/provider/lawyer_provider.dart';
-import 'package:legal_sync/model/lawyer_Model.dart';
-import 'lawyer_profile_screen.dart';
 import 'legal_categories_screen.dart';
 import 'messages_screen.dart';
 import 'case_status_screen.dart';
 import 'search_filter_screen.dart';
 import 'app_setting_screen.dart';
-import 'login_screen.dart';
 import 'widgets/home_widgets.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
