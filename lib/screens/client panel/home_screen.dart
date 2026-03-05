@@ -61,54 +61,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     },
   ];
 
-  final List<Map<String, dynamic>> _lawyers = [
-    {
-      'name': 'Hamad Khan',
-      'specialty': 'Criminal Lawyer',
-      'rating': 4.9,
-      'reviews': 200,
-      'location': 'Islamabad, PK',
-      'experience': '8 Years',
-      'useProfile': false,
-    },
-    {
-      'name': 'Zaid Salar',
-      'specialty': 'Corporate Lawyer',
-      'rating': 4.8,
-      'reviews': 145,
-      'location': 'Lahore, PK',
-      'experience': '6 Years',
-      'useProfile': false,
-    },
-    {
-      'name': 'Jonathan Sterling',
-      'specialty': 'Senior Partner | Corporate Law',
-      'rating': 4.9,
-      'reviews': 320,
-      'location': 'Karachi, PK',
-      'experience': '15+ Years',
-      'useProfile': true,
-    },
-    {
-      'name': 'Sara Malik',
-      'specialty': 'Family Lawyer',
-      'rating': 4.7,
-      'reviews': 98,
-      'location': 'Rawalpindi, PK',
-      'experience': '5 Years',
-      'useProfile': false,
-    },
-    {
-      'name': 'Adv. Zia Ullah',
-      'specialty': 'Civil Law Specialist',
-      'rating': 4.8,
-      'reviews': 180,
-      'location': 'Peshawar, PK',
-      'experience': '12 Years',
-      'useProfile': false,
-    },
-  ];
-
   @override
   void dispose() {
     _searchCtrl.dispose();
@@ -613,9 +565,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 );
                               }
 
-                              return _buildLawyerList(
-                                _lawyers,
-                                isFallback: true,
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 40),
+                                child: Center(
+                                  child: Text(
+                                    'No verified lawyers available at the moment',
+                                    style: TextStyle(
+                                      color: Color(0xFF6B6B6B),
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
                               );
                             }
                             return ListView.builder(
@@ -639,8 +599,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ),
                             ),
                           ),
-                          error: (e, st) =>
-                              _buildLawyerList(_lawyers, isFallback: true),
+                          error: (e, st) => const Center(
+                            child: Text(
+                              'Error loading lawyers',
+                              style: TextStyle(color: Colors.redAccent),
+                            ),
+                          ),
                         );
                       },
                     ),
@@ -653,22 +617,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
       bottomNavigationBar: _buildBottomNav(context),
-    );
-  }
-
-  // Helper to build lawyer cards from hardcoded data (fallback)
-  Widget _buildLawyerList(
-    List<Map<String, dynamic>> lawyers, {
-    bool isFallback = false,
-  }) {
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      itemCount: lawyers.length,
-      itemBuilder: (context, index) {
-        return DemoLawyerCard(lawyer: lawyers[index], isFallback: isFallback);
-      },
     );
   }
 

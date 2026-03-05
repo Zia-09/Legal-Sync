@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/provider/client_provider.dart';
-import 'package:legal_sync/provider/chat_provider.dart';
-import 'package:legal_sync/model/chat_Model.dart';
+import 'package:legal_sync/provider/chat_thread_provider.dart';
+import 'package:legal_sync/model/chat_thread_model.dart';
 import 'home_screen.dart';
 import 'case_status_screen.dart';
 import 'app_setting_screen.dart';
@@ -54,49 +54,35 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
         }
 
         return ref
-            .watch(userMessagesProvider(client.clientId))
+            .watch(chatThreadsForUserProvider(client.clientId))
             .when(
-              data: (messages) {
-                // Group messages by chat (receiverId if I am sender, or senderId if I am receiver)
-                final chatsMap = <String, ChatMessage>{};
-                for (var msg in messages) {
-                  final otherId = msg.senderId == client.clientId
-                      ? msg.receiverId
-                      : msg.senderId;
-                  if (!chatsMap.containsKey(otherId) ||
-                      msg.sentAt.isAfter(chatsMap[otherId]!.sentAt)) {
-                    chatsMap[otherId] = msg;
-                  }
-                }
+              data: (threads) {
+                // 🔹 Filter out archived/blocked if needed
+                final activeThreads = threads
+                    .where((t) => !t.isArchived && !t.isBlocked)
+                    .toList();
 
-                var chatList = chatsMap.values.toList()
-                  ..sort((a, b) => b.sentAt.compareTo(a.sentAt));
+                // 🔹 Real-time search logic
+                final filteredThreads = _filterThreads(activeThreads);
 
-                // Implementation of real-time search
-                // The filtering is now handled by _filterChats
-                if (_searchCtrl.text.isNotEmpty) {
-                  // Search is active
-                }
+                // 🔹 Separate lists for tabs
+                final unreadThreads = filteredThreads.where((t) {
+                  return client.clientId == t.clientId
+                      ? t.unreadByClient > 0
+                      : t.unreadByLawyer > 0;
+                }).toList();
 
-                // Case-based grouping (Groups tab)
-                final caseGroupsMap = <String, List<ChatMessage>>{};
-                for (var msg in messages) {
-                  if (msg.caseId != null) {
-                    if (!caseGroupsMap.containsKey(msg.caseId)) {
-                      caseGroupsMap[msg.caseId!] = [];
-                    }
-                    caseGroupsMap[msg.caseId!]!.add(msg);
-                  }
-                }
-                final caseGroupList = caseGroupsMap.entries.map((e) {
-                  final sorted = e.value
-                    ..sort((a, b) => b.sentAt.compareTo(a.sentAt));
-                  return sorted.first; // Representative message for the group
-                }).toList()..sort((a, b) => b.sentAt.compareTo(a.sentAt));
+                final groupThreads = filteredThreads
+                    .where((t) => t.caseId != null)
+                    .toList();
 
-                final unreadCount = messages
-                    .where((m) => m.receiverId == client.clientId && !m.isRead)
-                    .length;
+                // 🔹 Total unread count for the tab badge
+                final totalUnread = activeThreads.fold<int>(0, (sum, t) {
+                  return sum +
+                      (client.clientId == t.clientId
+                          ? t.unreadByClient
+                          : t.unreadByLawyer);
+                });
 
                 return Scaffold(
                   backgroundColor: const Color(0xFF0F0F0F),
@@ -210,7 +196,8 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                                               fontSize: 13,
                                             ),
                                             decoration: const InputDecoration(
-                                              hintText: 'Search messages...',
+                                              hintText:
+                                                  'Search conversations...',
                                               hintStyle: TextStyle(
                                                 color: Color(0xFF5A5A5A),
                                               ),
@@ -258,7 +245,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                                   children: [
                                     const Text('Unread'),
                                     const SizedBox(width: 4),
-                                    if (unreadCount > 0)
+                                    if (totalUnread > 0)
                                       Container(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 5,
@@ -271,7 +258,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                                           ),
                                         ),
                                         child: Text(
-                                          '$unreadCount',
+                                          '$totalUnread',
                                           style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 10,
@@ -293,27 +280,16 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                             controller: _tabController,
                             children: [
                               ChatList(
-                                chatMessages: _filterChats(chatList),
+                                threads: filteredThreads,
                                 currentUserId: client.clientId,
-                                searchQuery: _searchCtrl.text,
                               ),
                               ChatList(
-                                chatMessages: _filterChats(
-                                  chatList
-                                      .where(
-                                        (m) =>
-                                            m.receiverId == client.clientId &&
-                                            !m.isRead,
-                                      )
-                                      .toList(),
-                                ),
+                                threads: unreadThreads,
                                 currentUserId: client.clientId,
-                                searchQuery: _searchCtrl.text,
                               ),
                               ChatList(
-                                chatMessages: _filterChats(caseGroupList),
+                                threads: groupThreads,
                                 currentUserId: client.clientId,
-                                searchQuery: _searchCtrl.text,
                                 isGroup: true,
                               ),
                             ],
@@ -360,12 +336,16 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
     );
   }
 
-  List<ChatMessage> _filterChats(List<ChatMessage> chats) {
-    if (_searchCtrl.text.isEmpty) return chats;
+  List<ChatThreadModel> _filterThreads(List<ChatThreadModel> threads) {
+    if (_searchCtrl.text.isEmpty) return threads;
     final query = _searchCtrl.text.toLowerCase();
-    // Note: We can only filter by message content here because lawyer names are fetched asynchronously in the tiles.
-    // However, we could pre-fetch lawyer names or use a more complex state management if needed.
-    return chats.where((m) => m.message.toLowerCase().contains(query)).toList();
+
+    // 🔹 Search in last message content
+    return threads.where((t) {
+      final msgMatch = t.lastMessage?.toLowerCase().contains(query) ?? false;
+      // Note: For lawyer name search, we would need to join data.
+      return msgMatch;
+    }).toList();
   }
 
   Widget _buildBottomNav(BuildContext context) {

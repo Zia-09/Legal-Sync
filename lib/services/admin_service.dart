@@ -176,20 +176,20 @@ class AdminService {
   // =========================
 
   Stream<List<AICasePredictionModel>> getAllAIPredictions() {
-    return _firestore
-        .collection(aiPredictionsCollection)
-        .orderBy('predictedAt', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map(
-                (doc) => AICasePredictionModel.fromJson({
-                  ...doc.data(),
-                  'caseId': doc.id,
-                }),
-              )
-              .toList(),
-        );
+    return _firestore.collection(aiPredictionsCollection).snapshots().map((
+      snapshot,
+    ) {
+      final docs = snapshot.docs
+          .map(
+            (doc) => AICasePredictionModel.fromJson({
+              ...doc.data(),
+              'caseId': doc.id,
+            }),
+          )
+          .toList();
+      docs.sort((a, b) => b.predictedAt.compareTo(a.predictedAt));
+      return docs;
+    });
   }
 
   Future<void> deleteAIPrediction(String predictionId) async {

@@ -47,13 +47,16 @@ class CaseStatusHistoryService {
     return _db
         .collection(_collection)
         .where('caseId', isEqualTo: caseId)
-        .orderBy('changedAt', descending: true)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
+        .map((snapshot) {
+          final docs = snapshot.docs
               .map((doc) => CaseStatusHistoryModel.fromJson(doc.data()))
-              .toList(),
-        );
+              .toList();
+          docs.sort(
+            (a, b) => b.changedAt.compareTo(a.changedAt),
+          ); // Newest first
+          return docs;
+        });
   }
 
   Stream<List<CaseStatusHistoryModel>> streamStatusChangesForCase(
@@ -71,13 +74,16 @@ class CaseStatusHistoryService {
     return _db
         .collection(_collection)
         .where('lawyerId', isEqualTo: lawyerId)
-        .orderBy('changedAt', descending: true)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
+        .map((snapshot) {
+          final docs = snapshot.docs
               .map((doc) => CaseStatusHistoryModel.fromJson(doc.data()))
-              .toList(),
-        );
+              .toList();
+          docs.sort(
+            (a, b) => b.changedAt.compareTo(a.changedAt),
+          ); // Newest first
+          return docs;
+        });
   }
 
   Stream<List<CaseStatusHistoryModel>> streamStatusChangesForLawyer(
@@ -93,12 +99,14 @@ class CaseStatusHistoryService {
     final snapshot = await _db
         .collection(_collection)
         .where('caseId', isEqualTo: caseId)
-        .orderBy('changedAt', descending: true)
-        .limit(1)
         .get();
 
     if (snapshot.docs.isNotEmpty) {
-      return CaseStatusHistoryModel.fromJson(snapshot.docs.first.data());
+      final docs = snapshot.docs
+          .map((doc) => CaseStatusHistoryModel.fromJson(doc.data()))
+          .toList();
+      docs.sort((a, b) => b.changedAt.compareTo(a.changedAt));
+      return docs.first;
     }
     return null;
   }
@@ -123,21 +131,13 @@ class CaseStatusHistoryService {
     required DateTime startDate,
     required DateTime endDate,
   }) {
-    return _db
-        .collection(_collection)
-        .where('caseId', isEqualTo: caseId)
-        .where(
-          'changedAt',
-          isGreaterThanOrEqualTo: Timestamp.fromDate(startDate),
-        )
-        .where('changedAt', isLessThanOrEqualTo: Timestamp.fromDate(endDate))
-        .orderBy('changedAt', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => CaseStatusHistoryModel.fromJson(doc.data()))
-              .toList(),
-        );
+    return streamCaseStatusHistory(caseId).map((historyItems) {
+      return historyItems.where((item) {
+        final date = item.changedAt;
+        return (date.isAfter(startDate) || date.isAtSameMomentAs(startDate)) &&
+            (date.isBefore(endDate) || date.isAtSameMomentAs(endDate));
+      }).toList();
+    });
   }
 
   // ===============================

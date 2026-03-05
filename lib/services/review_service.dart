@@ -35,17 +35,18 @@ class ReviewService {
     return _firestore
         .collection(_collection)
         .where('lawyerId', isEqualTo: lawyerId)
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs.map((doc) {
+        .map((snapshot) {
+          final docs = snapshot.docs.map((doc) {
             final data = doc.data();
             return ReviewModel.fromJson({
               ...Map<String, dynamic>.from(data),
               'reviewId': doc.id,
             });
-          }).toList(),
-        );
+          }).toList();
+          docs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return docs;
+        });
   }
 
   /// 🔹 Get reviews by a specific client
@@ -53,17 +54,18 @@ class ReviewService {
     return _firestore
         .collection(_collection)
         .where('clientId', isEqualTo: clientId)
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs.map((doc) {
+        .map((snapshot) {
+          final docs = snapshot.docs.map((doc) {
             final data = doc.data();
             return ReviewModel.fromJson({
               ...Map<String, dynamic>.from(data),
               'reviewId': doc.id,
             });
-          }).toList(),
-        );
+          }).toList();
+          docs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return docs;
+        });
   }
 
   /// 🔹 Get a single review by ID
@@ -159,21 +161,10 @@ class ReviewService {
 
   /// 🔹 Get only visible and approved reviews
   Stream<List<ReviewModel>> getVisibleApprovedReviews(String lawyerId) {
-    return _firestore
-        .collection(_collection)
-        .where('lawyerId', isEqualTo: lawyerId)
-        .where('isVisible', isEqualTo: true)
-        .where('status', isEqualTo: 'approved')
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs.map((doc) {
-            final data = doc.data();
-            return ReviewModel.fromJson({
-              ...Map<String, dynamic>.from(data),
-              'reviewId': doc.id,
-            });
-          }).toList(),
-        );
+    return getReviewsByLawyer(lawyerId).map((reviews) {
+      return reviews
+          .where((r) => r.isVisible == true && r.status == 'approved')
+          .toList();
+    });
   }
 }

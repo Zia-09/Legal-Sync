@@ -1,4 +1,3 @@
-// lib/services/client_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:legal_sync/model/case_Model.dart';
 import 'package:legal_sync/model/client_Model.dart';
@@ -21,6 +20,7 @@ class ClientService {
           .collection(_collection)
           .doc(client.clientId)
           .set(client.toJson(), SetOptions(merge: true));
+
       return "success";
     } catch (e) {
       print("Error in addOrUpdateClient: $e");
@@ -86,6 +86,7 @@ class ClientService {
 
       // Delete client document
       await _firestore.collection(_collection).doc(clientId).delete();
+
       return "success";
     } catch (e) {
       print("Error in deleteClient: $e");
@@ -164,10 +165,9 @@ class ClientService {
     return _firestore
         .collection('cases')
         .where('clientId', isEqualTo: clientId)
-        .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs
+          final docs = snapshot.docs
               .map(
                 (doc) => CaseModel.fromJson({
                   ...doc.data() as Map<String, dynamic>,
@@ -175,6 +175,8 @@ class ClientService {
                 }),
               )
               .toList();
+          docs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return docs;
         });
   }
 

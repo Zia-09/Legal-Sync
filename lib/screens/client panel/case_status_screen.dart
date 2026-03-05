@@ -22,6 +22,7 @@ class CaseStatusScreen extends ConsumerStatefulWidget {
 
 class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
   int _currentIndex = 2;
+  int _selectedCaseIndex = 0; // 🔹 Support for multiple cases
 
   List<TimelineStep> _buildTimeline(CaseModel caseModel) {
     final List<TimelineStep> timeline = [];
@@ -122,7 +123,13 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
                 if (cases.isEmpty) {
                   return _buildEmptyState();
                 }
-                final currentCase = cases.first;
+
+                // 🔹 Ensure index is within bounds
+                if (_selectedCaseIndex >= cases.length) {
+                  _selectedCaseIndex = 0;
+                }
+
+                final currentCase = cases[_selectedCaseIndex];
                 final timeline = _buildTimeline(currentCase);
                 final progress = _calculateProgress(currentCase.status);
 
@@ -132,6 +139,8 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
                     child: Column(
                       children: [
                         _buildHeader(context),
+                        if (cases.length > 1)
+                          _buildCaseSelector(cases), // 🔹 Multi-case selector
                         const SizedBox(height: 16),
                         Expanded(
                           child: SingleChildScrollView(
@@ -971,6 +980,60 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
             ),
           );
         }),
+      ),
+    );
+  }
+
+  Widget _buildCaseSelector(List<CaseModel> cases) {
+    return Container(
+      height: 48,
+      margin: const EdgeInsets.only(top: 8),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: cases.length,
+        itemBuilder: (context, index) {
+          final isSelected = _selectedCaseIndex == index;
+          return GestureDetector(
+            onTap: () => setState(() => _selectedCaseIndex = index),
+            child: Container(
+              margin: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? const Color(0xFFFF6B00)
+                    : const Color(0xFF1E1E1E),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isSelected
+                      ? Colors.transparent
+                      : const Color(0xFF2A2A2A),
+                ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: const Color(0xFFFF6B00).withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Center(
+                child: Text(
+                  'Case ${index + 1}',
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : const Color(0xFF9E9E9E),
+                    fontSize: 13,
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

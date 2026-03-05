@@ -65,36 +65,24 @@ class NotificationService {
 
   /// 🔹 Stream notifications for a specific user
   Stream<List<NotificationModel>> streamNotificationsByUser(String userId) {
-    return _notifications
-        .where('userId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map(
-                (doc) => NotificationModel.fromJson(
-                  doc.data() as Map<String, dynamic>,
-                ),
-              )
-              .toList(),
-        );
+    return _notifications.where('userId', isEqualTo: userId).snapshots().map((
+      snapshot,
+    ) {
+      final docs = snapshot.docs
+          .map(
+            (doc) =>
+                NotificationModel.fromJson(doc.data() as Map<String, dynamic>),
+          )
+          .toList();
+      docs.sort((a, b) => b.createdAt.compareTo(a.createdAt)); // Newest first
+      return docs;
+    });
   }
 
   Stream<List<NotificationModel>> streamUnreadNotifications(String userId) {
-    return _notifications
-        .where('userId', isEqualTo: userId)
-        .where('isRead', isEqualTo: false)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map(
-                (doc) => NotificationModel.fromJson(
-                  doc.data() as Map<String, dynamic>,
-                ),
-              )
-              .toList(),
-        );
+    return streamNotificationsByUser(userId).map((notifications) {
+      return notifications.where((n) => n.isRead == false).toList();
+    });
   }
 
   Stream<int> streamUnreadNotificationsCount(String userId) {
@@ -103,18 +91,16 @@ class NotificationService {
 
   /// 🔹 Stream all notifications (for Admin Dashboard)
   Stream<List<NotificationModel>> streamAllNotifications() {
-    return _notifications
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map(
-                (doc) => NotificationModel.fromJson(
-                  doc.data() as Map<String, dynamic>,
-                ),
-              )
-              .toList(),
-        );
+    return _notifications.snapshots().map((snapshot) {
+      final docs = snapshot.docs
+          .map(
+            (doc) =>
+                NotificationModel.fromJson(doc.data() as Map<String, dynamic>),
+          )
+          .toList();
+      docs.sort((a, b) => b.createdAt.compareTo(a.createdAt)); // Newest first
+      return docs;
+    });
   }
 
   /// 🔹 Mark all notifications as read for a user

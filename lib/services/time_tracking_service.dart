@@ -106,13 +106,14 @@ class TimeTrackingService {
       final snapshot = await _firestore
           .collection(_collection)
           .where('caseId', isEqualTo: caseId)
-          .where('isBillable', isEqualTo: true)
           .get();
 
       double totalMinutes = 0;
       for (final doc in snapshot.docs) {
         final data = doc.data();
-        totalMinutes += (data['duration'] ?? 0).toDouble();
+        if (data['isBillable'] == true) {
+          totalMinutes += (data['duration'] ?? 0).toDouble();
+        }
       }
 
       return totalMinutes / 60.0;
@@ -125,10 +126,9 @@ class TimeTrackingService {
     return _firestore
         .collection(_collection)
         .where('caseId', isEqualTo: caseId)
-        .orderBy('startTime', descending: true)
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs
+          final docs = snapshot.docs
               .map(
                 (doc) => TimeEntryModel.fromJson({
                   ...doc.data(),
@@ -136,6 +136,8 @@ class TimeTrackingService {
                 }),
               )
               .toList();
+          docs.sort((a, b) => b.startTime.compareTo(a.startTime));
+          return docs;
         });
   }
 
@@ -143,10 +145,9 @@ class TimeTrackingService {
     return _firestore
         .collection(_collection)
         .where('lawyerId', isEqualTo: lawyerId)
-        .orderBy('startTime', descending: true)
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs
+          final docs = snapshot.docs
               .map(
                 (doc) => TimeEntryModel.fromJson({
                   ...doc.data(),
@@ -154,6 +155,8 @@ class TimeTrackingService {
                 }),
               )
               .toList();
+          docs.sort((a, b) => b.startTime.compareTo(a.startTime));
+          return docs;
         });
   }
 
@@ -162,15 +165,17 @@ class TimeTrackingService {
       final snapshot = await _firestore
           .collection(_collection)
           .where('lawyerId', isEqualTo: lawyerId)
-          .where('status', isEqualTo: 'active')
-          .limit(1)
           .get();
 
-      if (snapshot.docs.isEmpty) {
+      final activeDocs = snapshot.docs.where(
+        (doc) => doc.data()['status'] == 'active',
+      );
+
+      if (activeDocs.isEmpty) {
         return null;
       }
 
-      final doc = snapshot.docs.first;
+      final doc = activeDocs.first;
       return TimeEntryModel.fromJson({...doc.data(), 'timeEntryId': doc.id});
     } catch (e) {
       throw Exception('Failed to get active timer: $e');
@@ -213,8 +218,6 @@ class TimeTrackingService {
       final snapshot = await _firestore
           .collection(_collection)
           .where('lawyerId', isEqualTo: lawyerId)
-          .where('isBillable', isEqualTo: true)
-          .where('status', isEqualTo: 'completed')
           .get();
 
       double totalMinutes = 0;
@@ -222,8 +225,10 @@ class TimeTrackingService {
 
       for (final doc in snapshot.docs) {
         final data = doc.data();
-        totalMinutes += (data['duration'] ?? 0).toDouble();
-        entriesCount++;
+        if (data['isBillable'] == true && data['status'] == 'completed') {
+          totalMinutes += (data['duration'] ?? 0).toDouble();
+          entriesCount++;
+        }
       }
 
       return {

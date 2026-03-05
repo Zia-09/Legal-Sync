@@ -77,10 +77,9 @@ class HearingService {
     return _firestore
         .collection(_collection)
         .where('caseId', isEqualTo: caseId)
-        .orderBy('hearingDate', descending: false)
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs
+          final docs = snapshot.docs
               .map(
                 (doc) => HearingModel.fromJson({
                   ...doc.data() as Map<String, dynamic>,
@@ -88,6 +87,10 @@ class HearingService {
                 }),
               )
               .toList();
+          docs.sort(
+            (a, b) => a.hearingDate.compareTo(b.hearingDate),
+          ); // Ascending
+          return docs;
         });
   }
 
@@ -99,23 +102,29 @@ class HearingService {
 
   /// 🔹 Get upcoming hearings for lawyer
   Stream<List<HearingModel>> getUpcomingHearings(String lawyerId) {
-    final now = DateTime.now();
     return _firestore
         .collection(_collection)
         .where('createdBy', isEqualTo: lawyerId)
-        .where('hearingDate', isGreaterThan: Timestamp.fromDate(now))
-        .where('status', whereIn: ['scheduled', 'ongoing'])
-        .orderBy('hearingDate', descending: false)
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs
+          final now = DateTime.now();
+          final docs = snapshot.docs
               .map(
                 (doc) => HearingModel.fromJson({
                   ...doc.data() as Map<String, dynamic>,
                   'hearingId': doc.id,
                 }),
               )
+              .where((h) {
+                final isUpcoming = h.hearingDate.isAfter(now);
+                final isActive = ['scheduled', 'ongoing'].contains(h.status);
+                return isUpcoming && isActive;
+              })
               .toList();
+          docs.sort(
+            (a, b) => a.hearingDate.compareTo(b.hearingDate),
+          ); // Chronological
+          return docs;
         });
   }
 

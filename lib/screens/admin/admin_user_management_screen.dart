@@ -52,12 +52,7 @@ class _AdminUserManagementScreenState
         ),
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: widget.initialSearch != null
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back, color: Color(0xFF1F2937)),
-                onPressed: () => Navigator.pop(context),
-              )
-            : null,
+        leading: null, // Removed back arrow because this is part of IndexedStack bottom nav
         actions: [
           if (_searchQuery.isEmpty)
             IconButton(

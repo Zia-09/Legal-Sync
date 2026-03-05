@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:legal_sync/model/chat_Model.dart';
 import 'package:legal_sync/model/lawyer_Model.dart';
 import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/provider/chat_provider.dart';
-import 'package:legal_sync/services/chat_service.dart';
+import 'package:legal_sync/provider/chat_thread_provider.dart';
+import 'package:legal_sync/services/chat_thread_service.dart';
 import 'package:legal_sync/services/supabase_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ChatDetailScreen extends ConsumerStatefulWidget {
   final String receiverId;
@@ -53,13 +56,32 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       );
 
       // Send message
-      await ChatService().sendMessage(
+      final threads = await ref
+          .read(chatThreadServiceProvider)
+          .streamThreadsBetween(clientId, widget.receiverId)
+          .first;
+      String threadId;
+      if (threads.isEmpty) {
+        threadId = await ref
+            .read(chatThreadServiceProvider)
+            .createThread(lawyerId: widget.receiverId, clientId: clientId);
+      } else {
+        threadId = threads.first.threadId;
+      }
+
+      final newMessage = ChatMessage(
+        messageId: FirebaseFirestore.instance.collection('dummy').doc().id,
         senderId: clientId,
         receiverId: widget.receiverId,
-        message: 'Image',
+        message: 'Shared an image',
         messageType: 'image',
         fileUrl: imageUrl,
+        sentAt: DateTime.now(),
       );
+
+      await ref
+          .read(chatThreadServiceProvider)
+          .sendMessage(threadId: threadId, message: newMessage);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -71,6 +93,19 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
   @override
   void dispose() {
+    // 🔹 Clear typing status on exit
+    final clientAsync = ref.read(currentClientProvider);
+    clientAsync.whenData((client) {
+      if (client != null) {
+        ref
+            .read(chatStateNotifierProvider.notifier)
+            .setTypingStatus(
+              senderId: client.clientId,
+              receiverId: widget.receiverId,
+              isTyping: false,
+            );
+      }
+    });
     _ctrl.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -405,11 +440,51 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                                 if (_ctrl.text.trim().isNotEmpty) {
                                   final text = _ctrl.text.trim();
                                   _ctrl.clear();
-                                  await ChatService().sendMessage(
+                                  // 🔹 Clear typing status when message is sent
+                                  ref
+                                      .read(chatStateNotifierProvider.notifier)
+                                      .setTypingStatus(
+                                        senderId: client.clientId,
+                                        receiverId: widget.receiverId,
+                                        isTyping: false,
+                                      );
+                                  // 🔹 Find or create thread
+                                  final threads = await ref
+                                      .read(chatThreadServiceProvider)
+                                      .streamThreadsBetween(
+                                        client.clientId,
+                                        widget.receiverId,
+                                      )
+                                      .first;
+                                  String threadId;
+                                  if (threads.isEmpty) {
+                                    threadId = await ref
+                                        .read(chatThreadServiceProvider)
+                                        .createThread(
+                                          lawyerId: widget.receiverId,
+                                          clientId: client.clientId,
+                                        );
+                                  } else {
+                                    threadId = threads.first.threadId;
+                                  }
+
+                                  final newMessage = ChatMessage(
+                                    messageId: FirebaseFirestore.instance
+                                        .collection('dummy')
+                                        .doc()
+                                        .id,
                                     senderId: client.clientId,
                                     receiverId: widget.receiverId,
                                     message: text,
+                                    sentAt: DateTime.now(),
                                   );
+
+                                  await ref
+                                      .read(chatThreadServiceProvider)
+                                      .sendMessage(
+                                        threadId: threadId,
+                                        message: newMessage,
+                                      );
                                 }
                               },
                               child: Container(

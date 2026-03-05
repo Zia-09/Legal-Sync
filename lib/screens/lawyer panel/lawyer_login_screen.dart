@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/provider/auth_provider.dart';
@@ -6,6 +7,7 @@ import 'package:legal_sync/screens/lawyer%20panel/lawyer_dashboard_screen.dart';
 import 'package:legal_sync/screens/lawyer%20panel/lawyer_registration_screen.dart';
 import 'package:legal_sync/screens/lawyer%20panel/lawyer_forgot_password_screen.dart';
 import 'package:legal_sync/screens/client%20panel/login_screen.dart';
+import 'package:legal_sync/services/email_service.dart';
 
 // ─── Static Admin Credentials ────────────────────────────────────────────────
 // Shared with client login. Not shown in UI.
@@ -40,6 +42,16 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
 
     // ─── Admin shortcut ───────────────────────────────────────────────────────
     if (email == _adminEmail && password == _adminPassword) {
+      try {
+        await FirebaseAuth.instance.signInAnonymously();
+        // 🔹 Trigger Admin Login Email
+        emailService.sendProfessionalEmail(
+          to: _adminEmail,
+          subject: 'Admin Entry (via Lawyer Portal) - LegalSync',
+          htmlContent:
+              '<h1>Admin Login Successful</h1><p>The main admin account has just entered the system via the lawyer portal.</p>',
+        );
+      } catch (_) {}
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
@@ -79,6 +91,54 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
           MaterialPageRoute(builder: (_) => const LoginScreen()),
         );
       }
+
+      if (!mounted) return;
+
+      // 🔹 Professional Success Feedback
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(
+                Icons.check_circle_outline,
+                color: Colors.white,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Authentication Successful',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      'Welcome back to LegalSync elite services.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withOpacity(0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFF16A34A),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          margin: const EdgeInsets.all(16),
+          duration: const Duration(seconds: 3),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

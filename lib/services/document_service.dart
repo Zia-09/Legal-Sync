@@ -84,10 +84,9 @@ class DocumentService {
     return _firestore
         .collection(_collection)
         .where('caseId', isEqualTo: caseId)
-        .orderBy('uploadedAt', descending: true)
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs
+          final docs = snapshot.docs
               .map(
                 (doc) => DocumentModel.fromJson({
                   ...doc.data() as Map<String, dynamic>,
@@ -95,33 +94,26 @@ class DocumentService {
                 }),
               )
               .toList();
+          docs.sort(
+            (a, b) => b.uploadedAt.compareTo(a.uploadedAt),
+          ); // Newest first
+          return docs;
         });
   }
 
   /// Documents visible to client (approved + visibility policy).
   Stream<List<DocumentModel>> getClientVisibleDocuments(String caseId) {
-    return _firestore
-        .collection(_collection)
-        .where('caseId', isEqualTo: caseId)
-        .where('isApprovedForClient', isEqualTo: true)
-        .orderBy('uploadedAt', descending: true)
-        .snapshots()
-        .map((snapshot) {
-          return snapshot.docs
-              .map(
-                (doc) => DocumentModel.fromJson({
-                  ...doc.data() as Map<String, dynamic>,
-                  'documentId': doc.id,
-                }),
-              )
-              .where(
-                (doc) =>
-                    (doc.visibleTo == null ||
+    return getDocumentsByCase(caseId).map((documents) {
+      return documents
+          .where(
+            (doc) =>
+                doc.isApprovedForClient == true &&
+                (doc.visibleTo == null ||
                     doc.visibleTo == 'both' ||
                     doc.visibleTo == 'client_only'),
-              )
-              .toList();
-        });
+          )
+          .toList();
+    });
   }
 
   /// Backward-compatible alias for older provider naming.
@@ -198,6 +190,7 @@ class DocumentService {
         fileUrl: newFileUrl,
         uploadedAt: DateTime.now(),
         updatedAt: DateTime.now(),
+        uploadedBy: uploadedBy,
       );
 
       await updateDocument(oldDocument.documentId, newVersion.toJson());
@@ -243,16 +236,18 @@ class DocumentService {
     return _firestore
         .collection(_collection)
         .where('caseId', isEqualTo: caseId)
-        .orderBy('uploadedAt', descending: true)
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs
+          final docs = snapshot.docs
               .map(
                 (doc) => DocumentModel.fromJson({
                   ...doc.data() as Map<String, dynamic>,
                   'documentId': doc.id,
                 }),
               )
+              .toList();
+          docs.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
+          return docs
               .where(
                 (doc) =>
                     ((doc.fileName?.toLowerCase().contains(
@@ -276,10 +271,9 @@ class DocumentService {
     return _firestore
         .collection(_collection)
         .where('uploadedBy', isEqualTo: lawyerId)
-        .orderBy('uploadedAt', descending: true)
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs
+          final docs = snapshot.docs
               .map(
                 (doc) => DocumentModel.fromJson({
                   ...doc.data() as Map<String, dynamic>,
@@ -287,6 +281,8 @@ class DocumentService {
                 }),
               )
               .toList();
+          docs.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
+          return docs;
         });
   }
 }

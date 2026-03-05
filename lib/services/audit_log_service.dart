@@ -93,13 +93,14 @@ class AuditLogService {
       final snapshot = await _firestore
           .collection(_collection)
           .where('userId', isEqualTo: userId)
-          .orderBy('timestamp', descending: true)
           .limit(limit)
           .get();
 
-      return snapshot.docs
+      final logs = snapshot.docs
           .map((doc) => AuditLogModel.fromJson(doc.data()))
           .toList();
+      logs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      return logs;
     } catch (e) {
       print('Error getting user logs: $e');
       return [];
@@ -111,14 +112,15 @@ class AuditLogService {
     return _firestore
         .collection(_collection)
         .where('userId', isEqualTo: userId)
-        .orderBy('timestamp', descending: true)
         .limit(100)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
+        .map((snapshot) {
+          final logs = snapshot.docs
               .map((doc) => AuditLogModel.fromJson(doc.data()))
-              .toList(),
-        );
+              .toList();
+          logs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          return logs;
+        });
   }
 
   /// Get audit logs for a resource
@@ -132,13 +134,14 @@ class AuditLogService {
           .collection(_collection)
           .where('resourceType', isEqualTo: resourceType)
           .where('resourceId', isEqualTo: resourceId)
-          .orderBy('timestamp', descending: true)
           .limit(limit)
           .get();
 
-      return snapshot.docs
+      final logs = snapshot.docs
           .map((doc) => AuditLogModel.fromJson(doc.data()))
           .toList();
+      logs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      return logs;
     } catch (e) {
       print('Error getting resource logs: $e');
       return [];
@@ -154,14 +157,15 @@ class AuditLogService {
         .collection(_collection)
         .where('resourceType', isEqualTo: resourceType)
         .where('resourceId', isEqualTo: resourceId)
-        .orderBy('timestamp', descending: true)
         .limit(100)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
+        .map((snapshot) {
+          final logs = snapshot.docs
               .map((doc) => AuditLogModel.fromJson(doc.data()))
-              .toList(),
-        );
+              .toList();
+          logs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          return logs;
+        });
   }
 
   /// Get audit logs by action
@@ -173,13 +177,14 @@ class AuditLogService {
       final snapshot = await _firestore
           .collection(_collection)
           .where('action', isEqualTo: action)
-          .orderBy('timestamp', descending: true)
           .limit(limit)
           .get();
 
-      return snapshot.docs
+      final logs = snapshot.docs
           .map((doc) => AuditLogModel.fromJson(doc.data()))
           .toList();
+      logs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      return logs;
     } catch (e) {
       print('Error getting action logs: $e');
       return [];
@@ -200,13 +205,14 @@ class AuditLogService {
             isGreaterThanOrEqualTo: Timestamp.fromDate(startDate),
           )
           .where('timestamp', isLessThanOrEqualTo: Timestamp.fromDate(endDate))
-          .orderBy('timestamp', descending: true)
           .limit(limit)
           .get();
 
-      return snapshot.docs
+      final logs = snapshot.docs
           .map((doc) => AuditLogModel.fromJson(doc.data()))
           .toList();
+      logs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      return logs;
     } catch (e) {
       print('Error getting logs by date range: $e');
       return [];
@@ -219,13 +225,14 @@ class AuditLogService {
       final snapshot = await _firestore
           .collection(_collection)
           .where('status', isEqualTo: 'failure')
-          .orderBy('timestamp', descending: true)
           .limit(limit)
           .get();
 
-      return snapshot.docs
+      final logs = snapshot.docs
           .map((doc) => AuditLogModel.fromJson(doc.data()))
           .toList();
+      logs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      return logs;
     } catch (e) {
       print('Error getting failed actions: $e');
       return [];
@@ -237,14 +244,15 @@ class AuditLogService {
     return _firestore
         .collection(_collection)
         .where('status', isEqualTo: 'failure')
-        .orderBy('timestamp', descending: true)
         .limit(100)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
+        .map((snapshot) {
+          final logs = snapshot.docs
               .map((doc) => AuditLogModel.fromJson(doc.data()))
-              .toList(),
-        );
+              .toList();
+          logs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          return logs;
+        });
   }
 
   /// Get logs by user role
@@ -256,13 +264,14 @@ class AuditLogService {
       final snapshot = await _firestore
           .collection(_collection)
           .where('userRole', isEqualTo: role)
-          .orderBy('timestamp', descending: true)
           .limit(limit)
           .get();
 
-      return snapshot.docs
+      final logs = snapshot.docs
           .map((doc) => AuditLogModel.fromJson(doc.data()))
           .toList();
+      logs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      return logs;
     } catch (e) {
       print('Error getting logs by role: $e');
       return [];

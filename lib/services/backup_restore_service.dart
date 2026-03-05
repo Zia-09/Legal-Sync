@@ -124,7 +124,7 @@ class BackupRestoreService {
       final snapshot = await _db
           .collection('backup_logs')
           .where('firmId', isEqualTo: firmId)
-          .orderBy('timestamp', descending: true)
+          
           .get();
 
       return snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();

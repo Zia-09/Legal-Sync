@@ -497,46 +497,50 @@ class _AdminCasesScreenState extends ConsumerState<AdminCasesScreen> {
       loading: () => const Center(
         child: CircularProgressIndicator(color: Color(0xFF1E3A8A)),
       ),
-      error: (err, stack) {
-        print('❌ Cases Error: $err');
-        return Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.error_outline,
-                  color: Color(0xFFDC2626),
-                  size: 48,
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Unable to Load Cases',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Please check your internet connection',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey, fontSize: 12),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => ref.refresh(allCasesProvider),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E3A8A),
-                  ),
-                  child: const Text(
-                    'Retry',
-                    style: TextStyle(color: Colors.white),
+      error: (err, stack) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize:
+                MainAxisSize.min, // Prevents expanding to entire height
+            children: [
+              const Icon(
+                Icons.error_outline,
+                color: Color(0xFFDC2626),
+                size: 48,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Unable to Load Cases',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 8),
+              Flexible(
+                // Important constraints
+                child: SingleChildScrollView(
+                  child: Text(
+                    'Error: ${err.toString().split('\\n').first}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
                   ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => ref.refresh(allCasesProvider),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E3A8A),
+                ),
+                child: const Text(
+                  'Retry',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 

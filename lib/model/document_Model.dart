@@ -97,6 +97,7 @@ class DocumentModel {
   }
 
   DocumentModel copyWith({
+    String? uploadedBy,
     String? fileUrl,
     DateTime? uploadedAt,
     String? description,
@@ -112,7 +113,7 @@ class DocumentModel {
     return DocumentModel(
       documentId: documentId,
       caseId: caseId,
-      uploadedBy: uploadedBy,
+      uploadedBy: uploadedBy ?? this.uploadedBy,
       fileUrl: fileUrl ?? this.fileUrl,
       fileType: fileType,
       fileName: fileName,

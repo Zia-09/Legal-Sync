@@ -7,6 +7,7 @@ import 'package:legal_sync/screens/client%20panel/forgot_password_screen.dart';
 import 'package:legal_sync/screens/client%20panel/home_screen.dart';
 import 'package:legal_sync/screens/client%20panel/register_screen.dart';
 import 'package:legal_sync/screens/lawyer%20panel/lawyer_dashboard_screen.dart';
+import 'package:legal_sync/services/email_service.dart';
 
 // ─── Static Admin Credentials ────────────────────────────────────────────────
 // These are checked before any Firebase call. Do NOT expose in UI.
@@ -43,6 +44,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (email == _adminEmail && password == _adminPassword) {
       try {
         await FirebaseAuth.instance.signInAnonymously();
+        // 🔹 Trigger Admin Login Email
+        emailService.sendProfessionalEmail(
+          to: _adminEmail,
+          subject: 'Admin Entry - LegalSync',
+          htmlContent:
+              '<h1>Admin Login Successful</h1><p>The main admin account has just entered the system.</p>',
+        );
       } catch (_) {}
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
@@ -72,6 +80,54 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           MaterialPageRoute(builder: (_) => const HomeScreen()),
         );
       }
+
+      if (!mounted) return;
+
+      // 🔹 Professional Success Feedback
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(
+                Icons.check_circle_outline,
+                color: Colors.white,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Authentication Successful',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      'Welcome back to LegalSync elite services.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFF16A34A),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          margin: const EdgeInsets.all(16),
+          duration: const Duration(seconds: 3),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

@@ -81,10 +81,9 @@ class InvoiceService {
     return _firestore
         .collection(_collection)
         .where('caseId', isEqualTo: caseId)
-        .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs
+          final docs = snapshot.docs
               .map(
                 (doc) => InvoiceModel.fromJson({
                   ...doc.data() as Map<String, dynamic>,
@@ -92,6 +91,8 @@ class InvoiceService {
                 }),
               )
               .toList();
+          docs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return docs;
         });
   }
 
@@ -100,10 +101,9 @@ class InvoiceService {
     return _firestore
         .collection(_collection)
         .where('clientId', isEqualTo: clientId)
-        .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs
+          final docs = snapshot.docs
               .map(
                 (doc) => InvoiceModel.fromJson({
                   ...doc.data() as Map<String, dynamic>,
@@ -111,6 +111,8 @@ class InvoiceService {
                 }),
               )
               .toList();
+          docs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return docs;
         });
   }
 
@@ -119,10 +121,9 @@ class InvoiceService {
     return _firestore
         .collection(_collection)
         .where('lawyerId', isEqualTo: lawyerId)
-        .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs
+          final docs = snapshot.docs
               .map(
                 (doc) => InvoiceModel.fromJson({
                   ...doc.data() as Map<String, dynamic>,
@@ -130,6 +131,8 @@ class InvoiceService {
                 }),
               )
               .toList();
+          docs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return docs;
         });
   }
 

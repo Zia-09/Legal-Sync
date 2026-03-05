@@ -80,13 +80,14 @@ class DeadlineService {
     return _db
         .collection(_collection)
         .where('caseId', isEqualTo: caseId)
-        .orderBy('dueDate', descending: false)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
+        .map((snapshot) {
+          final docs = snapshot.docs
               .map((doc) => DeadlineModel.fromJson(doc.data()))
-              .toList(),
-        );
+              .toList();
+          docs.sort((a, b) => a.dueDate.compareTo(b.dueDate)); // Chronological
+          return docs;
+        });
   }
 
   // ===============================
@@ -96,30 +97,48 @@ class DeadlineService {
     return _db
         .collection(_collection)
         .where('lawyerId', isEqualTo: lawyerId)
-        .orderBy('dueDate', descending: false)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
+        .map((snapshot) {
+          final docs = snapshot.docs
               .map((doc) => DeadlineModel.fromJson(doc.data()))
-              .toList(),
-        );
+              .toList();
+          docs.sort((a, b) => a.dueDate.compareTo(b.dueDate)); // Chronological
+          return docs;
+        });
   }
 
   // ===============================
   // GET OVERDUE DEADLINES
   // ===============================
   Stream<List<DeadlineModel>> streamOverdueDeadlines(String lawyerId) {
+    return streamDeadlinesForLawyer(lawyerId).map((deadlines) {
+      return deadlines
+          .where(
+            (deadline) => deadline.status != 'completed' && deadline.isOverdue,
+          )
+          .toList();
+    });
+  }
+
+  // ===============================
+  // STREAM DEADLINES BY PRIORITY
+  // ===============================
+  Stream<List<DeadlineModel>> streamDeadlinesByPriority(
+    String lawyerId,
+    String priority,
+  ) {
     return _db
         .collection(_collection)
         .where('lawyerId', isEqualTo: lawyerId)
-        .where('status', isNotEqualTo: 'completed')
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
+        .map((snapshot) {
+          final docs = snapshot.docs
               .map((doc) => DeadlineModel.fromJson(doc.data()))
-              .where((deadline) => deadline.isOverdue)
-              .toList(),
-        );
+              .where((deadline) => deadline.priority == priority)
+              .toList();
+          docs.sort((a, b) => a.dueDate.compareTo(b.dueDate)); // Chronological
+          return docs;
+        });
   }
 
   // ===============================
@@ -149,17 +168,24 @@ class DeadlineService {
   }) async {
     final now = DateTime.now();
     final until = now.add(within);
+
     final snapshot = await _db
         .collection(_collection)
         .where('lawyerId', isEqualTo: lawyerId)
-        .where('status', isNotEqualTo: 'completed')
-        .where('notificationSent', isEqualTo: false)
-        .where('dueDate', isGreaterThanOrEqualTo: Timestamp.fromDate(now))
-        .where('dueDate', isLessThanOrEqualTo: Timestamp.fromDate(until))
         .get();
 
-    for (final doc in snapshot.docs) {
-      final deadline = DeadlineModel.fromJson(doc.data());
+    final relevantDeadlines = snapshot.docs
+        .map((doc) => DeadlineModel.fromJson(doc.data()))
+        .where((deadline) {
+          return deadline.status != 'completed' &&
+              deadline.notificationSent == false &&
+              (deadline.dueDate.isAfter(now) ||
+                  deadline.dueDate.isAtSameMomentAs(now)) &&
+              (deadline.dueDate.isBefore(until) ||
+                  deadline.dueDate.isAtSameMomentAs(until));
+        });
+
+    for (final deadline in relevantDeadlines) {
       await _notificationService.queuePushNotification(
         userIds: [lawyerId],
         title: 'Upcoming Deadline',
@@ -174,30 +200,7 @@ class DeadlineService {
     }
   }
 
-  // ===============================
-  // GET DEADLINES BY PRIORITY
-  // ===============================
-  Stream<List<DeadlineModel>> streamDeadlinesByPriority(
-    String lawyerId,
-    String priority,
-  ) {
-    return _db
-        .collection(_collection)
-        .where('lawyerId', isEqualTo: lawyerId)
-        .where('priority', isEqualTo: priority)
-        .orderBy('dueDate', descending: false)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => DeadlineModel.fromJson(doc.data()))
-              .toList(),
-        );
-  }
-
-  // ===============================
-  // BATCH UPDATE STATUS
-  // ===============================
-  Future<void> batchUpdateStatus(
+  Future<void> bulkUpdateStatus(
     List<String> deadlineIds,
     String newStatus,
   ) async {

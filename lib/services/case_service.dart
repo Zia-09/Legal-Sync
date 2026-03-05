@@ -30,7 +30,7 @@ class CaseService {
   Future<void> createCase(CaseModel caseModel) async {
     try {
       await _firestore
-          .collection(_collection)
+          .collection('cases')
           .doc(caseModel.caseId)
           .set(caseModel.toJson());
     } catch (e) {
@@ -61,22 +61,15 @@ class CaseService {
   // GET CASES (STREAM)
   // =========================
 
-  Stream<List<CaseModel>> getAllCases() => _getCasesStream(
-    _firestore.collection(_collection).orderBy('createdAt', descending: true),
-  );
+  Stream<List<CaseModel>> getAllCases() =>
+      _getCasesStream(_firestore.collection(_collection));
 
   Stream<List<CaseModel>> getCasesByLawyer(String lawyerId) => _getCasesStream(
-    _firestore
-        .collection(_collection)
-        .where('lawyerId', isEqualTo: lawyerId)
-        .orderBy('createdAt', descending: true),
+    _firestore.collection(_collection).where('lawyerId', isEqualTo: lawyerId),
   );
 
   Stream<List<CaseModel>> getCasesByClient(String clientId) => _getCasesStream(
-    _firestore
-        .collection(_collection)
-        .where('clientId', isEqualTo: clientId)
-        .orderBy('createdAt', descending: true),
+    _firestore.collection(_collection).where('clientId', isEqualTo: clientId),
   );
 
   Stream<List<CaseModel>> getCasesByStatus(String status) => _getCasesStream(
@@ -110,11 +103,10 @@ class CaseService {
     _firestore.collection(_collection).where('isArchived', isEqualTo: true),
   );
 
-  Stream<List<CaseModel>> getPendingApprovalCases() => _getCasesStream(
-    _firestore
-        .collection(_collection)
-        .where('isApproved', isEqualTo: false)
-        .where('status', isEqualTo: 'pending'),
+  Stream<List<CaseModel>> getPendingApprovalCases() => getAllCases().map(
+    (cases) => cases
+        .where((c) => c.isApproved == false && c.status == 'pending')
+        .toList(),
   );
 
   Stream<List<CaseModel>> searchCases(String query) => _getCasesStream(
@@ -129,12 +121,14 @@ class CaseService {
     String? status,
     String? priority,
   }) {
-    Query query = _firestore.collection(_collection);
-    if (caseType != null) query = query.where('caseType', isEqualTo: caseType);
-    if (status != null) query = query.where('status', isEqualTo: status);
-    if (priority != null) query = query.where('priority', isEqualTo: priority);
-
-    return _getCasesStream(query);
+    return getAllCases().map((cases) {
+      return cases.where((c) {
+        if (caseType != null && c.caseType != caseType) return false;
+        if (status != null && c.status != status) return false;
+        if (priority != null && c.priority != priority) return false;
+        return true;
+      }).toList();
+    });
   }
 
   // =========================
@@ -386,7 +380,7 @@ class CaseService {
 
   Future<void> deleteCase(String caseId) async {
     try {
-      await _firestore.collection(_collection).doc(caseId).delete();
+      await _firestore.collection('cases').doc(caseId).delete();
     } catch (e) {
       throw Exception('❌ Failed to delete case: $e');
     }
@@ -398,14 +392,18 @@ class CaseService {
 
   Stream<List<CaseModel>> _getCasesStream(Query query) {
     return query.snapshots().map(
-      (snapshot) => snapshot.docs
-          .map(
-            (doc) => CaseModel.fromJson({
-              ...doc.data() as Map<String, dynamic>,
-              'caseId': doc.id,
-            }),
-          )
-          .toList(),
+      (snapshot) =>
+          snapshot.docs
+              .map(
+                (doc) => CaseModel.fromJson({
+                  ...doc.data() as Map<String, dynamic>,
+                  'caseId': doc.id,
+                }),
+              )
+              .toList()
+            ..sort(
+              (a, b) => b.createdAt.compareTo(a.createdAt),
+            ), // Newest first
     );
   }
 }

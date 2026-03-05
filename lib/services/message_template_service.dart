@@ -44,13 +44,14 @@ class MessageTemplateService {
       final snapshot = await _firestore
           .collection(_collection)
           .where('lawyerId', isEqualTo: lawyerId)
-          .where('isActive', isEqualTo: true)
-          .orderBy('usageCount', descending: true)
           .get();
 
-      return snapshot.docs
+      final templates = snapshot.docs
           .map((doc) => MessageTemplateModel.fromJson(doc.data()))
+          .where((t) => t.isActive)
           .toList();
+      templates.sort((a, b) => b.usageCount.compareTo(a.usageCount));
+      return templates;
     } catch (e) {
       print('Error getting lawyer templates: $e');
       return [];
@@ -62,14 +63,15 @@ class MessageTemplateService {
     return _firestore
         .collection(_collection)
         .where('lawyerId', isEqualTo: lawyerId)
-        .where('isActive', isEqualTo: true)
-        .orderBy('usageCount', descending: true)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
+        .map((snapshot) {
+          final templates = snapshot.docs
               .map((doc) => MessageTemplateModel.fromJson(doc.data()))
-              .toList(),
-        );
+              .where((t) => t.isActive)
+              .toList();
+          templates.sort((a, b) => b.usageCount.compareTo(a.usageCount));
+          return templates;
+        });
   }
 
   /// Get templates by category
@@ -82,13 +84,14 @@ class MessageTemplateService {
           .collection(_collection)
           .where('lawyerId', isEqualTo: lawyerId)
           .where('category', isEqualTo: category)
-          .where('isActive', isEqualTo: true)
-          .orderBy('usageCount', descending: true)
           .get();
 
-      return snapshot.docs
+      final templates = snapshot.docs
           .map((doc) => MessageTemplateModel.fromJson(doc.data()))
+          .where((t) => t.isActive)
           .toList();
+      templates.sort((a, b) => b.usageCount.compareTo(a.usageCount));
+      return templates;
     } catch (e) {
       print('Error getting templates by category: $e');
       return [];
@@ -216,17 +219,8 @@ class MessageTemplateService {
     int limit,
   ) async {
     try {
-      final snapshot = await _firestore
-          .collection(_collection)
-          .where('lawyerId', isEqualTo: lawyerId)
-          .where('isActive', isEqualTo: true)
-          .orderBy('usageCount', descending: true)
-          .limit(limit)
-          .get();
-
-      return snapshot.docs
-          .map((doc) => MessageTemplateModel.fromJson(doc.data()))
-          .toList();
+      final templates = await getTemplatesByLawyer(lawyerId);
+      return templates.take(limit).toList();
     } catch (e) {
       print('Error getting most used templates: $e');
       return [];
@@ -242,14 +236,15 @@ class MessageTemplateService {
       final snapshot = await _firestore
           .collection(_collection)
           .where('lawyerId', isEqualTo: lawyerId)
-          .where('isActive', isEqualTo: true)
-          .orderBy('lastUsedAt', descending: true)
-          .limit(limit)
           .get();
 
-      return snapshot.docs
+      final templates = snapshot.docs
           .map((doc) => MessageTemplateModel.fromJson(doc.data()))
+          .where((t) => t.isActive && t.lastUsedAt != null)
           .toList();
+
+      templates.sort((a, b) => b.lastUsedAt!.compareTo(a.lastUsedAt!));
+      return templates.take(limit).toList();
     } catch (e) {
       print('Error getting recently used templates: $e');
       return [];
@@ -263,14 +258,15 @@ class MessageTemplateService {
           .collection(_collection)
           .where('isPublic', isEqualTo: true)
           .where('category', isEqualTo: category)
-          .where('isActive', isEqualTo: true)
-          .orderBy('usageCount', descending: true)
-          .limit(20)
           .get();
 
-      return snapshot.docs
+      final templates = snapshot.docs
           .map((doc) => MessageTemplateModel.fromJson(doc.data()))
+          .where((t) => t.isActive)
           .toList();
+
+      templates.sort((a, b) => b.usageCount.compareTo(a.usageCount));
+      return templates.take(20).toList();
     } catch (e) {
       print('Error getting public templates: $e');
       return [];

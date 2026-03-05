@@ -35,35 +35,33 @@ class TransactionService {
 
   /// 🔹 Stream transactions for a user (client)
   Stream<List<TransactionModel>> streamUserTransactions(String userId) {
-    return _transactions
-        .where('userId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map(
-                (doc) => TransactionModel.fromJson(
-                  doc.data() as Map<String, dynamic>,
-                ),
-              )
-              .toList(),
-        );
+    return _transactions.where('userId', isEqualTo: userId).snapshots().map((
+      snapshot,
+    ) {
+      final docs = snapshot.docs
+          .map(
+            (doc) =>
+                TransactionModel.fromJson(doc.data() as Map<String, dynamic>),
+          )
+          .toList();
+      docs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return docs;
+    });
   }
 
   /// 🔹 Stream transactions for a lawyer (optional)
   Stream<List<TransactionModel>> streamLawyerTransactions(String lawyerId) {
-    return _transactions
-        .where('lawyerId', isEqualTo: lawyerId)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map(
-                (doc) => TransactionModel.fromJson(
-                  doc.data() as Map<String, dynamic>,
-                ),
-              )
-              .toList(),
-        );
+    return _transactions.where('lawyerId', isEqualTo: lawyerId).snapshots().map(
+      (snapshot) {
+        final docs = snapshot.docs
+            .map(
+              (doc) =>
+                  TransactionModel.fromJson(doc.data() as Map<String, dynamic>),
+            )
+            .toList();
+        docs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        return docs;
+      },
+    );
   }
 }

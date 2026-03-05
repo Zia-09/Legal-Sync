@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:legal_sync/model/chat_Model.dart';
+import 'package:legal_sync/model/chat_thread_model.dart';
 import 'package:legal_sync/model/lawyer_Model.dart';
 import 'package:legal_sync/provider/chat_provider.dart';
+import 'package:legal_sync/provider/chat_thread_provider.dart';
 import 'package:legal_sync/provider/lawyer_provider.dart';
 import 'package:legal_sync/provider/case_provider.dart';
 import 'package:legal_sync/screens/client panel/chat_detail_screen.dart';
@@ -11,22 +13,20 @@ import 'package:legal_sync/screens/client panel/chat_detail_screen.dart';
 // ─── Chat List Widget ─────────────────────────────────────────────────────────
 
 class ChatList extends ConsumerWidget {
-  final List<ChatMessage> chatMessages;
+  final List<ChatThreadModel> threads;
   final String currentUserId;
-  final String searchQuery;
   final bool isGroup;
 
   const ChatList({
     super.key,
-    required this.chatMessages,
+    required this.threads,
     required this.currentUserId,
-    this.searchQuery = '',
     this.isGroup = false,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (chatMessages.isEmpty) {
+    if (threads.isEmpty) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -34,7 +34,7 @@ class ChatList extends ConsumerWidget {
             Icon(Icons.chat_bubble_outline, color: Color(0xFF2A2A2A), size: 52),
             SizedBox(height: 12),
             Text(
-              'No messages here',
+              'No conversations here',
               style: TextStyle(color: Color(0xFF6B6B6B), fontSize: 14),
             ),
           ],
@@ -44,21 +44,18 @@ class ChatList extends ConsumerWidget {
     return ListView.builder(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      itemCount: chatMessages.length,
+      itemCount: threads.length,
       itemBuilder: (_, i) {
-        final msg = chatMessages[i];
-        final otherId = msg.senderId == currentUserId
-            ? msg.receiverId
-            : msg.senderId;
+        final thread = threads[i];
 
         return ref
-            .watch(getLawyerByIdProvider(otherId))
+            .watch(getLawyerByIdProvider(thread.lawyerId))
             .when(
               data: (lawyer) {
                 if (lawyer == null) return const SizedBox.shrink();
                 return ChatTile(
                   lawyer: lawyer,
-                  lastMessage: msg,
+                  thread: thread,
                   currentUserId: currentUserId,
                   isGroup: isGroup,
                 );
@@ -75,14 +72,14 @@ class ChatList extends ConsumerWidget {
 
 class ChatTile extends ConsumerWidget {
   final LawyerModel lawyer;
-  final ChatMessage lastMessage;
+  final ChatThreadModel thread;
   final String currentUserId;
   final bool isGroup;
 
   const ChatTile({
     super.key,
     required this.lawyer,
-    required this.lastMessage,
+    required this.thread,
     required this.currentUserId,
     this.isGroup = false,
   });
@@ -91,15 +88,19 @@ class ChatTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final typingAsync = ref.watch(
       typingStatusProvider((
-        senderId: currentUserId,
-        receiverId: lawyer.lawyerId,
+        senderId: lawyer.lawyerId, // Check if lawyer is typing
+        receiverId: currentUserId,
       )),
     );
     final isTyping = typingAsync.value ?? false;
 
-    final timeStr = DateFormat('hh:mm a').format(lastMessage.sentAt);
-    final isUnread =
-        !lastMessage.isRead && lastMessage.receiverId == currentUserId;
+    final lastMsgDate = thread.lastMessageAt ?? thread.updatedAt;
+    final timeStr = DateFormat('hh:mm a').format(lastMsgDate);
+
+    final unreadCount = currentUserId == thread.clientId
+        ? thread.unreadByClient
+        : thread.unreadByLawyer;
+    final isUnread = unreadCount > 0;
 
     Widget buildTileContent(String name) {
       return Container(
@@ -175,7 +176,9 @@ class ChatTile extends ConsumerWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    isTyping ? 'Typing...' : lastMessage.message,
+                    isTyping
+                        ? 'Typing...'
+                        : (thread.lastMessage ?? 'No messages yet'),
                     style: TextStyle(
                       color: isTyping
                           ? const Color(0xFFFF6B00)
@@ -213,10 +216,10 @@ class ChatTile extends ConsumerWidget {
                       color: Color(0xFFFF6B00),
                       shape: BoxShape.circle,
                     ),
-                    child: const Center(
+                    child: Center(
                       child: Text(
-                        '!',
-                        style: TextStyle(
+                        '$unreadCount',
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
@@ -239,12 +242,12 @@ class ChatTile extends ConsumerWidget {
               ChatDetailScreen(receiverId: lawyer.lawyerId, lawyer: lawyer),
         ),
       ),
-      child: isGroup && lastMessage.caseId != null
+      child: isGroup && thread.caseId != null
           ? ref
-                .watch(getCaseByIdProvider(lastMessage.caseId!))
+                .watch(getCaseByIdProvider(thread.caseId!))
                 .when(
                   data: (caseModel) =>
-                      buildTileContent(caseModel?.title ?? 'Case Chat'),
+                      buildTileContent(caseModel?.caseType ?? 'Case Chat'),
                   loading: () => buildTileContent('Loading Group...'),
                   error: (_, __) => buildTileContent('Case Chat'),
                 )

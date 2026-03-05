@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/model/lawyer_Model.dart';
+import 'package:legal_sync/model/review_Model.dart';
 import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/services/appoinment_services.dart';
+import 'package:legal_sync/services/notification_services.dart';
+import 'package:legal_sync/services/review_service.dart';
+import 'chat_detail_screen.dart';
 import 'messages_screen.dart';
 
 class LawyerProfileScreen extends ConsumerWidget {
@@ -253,6 +257,77 @@ class LawyerProfileScreen extends ConsumerWidget {
                               return;
                             }
 
+                            // Show confirmation dialog
+                            final confirmed = await showDialog<bool>(
+                              context: context,
+                              builder: (_) => AlertDialog(
+                                backgroundColor: const Color(0xFF1A1A1A),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                title: const Text(
+                                  'Book Consultation',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                                content: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Book with ${lawyer!.name}',
+                                      style: const TextStyle(
+                                        color: Color(0xFF9E9E9E),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Fee: PKR ${lawyer!.consultationFee.toInt()}',
+                                      style: const TextStyle(
+                                        color: Color(0xFFFF6B00),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    const Text(
+                                      'Scheduled for: Tomorrow',
+                                      style: TextStyle(
+                                        color: Color(0xFF6B6B6B),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
+                                    child: const Text(
+                                      'Cancel',
+                                      style: TextStyle(
+                                        color: Color(0xFF6B6B6B),
+                                      ),
+                                    ),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, true),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFFFF6B00),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      'Confirm',
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+
+                            if (confirmed != true) return;
+
                             try {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
@@ -261,20 +336,50 @@ class LawyerProfileScreen extends ConsumerWidget {
                                 ),
                               );
 
-                              await AppointmentService().requestAppointment(
+                              final svc = AppointmentService();
+                              await svc.requestAppointment(
                                 clientId: client.clientId,
                                 lawyerId: lawyer!.lawyerId,
                                 scheduledAt: DateTime.now().add(
                                   const Duration(days: 1),
                                 ),
-                                fee: 2500.0, // Placeholder fee
+                                fee: lawyer!.consultationFee > 0
+                                    ? lawyer!.consultationFee
+                                    : 2500.0,
+                              );
+
+                              // Send in-app notification to lawyer
+                              final notifSvc = NotificationService();
+                              await notifSvc.createNotification(
+                                userId: lawyer!.lawyerId,
+                                title: '📅 New Consultation Request',
+                                message:
+                                    '${client.name} has requested a consultation. Please check your appointments.',
+                                type: 'appointment',
+                                metadata: {
+                                  'clientId': client.clientId,
+                                  'type': 'consultation_request',
+                                },
+                              );
+
+                              // Send in-app notification to client
+                              await notifSvc.createNotification(
+                                userId: client.clientId,
+                                title: '✅ Consultation Requested',
+                                message:
+                                    'Your consultation request with ${lawyer!.name} has been submitted. We\'ll notify you once confirmed.',
+                                type: 'appointment',
+                                metadata: {
+                                  'lawyerId': lawyer!.lawyerId,
+                                  'type': 'consultation_sent',
+                                },
                               );
 
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                     content: Text(
-                                      'Consultation requested successfully!',
+                                      'Consultation requested! Lawyer notified. ✅',
                                     ),
                                     backgroundColor: Color(0xFF059669),
                                   ),
@@ -315,10 +420,34 @@ class LawyerProfileScreen extends ConsumerWidget {
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () {
+                            if (lawyer == null) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const MessagesScreen(),
+                                ),
+                              );
+                              return;
+                            }
+                            final client = ref
+                                .read(currentClientProvider)
+                                .valueOrNull;
+                            if (client == null) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const MessagesScreen(),
+                                ),
+                              );
+                              return;
+                            }
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => const MessagesScreen(),
+                                builder: (_) => ChatDetailScreen(
+                                  receiverId: lawyer!.lawyerId,
+                                  lawyer: lawyer!,
+                                ),
                               ),
                             );
                           },
@@ -354,21 +483,25 @@ class LawyerProfileScreen extends ConsumerWidget {
                     child: Row(
                       children: [
                         _StatItem(
-                          value: '98%',
+                          value: lawyer != null && lawyer!.aiWinRate > 0
+                              ? '${(lawyer!.aiWinRate * 100).toStringAsFixed(0)}%'
+                              : '${(_rating * 20).toStringAsFixed(0)}%',
                           label: 'Success Rate',
                           icon: Icons.trending_up,
                           color: const Color(0xFF059669),
                         ),
                         _VerticalDivider(),
                         _StatItem(
-                          value: '450+',
+                          value: lawyer != null
+                              ? '${lawyer!.caseIds.length}+'
+                              : 'N/A',
                           label: 'Cases Won',
                           icon: Icons.emoji_events_outlined,
                           color: const Color(0xFFFF6B00),
                         ),
                         _VerticalDivider(),
                         _StatItem(
-                          value: '$_rating',
+                          value: _rating.toStringAsFixed(1),
                           label: 'Rating',
                           icon: Icons.star,
                           color: const Color(0xFFFFB800),
@@ -455,12 +588,14 @@ class LawyerProfileScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _ReviewCard(
-                    reviewer: 'Michael Chen',
-                    review:
-                        '"Jonathan\'s strategic approach to our acquisition was flawless. His attention to detail and ability to navigate complex regulatory frameworks is unmatched in the corporate sector."',
-                    rating: 5,
-                  ),
+                  if (lawyer != null)
+                    _RealReviewsSection(lawyerId: lawyer!.lawyerId)
+                  else
+                    _ReviewCard(
+                      reviewer: 'Client',
+                      review: 'Excellent professional service.',
+                      rating: 5,
+                    ),
                   const SizedBox(height: 32),
                 ],
               ),
@@ -739,6 +874,51 @@ class _ReviewCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _RealReviewsSection extends ConsumerWidget {
+  final String lawyerId;
+  const _RealReviewsSection({required this.lawyerId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return StreamBuilder<List<ReviewModel>>(
+      stream: ReviewService().getVisibleApprovedReviews(lawyerId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(color: Color(0xFFFF6B00)),
+          );
+        }
+        if (snapshot.hasError) {
+          return Text(
+            'Error loading reviews: ${snapshot.error}',
+            style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+          );
+        }
+        final reviews = snapshot.data ?? [];
+        if (reviews.isEmpty) {
+          return const Text(
+            'No reviews yet for this lawyer.',
+            style: TextStyle(color: Color(0xFF6B6B6B), fontSize: 13),
+          );
+        }
+
+        return Column(
+          children: reviews.map((r) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12.0),
+              child: _ReviewCard(
+                reviewer: 'Verified Client', // Default for now
+                review: r.comment ?? '',
+                rating: r.rating.toInt(),
+              ),
+            );
+          }).toList(),
+        );
+      },
     );
   }
 }

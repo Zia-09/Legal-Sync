@@ -60,14 +60,13 @@ class ChatService {
   Stream<List<ChatMessage>> getMessages(String userId1, String userId2) {
     final chatId = _getChatId(userId1, userId2);
 
-    return _messagesRef(chatId)
-        .orderBy('sentAt', descending: false)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => ChatMessage.fromMap(doc.data(), doc.id))
-              .toList(),
-        );
+    return _messagesRef(chatId).snapshots().map((snapshot) {
+      final msgs = snapshot.docs
+          .map((doc) => ChatMessage.fromMap(doc.data(), doc.id))
+          .toList();
+      msgs.sort((a, b) => a.sentAt.compareTo(b.sentAt)); // Oldest first
+      return msgs;
+    });
   }
 
   /// =========================
@@ -147,15 +146,13 @@ class ChatService {
   // =========================
 
   Stream<List<ChatMessage>> streamAllMessages() {
-    return _db
-        .collectionGroup('messages')
-        .orderBy('sentAt', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => ChatMessage.fromMap(doc.data(), doc.id))
-              .toList(),
-        );
+    return _db.collectionGroup('messages').snapshots().map((snapshot) {
+      final docs = snapshot.docs
+          .map((doc) => ChatMessage.fromMap(doc.data(), doc.id))
+          .toList();
+      docs.sort((a, b) => b.sentAt.compareTo(a.sentAt)); // Newest first
+      return docs;
+    });
   }
 
   Stream<List<ChatMessage>> streamMessagesBetween(

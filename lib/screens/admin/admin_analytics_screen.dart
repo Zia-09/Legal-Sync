@@ -1,15 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:legal_sync/provider/case_provider.dart';
+import 'package:legal_sync/provider/client_provider.dart';
+import 'package:legal_sync/provider/lawyer_provider.dart';
+import 'package:legal_sync/screens/admin/admin_user_management_screen.dart';
 
-class AdminAnalyticsScreen extends StatefulWidget {
+class AdminAnalyticsScreen extends ConsumerStatefulWidget {
   const AdminAnalyticsScreen({super.key});
 
   @override
-  State<AdminAnalyticsScreen> createState() => _AdminAnalyticsScreenState();
+  ConsumerState<AdminAnalyticsScreen> createState() =>
+      _AdminAnalyticsScreenState();
 }
 
-class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen>
+class _AdminAnalyticsScreenState extends ConsumerState<AdminAnalyticsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  String _selectedFilter = 'This Week';
+  DateTimeRange? _customDateRange;
 
   @override
   void initState() {
@@ -23,18 +34,60 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen>
     super.dispose();
   }
 
+  String _generateReportText() {
+    final cases = ref.read(allCasesProvider).value ?? [];
+    final lawyers = ref.read(allLawyersProvider).value ?? [];
+    final clients = ref.read(allClientsProvider).value ?? [];
+
+    final filteredCases = cases
+        .where((c) => _isDateInRange(c.createdAt))
+        .toList();
+    final filteredLawyers = lawyers
+        .where((l) => _isDateInRange(l.joinedAt.toDate()))
+        .toList();
+    final filteredClients = clients
+        .where((c) => _isDateInRange(c.joinedAt.toDate()))
+        .toList();
+
+    int newLeads = filteredLawyers.length + filteredClients.length;
+    int revenue =
+        filteredCases
+            .where(
+              (c) =>
+                  c.status.toLowerCase() == 'closed' ||
+                  c.status.toLowerCase() == 'completed' ||
+                  c.status.toLowerCase() == 'resolved',
+            )
+            .length *
+        500;
+
+    return '''
+LegalSync Admin Report
+Filter: $_selectedFilter
+-------------------------
+New Leads: $newLeads
+New Cases: ${filteredCases.length}
+Est. Revenue: \$${revenue}
+    ''';
+  }
+
+  void _shareReport() {
+    Share.share(_generateReportText(), subject: 'LegalSync Analytics Report');
+  }
+
+  void _downloadCsv() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Exporting report...'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Color(0xFF1E3A8A),
+      ),
+    );
+    Share.share(_generateReportText(), subject: 'LegalSync CSV Export');
+  }
+
   @override
   Widget build(BuildContext context) {
-    void showComingSoon(String feature) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$feature feature coming soon!'),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: const Color(0xFF1E3A8A),
-        ),
-      );
-    }
-
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
@@ -55,11 +108,11 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen>
         actions: [
           IconButton(
             icon: const Icon(Icons.share_outlined, color: Color(0xFF1E3A8A)),
-            onPressed: () => showComingSoon('Share Report'),
+            onPressed: _shareReport,
           ),
           IconButton(
             icon: const Icon(Icons.download_outlined, color: Color(0xFF1E3A8A)),
-            onPressed: () => showComingSoon('Download CSV'),
+            onPressed: _downloadCsv,
           ),
         ],
         bottom: PreferredSize(
@@ -100,15 +153,126 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen>
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [
-          _buildCaseStatsTab(),
-          _buildUserGrowthTab(context, showComingSoon),
-        ],
+        children: [_buildCaseStatsTab(), _buildUserGrowthTab(context)],
       ),
     );
   }
 
+  Widget _buildTimeFilter(String label) {
+    return _FilterChip(
+      label: label == 'Custom' && _customDateRange != null
+          ? '${_customDateRange!.start.day}/${_customDateRange!.start.month} - ${_customDateRange!.end.day}/${_customDateRange!.end.month}'
+          : label,
+      isSelected: _selectedFilter == label,
+      onTap: () async {
+        if (label == 'Custom') {
+          final range = await showDateRangePicker(
+            context: context,
+            initialDateRange: _customDateRange,
+            firstDate: DateTime(2020),
+            lastDate: DateTime.now(),
+            builder: (context, child) {
+              return Theme(
+                data: ThemeData.light().copyWith(
+                  colorScheme: const ColorScheme.light(
+                    primary: Color(0xFF1E3A8A),
+                  ),
+                ),
+                child: child!,
+              );
+            },
+          );
+          if (range != null) {
+            setState(() {
+              _selectedFilter = 'Custom';
+              _customDateRange = range;
+            });
+          }
+        } else {
+          setState(() {
+            _selectedFilter = label;
+            _customDateRange = null;
+          });
+        }
+      },
+    );
+  }
+
+  bool _isDateInRange(DateTime date) {
+    final now = DateTime.now();
+    switch (_selectedFilter) {
+      case 'Today':
+        return date.year == now.year &&
+            date.month == now.month &&
+            date.day == now.day;
+      case 'This Week':
+        final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+        return date.isAfter(startOfWeek.subtract(const Duration(days: 1)));
+      case 'Month':
+        return date.year == now.year && date.month == now.month;
+      case 'Custom':
+        if (_customDateRange == null) return true;
+        return date.isAfter(
+              _customDateRange!.start.subtract(const Duration(days: 1)),
+            ) &&
+            date.isBefore(_customDateRange!.end.add(const Duration(days: 1)));
+      default:
+        return true;
+    }
+  }
+
   Widget _buildCaseStatsTab() {
+    final casesAsync = ref.watch(allCasesProvider);
+    final lawyersAsync = ref.watch(allLawyersProvider);
+    final clientsAsync = ref.watch(allClientsProvider);
+
+    final cases = casesAsync.value ?? [];
+    final lawyers = lawyersAsync.value ?? [];
+    final clients = clientsAsync.value ?? [];
+
+    final filteredCases = cases
+        .where((c) => _isDateInRange(c.createdAt))
+        .toList();
+    final filteredLawyers = lawyers
+        .where((l) => _isDateInRange(l.joinedAt.toDate()))
+        .toList();
+    final filteredClients = clients
+        .where((c) => _isDateInRange(c.joinedAt.toDate()))
+        .toList();
+
+    // Stats calculations
+    final newLeadsCount = filteredLawyers.length + filteredClients.length;
+
+    Duration totalResponseTime = Duration.zero;
+    int respondedCasesCount = 0;
+    for (var c in filteredCases) {
+      if (c.updatedAt != null) {
+        totalResponseTime += c.updatedAt!.difference(c.createdAt);
+        respondedCasesCount++;
+      }
+    }
+    final avgResponseTime = respondedCasesCount > 0
+        ? (totalResponseTime.inMinutes / respondedCasesCount).round()
+        : 0;
+
+    // Revenue mock calculation: 500 per closed case
+    final revenue =
+        filteredCases
+            .where(
+              (c) =>
+                  c.status.toLowerCase() == 'closed' ||
+                  c.status.toLowerCase() == 'completed' ||
+                  c.status.toLowerCase() == 'resolved',
+            )
+            .length *
+        500;
+
+    // Case Distribution Data
+    final Map<String, int> typeCounts = {};
+    for (var c in filteredCases) {
+      final type = c.caseType?.isNotEmpty == true ? c.caseType! : 'General';
+      typeCounts[type] = (typeCounts[type] ?? 0) + 1;
+    }
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -116,12 +280,14 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen>
         children: [
           // Time Filters
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _FilterChip(label: 'Today', isSelected: true),
-              _FilterChip(label: 'This Week', isSelected: false),
-              _FilterChip(label: 'Month', isSelected: false),
-              _FilterChip(label: 'Custom', isSelected: false),
+              _buildTimeFilter('Today'),
+              const SizedBox(width: 8),
+              _buildTimeFilter('This Week'),
+              const SizedBox(width: 8),
+              _buildTimeFilter('Month'),
+              const SizedBox(width: 8),
+              _buildTimeFilter('Custom'),
             ],
           ),
           const SizedBox(height: 24),
@@ -158,72 +324,83 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen>
                 const SizedBox(height: 20),
                 Row(
                   children: [
-                    // Mock Donut Chart
+                    // Dynamic Pie Chart
                     SizedBox(
                       width: 120,
                       height: 120,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          CircularProgressIndicator(
-                            value: 1.0,
-                            color: const Color(0xFF1E3A8A),
-                            strokeWidth: 12,
-                          ),
-                          CircularProgressIndicator(
-                            value: 0.55,
-                            color: const Color(0xFFE67E22),
-                            strokeWidth: 12,
-                          ),
-                          CircularProgressIndicator(
-                            value: 0.25,
-                            color: const Color(0xFF059669),
-                            strokeWidth: 12,
-                          ),
-                          const Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '1.2k',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                ),
+                      child: filteredCases.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No cases',
+                                style: TextStyle(color: Colors.grey),
                               ),
-                              Text(
-                                'TOTAL',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 10,
-                                ),
+                            )
+                          : PieChart(
+                              PieChartData(
+                                sectionsSpace: 2,
+                                centerSpaceRadius: 35,
+                                sections: typeCounts.entries
+                                    .toList()
+                                    .asMap()
+                                    .entries
+                                    .map((entry) {
+                                      final idx = entry.key;
+                                      final stat = entry.value;
+                                      final double percentage =
+                                          (stat.value / filteredCases.length) *
+                                          100;
+                                      final colors = [
+                                        const Color(0xFF1E3A8A),
+                                        const Color(0xFFE67E22),
+                                        const Color(0xFF059669),
+                                        Colors.red,
+                                        Colors.purple,
+                                      ];
+                                      return PieChartSectionData(
+                                        color: colors[idx % colors.length],
+                                        value: percentage,
+                                        title:
+                                            '${percentage.toStringAsFixed(0)}%',
+                                        radius: 12,
+                                        titleStyle: const TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      );
+                                    })
+                                    .toList(),
                               ),
-                            ],
-                          ),
-                        ],
-                      ),
+                            ),
                     ),
                     const SizedBox(width: 24),
                     // Legend
                     Expanded(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _LegendItem(
-                            color: const Color(0xFF1E3A8A),
-                            label: 'Civil',
-                            percentage: '45%',
-                          ),
-                          _LegendItem(
-                            color: const Color(0xFFE67E22),
-                            label: 'Criminal',
-                            percentage: '30%',
-                          ),
-                          _LegendItem(
-                            color: const Color(0xFF059669),
-                            label: 'Family',
-                            percentage: '25%',
-                          ),
-                        ],
+                        children: typeCounts.entries
+                            .toList()
+                            .asMap()
+                            .entries
+                            .map((entry) {
+                              final idx = entry.key;
+                              final stat = entry.value;
+                              final double percentage =
+                                  (stat.value / filteredCases.length) * 100;
+                              final colors = [
+                                const Color(0xFF1E3A8A),
+                                const Color(0xFFE67E22),
+                                const Color(0xFF059669),
+                                Colors.red,
+                                Colors.purple,
+                              ];
+                              return _LegendItem(
+                                color: colors[idx % colors.length],
+                                label: stat.key,
+                                percentage: '${percentage.toStringAsFixed(0)}%',
+                              );
+                            })
+                            .toList(),
                       ),
                     ),
                   ],
@@ -241,20 +418,20 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen>
           const SizedBox(height: 16),
           _MetricRow(
             title: 'New Leads',
-            value: '248',
-            growth: '+15%',
+            value: newLeadsCount.toString(),
+            growth: '+Active',
             isPositive: true,
           ),
           _MetricRow(
             title: 'Avg Response Time',
-            value: '14m',
-            growth: '-2%',
-            isPositive: false,
+            value: '${avgResponseTime}m',
+            growth: 'Tracking',
+            isPositive: avgResponseTime < 60,
           ),
           _MetricRow(
-            title: 'Revenue (PKR)',
-            value: '1.2M',
-            growth: '+8%',
+            title: 'Est. Revenue (USD)',
+            value: '\$${revenue.toStringAsFixed(0)}',
+            growth: '+Est.',
             isPositive: true,
           ),
         ],
@@ -262,10 +439,51 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen>
     );
   }
 
-  Widget _buildUserGrowthTab(
-    BuildContext context,
-    Function(String) showComingSoon,
-  ) {
+  Widget _buildUserGrowthTab(BuildContext context) {
+    final lawyersAsync = ref.watch(allLawyersProvider);
+    final clientsAsync = ref.watch(allClientsProvider);
+
+    final lawyers = lawyersAsync.value ?? [];
+    final clients = clientsAsync.value ?? [];
+
+    final now = DateTime.now();
+    final months = List.generate(5, (i) {
+      return DateTime(now.year, now.month - i, 1);
+    }).reversed.toList();
+
+    List<FlSpot> clientSpots = [];
+    List<FlSpot> lawyerSpots = [];
+    List<String> monthLabels = [];
+    double maxVal = 5;
+
+    for (int i = 0; i < 5; i++) {
+      final monthStart = months[i];
+      final nextMonth = DateTime(monthStart.year, monthStart.month + 1, 1);
+
+      int cCount = clients.where((c) {
+        final dt = c.joinedAt.toDate();
+        return dt.isAfter(monthStart.subtract(const Duration(days: 1))) &&
+            dt.isBefore(nextMonth);
+      }).length;
+
+      int lCount = lawyers.where((l) {
+        final dt = l.joinedAt.toDate();
+        return dt.isAfter(monthStart.subtract(const Duration(days: 1))) &&
+            dt.isBefore(nextMonth);
+      }).length;
+
+      if (cCount > maxVal) maxVal = cCount.toDouble();
+      if (lCount > maxVal) maxVal = lCount.toDouble();
+
+      clientSpots.add(FlSpot(i.toDouble(), cCount.toDouble()));
+      lawyerSpots.add(FlSpot(i.toDouble(), lCount.toDouble()));
+      monthLabels.add(DateFormat('MMM').format(monthStart));
+    }
+
+    final topLawyers = List.of(lawyers)
+      ..sort((a, b) => b.rating.compareTo(a.rating));
+    final displayLawyers = topLawyers.take(3).toList();
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -340,42 +558,77 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen>
                   ],
                 ),
                 const SizedBox(height: 32),
-                // Custom drawn mock line chart utilizing clip path could go here
                 SizedBox(
                   height: 150,
-                  child: Center(
-                    child: Text(
-                      "Line Chart visualization\n(Clients - Blue, Lawyers - Orange)",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey[400]),
+                  child: LineChart(
+                    LineChartData(
+                      gridData: FlGridData(show: false),
+                      titlesData: FlTitlesData(
+                        topTitles: AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        rightTitles: AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            getTitlesWidget: (value, meta) {
+                              if (value.toInt() >= 0 &&
+                                  value.toInt() < monthLabels.length) {
+                                return Text(
+                                  monthLabels[value.toInt()],
+                                  style: const TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 10,
+                                  ),
+                                );
+                              }
+                              return const SizedBox();
+                            },
+                          ),
+                        ),
+                      ),
+                      borderData: FlBorderData(show: false),
+                      minX: 0,
+                      maxX: 4,
+                      minY: 0,
+                      maxY: maxVal + (maxVal * 0.2), // 20% padding
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: clientSpots,
+                          isCurved: true,
+                          color: const Color(0xFF1E3A8A),
+                          barWidth: 3,
+                          isStrokeCapRound: true,
+                          dotData: FlDotData(show: true),
+                          belowBarData: BarAreaData(
+                            show: true,
+                            color: const Color(
+                              0xFF1E3A8A,
+                            ).withValues(alpha: 0.1),
+                          ),
+                        ),
+                        LineChartBarData(
+                          spots: lawyerSpots,
+                          isCurved: true,
+                          color: const Color(0xFFE67E22),
+                          barWidth: 3,
+                          isStrokeCapRound: true,
+                          dotData: FlDotData(show: true),
+                          belowBarData: BarAreaData(
+                            show: true,
+                            color: const Color(
+                              0xFFE67E22,
+                            ).withValues(alpha: 0.1),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
-                    Text(
-                      'Jan',
-                      style: TextStyle(color: Colors.grey, fontSize: 10),
-                    ),
-                    Text(
-                      'Feb',
-                      style: TextStyle(color: Colors.grey, fontSize: 10),
-                    ),
-                    Text(
-                      'Mar',
-                      style: TextStyle(color: Colors.grey, fontSize: 10),
-                    ),
-                    Text(
-                      'Apr',
-                      style: TextStyle(color: Colors.grey, fontSize: 10),
-                    ),
-                    Text(
-                      'May',
-                      style: TextStyle(color: Colors.grey, fontSize: 10),
-                    ),
-                  ],
                 ),
               ],
             ),
@@ -390,7 +643,16 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen>
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
               TextButton(
-                onPressed: () => showComingSoon('Top Lawyers Directory'),
+                onPressed: () {
+                  // Navigate to users management with focus on lawyers
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          const AdminUserManagementScreen(initialSearch: ''),
+                    ),
+                  );
+                },
                 child: const Text(
                   'View All',
                   style: TextStyle(color: Color(0xFF1E3A8A)),
@@ -400,27 +662,26 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen>
           ),
 
           // Lawyer List
-          _TopLawyerItem(
-            name: 'Advocate Ahmed Khan',
-            court: 'Corporate Law • Islamabad',
-            rating: '98%',
-            subtitle: 'SUCCESS RATE',
-            avatarColor: Colors.amber,
-          ),
-          _TopLawyerItem(
-            name: 'Zoya Malik',
-            court: 'Family Law • Lahore',
-            rating: '94%',
-            subtitle: 'SUCCESS RATE',
-            avatarColor: Colors.pink,
-          ),
-          _TopLawyerItem(
-            name: 'Barrister Bilal Shah',
-            court: 'Criminal Law • Karachi',
-            rating: '92%',
-            subtitle: 'SUCCESS RATE',
-            avatarColor: Colors.blue,
-          ),
+          if (displayLawyers.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: Text(
+                  "No Lawyers available",
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+            ),
+          ...displayLawyers.map((l) {
+            return _TopLawyerItem(
+              name: l.name,
+              court: '${l.specialization} • ${l.location ?? "Unknown"}',
+              rating:
+                  '${(l.rating > 0 ? l.rating : l.aiScore).toStringAsFixed(1)}',
+              subtitle: 'RATING',
+              avatarColor: Colors.blue,
+            );
+          }),
         ],
       ),
     );
@@ -430,25 +691,34 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen>
 class _FilterChip extends StatelessWidget {
   final String label;
   final bool isSelected;
-  const _FilterChip({required this.label, required this.isSelected});
+  final VoidCallback? onTap;
+
+  const _FilterChip({
+    required this.label,
+    required this.isSelected,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFF1E3A8A) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isSelected ? Colors.transparent : Colors.grey.shade300,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF1E3A8A) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? Colors.transparent : Colors.grey.shade300,
+          ),
         ),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: isSelected ? Colors.white : Colors.grey.shade600,
-          fontSize: 11,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.grey.shade600,
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
         ),
       ),
     );

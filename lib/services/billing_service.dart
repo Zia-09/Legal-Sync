@@ -139,12 +139,17 @@ class BillingService {
       final snapshot = await _firestore
           .collection(_collection)
           .where('status', isEqualTo: 'active')
-          .orderBy('nextBillingDate')
           .get();
 
-      return snapshot.docs
+      final docs = snapshot.docs
           .map((doc) => BillingModel.fromJson(doc.data()))
           .toList();
+      docs.sort(
+        (a, b) => (a.nextBillingDate ?? DateTime.now()).compareTo(
+          b.nextBillingDate ?? DateTime.now(),
+        ),
+      );
+      return docs;
     } catch (e) {
       print('Error getting active billings: $e');
       return [];
@@ -156,13 +161,18 @@ class BillingService {
     return _firestore
         .collection(_collection)
         .where('status', isEqualTo: 'active')
-        .orderBy('nextBillingDate')
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
+        .map((snapshot) {
+          final docs = snapshot.docs
               .map((doc) => BillingModel.fromJson(doc.data()))
-              .toList(),
-        );
+              .toList();
+          docs.sort(
+            (a, b) => (a.nextBillingDate ?? DateTime.now()).compareTo(
+              b.nextBillingDate ?? DateTime.now(),
+            ),
+          );
+          return docs;
+        });
   }
 
   /// Get overdue billings
@@ -172,13 +182,21 @@ class BillingService {
       final snapshot = await _firestore
           .collection(_collection)
           .where('status', isEqualTo: 'active')
-          .where('nextBillingDate', isLessThan: now)
-          .orderBy('nextBillingDate')
           .get();
 
-      return snapshot.docs
+      final docs = snapshot.docs
           .map((doc) => BillingModel.fromJson(doc.data()))
           .toList();
+
+      final overdue = docs
+          .where(
+            (b) =>
+                b.nextBillingDate != null &&
+                b.nextBillingDate!.isBefore(now.toDate()),
+          )
+          .toList();
+      overdue.sort((a, b) => a.nextBillingDate!.compareTo(b.nextBillingDate!));
+      return overdue;
     } catch (e) {
       print('Error getting overdue billings: $e');
       return [];

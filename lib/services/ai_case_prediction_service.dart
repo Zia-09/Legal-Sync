@@ -62,15 +62,13 @@ class AICasePredictionService {
 
   /// ✅ Admin dashboard
   Stream<List<AICasePredictionModel>> getAllPredictions() {
-    return _firestore
-        .collection(_collection)
-        .orderBy('predictedAt', descending: true)
-        .snapshots()
-        .map(
-          (snap) => snap.docs
-              .map((e) => AICasePredictionModel.fromJson(e.data()))
-              .toList(),
-        );
+    return _firestore.collection(_collection).snapshots().map((snap) {
+      final docs = snap.docs
+          .map((e) => AICasePredictionModel.fromJson(e.data()))
+          .toList();
+      docs.sort((a, b) => b.predictedAt.compareTo(a.predictedAt));
+      return docs;
+    });
   }
 
   /// ✅ Review / update (SAFE fields only)

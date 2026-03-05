@@ -149,21 +149,14 @@ class AppointmentService {
   Stream<List<AppointmentModel>> streamUpcomingAppointmentsForLawyer(
     String lawyerId,
   ) {
-    return _appointments
-        .where('lawyerId', isEqualTo: lawyerId)
-        .where('status', isEqualTo: 'approved')
-        .where('scheduledAt', isGreaterThanOrEqualTo: Timestamp.now())
-        .orderBy('scheduledAt')
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map(
-                (doc) => AppointmentModel.fromJson(
-                  doc.data() as Map<String, dynamic>,
-                ),
-              )
-              .toList(),
-        );
+    return streamAppointmentsByLawyer(lawyerId).map((appointments) {
+      final now = DateTime.now();
+      final filtered = appointments.where((a) {
+        return a.status == 'approved' && a.scheduledAt.isAfter(now);
+      }).toList();
+      filtered.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+      return filtered;
+    });
   }
 
   Stream<List<AppointmentModel>> streamPendingAppointmentsForLawyer(
@@ -187,20 +180,14 @@ class AppointmentService {
   Stream<List<AppointmentModel>> streamUpcomingAppointmentsForClient(
     String clientId,
   ) {
-    return _appointments
-        .where('clientId', isEqualTo: clientId)
-        .where('status', whereIn: const ['pending', 'approved'])
-        .where('scheduledAt', isGreaterThanOrEqualTo: Timestamp.now())
-        .orderBy('scheduledAt')
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map(
-                (doc) => AppointmentModel.fromJson(
-                  doc.data() as Map<String, dynamic>,
-                ),
-              )
-              .toList(),
-        );
+    return streamAppointmentsByClient(clientId).map((appointments) {
+      final now = DateTime.now();
+      final targetStatuses = ['pending', 'approved'];
+      final filtered = appointments.where((a) {
+        return targetStatuses.contains(a.status) && a.scheduledAt.isAfter(now);
+      }).toList();
+      filtered.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+      return filtered;
+    });
   }
 }

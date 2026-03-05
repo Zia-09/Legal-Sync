@@ -41,13 +41,16 @@ class ChatThreadService {
     return _db
         .collection(_collection)
         .where('lawyerId', isEqualTo: lawyerId)
-        .orderBy('updatedAt', descending: true)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
+        .map((snapshot) {
+          final docs = snapshot.docs
               .map((doc) => ChatThread.fromMap(doc.data(), doc.id))
-              .toList(),
-        );
+              .toList();
+          docs.sort(
+            (a, b) => b.updatedAt.compareTo(a.updatedAt),
+          ); // Newest first
+          return docs;
+        });
   }
 
   // ===============================
@@ -57,13 +60,16 @@ class ChatThreadService {
     return _db
         .collection(_collection)
         .where('clientId', isEqualTo: clientId)
-        .orderBy('updatedAt', descending: true)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
+        .map((snapshot) {
+          final docs = snapshot.docs
               .map((doc) => ChatThread.fromMap(doc.data(), doc.id))
-              .toList(),
-        );
+              .toList();
+          docs.sort(
+            (a, b) => b.updatedAt.compareTo(a.updatedAt),
+          ); // Newest first
+          return docs;
+        });
   }
 
   // ===============================
@@ -125,13 +131,14 @@ class ChatThreadService {
         .collection(_collection)
         .doc(threadId)
         .collection('messages')
-        .orderBy('sentAt', descending: false)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
+        .map((snapshot) {
+          final msgs = snapshot.docs
               .map((doc) => ChatMessage.fromMap(doc.data(), doc.id))
-              .toList(),
-        );
+              .toList();
+          msgs.sort((a, b) => a.sentAt.compareTo(b.sentAt)); // Oldest first
+          return msgs;
+        });
   }
 
   // ===============================
@@ -168,28 +175,29 @@ class ChatThreadService {
   // ===============================
 
   Stream<List<ChatThread>> streamAllThreads() {
-    return _db
-        .collection(_collection)
-        .orderBy('updatedAt', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => ChatThread.fromMap(doc.data(), doc.id))
-              .toList(),
-        );
+    return _db.collection(_collection).snapshots().map((snapshot) {
+      final docs = snapshot.docs
+          .map((doc) => ChatThread.fromMap(doc.data(), doc.id))
+          .toList();
+      docs.sort((a, b) => b.updatedAt.compareTo(a.updatedAt)); // Newest first
+      return docs;
+    });
   }
 
   Stream<List<ChatThread>> streamThreadsForCase(String caseId) {
     return _db
         .collection(_collection)
         .where('caseId', isEqualTo: caseId)
-        .orderBy('updatedAt', descending: true)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
+        .map((snapshot) {
+          final docs = snapshot.docs
               .map((doc) => ChatThread.fromMap(doc.data(), doc.id))
-              .toList(),
-        );
+              .toList();
+          docs.sort(
+            (a, b) => b.updatedAt.compareTo(a.updatedAt),
+          ); // Newest first
+          return docs;
+        });
   }
 
   Stream<List<ChatThread>> streamThreadsForUser(String userId) {

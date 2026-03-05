@@ -59,12 +59,13 @@ class LeaveService {
       final snapshot = await _firestore
           .collection(_collection)
           .where('lawyerId', isEqualTo: lawyerId)
-          .orderBy('startDate', descending: true)
           .get();
 
-      return snapshot.docs
+      final leaves = snapshot.docs
           .map((doc) => LeaveModel.fromJson(doc.data()))
           .toList();
+      leaves.sort((a, b) => b.startDate.compareTo(a.startDate)); // Newest first
+      return leaves;
     } catch (e) {
       print('Error getting leaves: $e');
       return [];
@@ -76,13 +77,14 @@ class LeaveService {
     return _firestore
         .collection(_collection)
         .where('lawyerId', isEqualTo: lawyerId)
-        .orderBy('startDate', descending: true)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
+        .map((snapshot) {
+          final leaves = snapshot.docs
               .map((doc) => LeaveModel.fromJson(doc.data()))
-              .toList(),
-        );
+              .toList();
+          leaves.sort((a, b) => b.startDate.compareTo(a.startDate));
+          return leaves;
+        });
   }
 
   /// Get pending leave requests (for admin approval)
@@ -91,12 +93,13 @@ class LeaveService {
       final snapshot = await _firestore
           .collection(_collection)
           .where('status', isEqualTo: 'pending')
-          .orderBy('createdAt', descending: true)
           .get();
 
-      return snapshot.docs
+      final leaves = snapshot.docs
           .map((doc) => LeaveModel.fromJson(doc.data()))
           .toList();
+      leaves.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return leaves;
     } catch (e) {
       print('Error getting pending leaves: $e');
       return [];
@@ -108,13 +111,14 @@ class LeaveService {
     return _firestore
         .collection(_collection)
         .where('status', isEqualTo: 'pending')
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
+        .map((snapshot) {
+          final leaves = snapshot.docs
               .map((doc) => LeaveModel.fromJson(doc.data()))
-              .toList(),
-        );
+              .toList();
+          leaves.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return leaves;
+        });
   }
 
   /// Approve leave request
@@ -249,13 +253,14 @@ class LeaveService {
           .where('lawyerId', isEqualTo: lawyerId)
           .where('status', isEqualTo: 'approved')
           .where('startDate', isGreaterThanOrEqualTo: Timestamp.now())
-          .orderBy('startDate')
           .limit(10)
           .get();
 
-      return snapshot.docs
+      final leaves = snapshot.docs
           .map((doc) => LeaveModel.fromJson(doc.data()))
           .toList();
+      leaves.sort((a, b) => a.startDate.compareTo(b.startDate));
+      return leaves;
     } catch (e) {
       print('Error getting upcoming leaves: $e');
       return [];

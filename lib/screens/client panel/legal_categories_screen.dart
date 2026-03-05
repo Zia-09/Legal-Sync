@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/provider/lawyer_provider.dart';
+import 'category_lawyers_screen.dart';
 import 'home_screen.dart';
 import 'messages_screen.dart';
 import 'case_status_screen.dart';
@@ -296,20 +297,32 @@ class _LegalCategoriesScreenState extends ConsumerState<LegalCategoriesScreen> {
                                 final cat = _filteredCategories[index];
                                 final label = cat['label'] as String;
 
-                                // Calculate dynamic count
+                                // Fix: use contains() so 'Family Lawyer' matches 'Family' category
                                 final count = lawyers
                                     .where(
                                       (l) =>
+                                          l.isApproved &&
                                           l.specialization
                                               .toLowerCase()
-                                              .trim() ==
-                                          label.toLowerCase().trim(),
+                                              .contains(
+                                                label.toLowerCase().trim(),
+                                              ),
                                     )
                                     .length;
 
                                 return _CategoryCard(
                                   category: cat,
                                   dynamicCount: count,
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => CategoryLawyersScreen(
+                                        category: label,
+                                        categoryColor: cat['color'] as Color,
+                                        categoryIcon: cat['icon'] as IconData,
+                                      ),
+                                    ),
+                                  ),
                                 );
                               },
                             );
@@ -423,17 +436,18 @@ class _LegalCategoriesScreenState extends ConsumerState<LegalCategoriesScreen> {
 class _CategoryCard extends ConsumerWidget {
   final Map<String, dynamic> category;
   final int dynamicCount;
+  final VoidCallback onTap;
 
-  const _CategoryCard({required this.category, required this.dynamicCount});
+  const _CategoryCard({
+    required this.category,
+    required this.dynamicCount,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return GestureDetector(
-      onTap: () {
-        ref.read(selectedCategoryProvider.notifier).state =
-            category['label'] as String;
-        Navigator.pop(context);
-      },
+      onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(

@@ -241,16 +241,17 @@ class ChatService {
         .collection('chats')
         .doc(threadId)
         .collection('messages')
-        .orderBy('sentAt', descending: false)
         .snapshots()
-        .map(
-          (snap) => snap.docs
+        .map((snap) {
+          final msgs = snap.docs
               .map(
                 (d) =>
                     ChatMessage.fromMap(d.data() as Map<String, dynamic>, d.id),
               )
-              .toList(),
-        );
+              .toList();
+          msgs.sort((a, b) => a.sentAt.compareTo(b.sentAt)); // Oldest first
+          return msgs;
+        });
   }
 
   Future<void> sendMessage(String threadId, ChatMessage msg) async {
@@ -274,18 +275,17 @@ class ReviewService {
       reviewsRef.add(review.toMap());
 
   Stream<List<ReviewModel>> getReviewsForLawyer(String lawyerId) {
-    return reviewsRef
-        .where('lawyerId', isEqualTo: lawyerId)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
-          (snap) => snap.docs
-              .map(
-                (d) =>
-                    ReviewModel.fromMap(d.data() as Map<String, dynamic>, d.id),
-              )
-              .toList(),
-        );
+    return reviewsRef.where('lawyerId', isEqualTo: lawyerId).snapshots().map((
+      snap,
+    ) {
+      final docs = snap.docs
+          .map(
+            (d) => ReviewModel.fromMap(d.data() as Map<String, dynamic>, d.id),
+          )
+          .toList();
+      docs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return docs;
+    });
   }
 }
 

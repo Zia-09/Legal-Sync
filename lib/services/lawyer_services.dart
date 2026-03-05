@@ -1,4 +1,3 @@
-// lib/services/lawyer_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:legal_sync/model/lawyer_Model.dart';
 import 'package:legal_sync/model/review_Model.dart';
@@ -84,10 +83,9 @@ class LawyerService {
     return _firestore
         .collection('reviews')
         .where('lawyerId', isEqualTo: lawyerId)
-        .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs
+          final docs = snapshot.docs
               .map(
                 (doc) => ReviewModel.fromJson({
                   ...doc.data() as Map<String, dynamic>,
@@ -95,6 +93,8 @@ class LawyerService {
                 }),
               )
               .toList();
+          docs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return docs;
         });
   }
 
@@ -192,13 +192,9 @@ class LawyerService {
   /// 🧠 Get top-performing AI lawyers
   Future<List<LawyerModel>> getTopAILawyers({int limit = 5}) async {
     try {
-      final snapshot = await _firestore
-          .collection('lawyers')
-          .orderBy('aiWinRate', descending: true)
-          .limit(limit)
-          .get();
+      final snapshot = await _firestore.collection('lawyers').get();
 
-      return snapshot.docs
+      final lawyers = snapshot.docs
           .map(
             (doc) => LawyerModel.fromJson({
               ...doc.data() as Map<String, dynamic>,
@@ -206,6 +202,9 @@ class LawyerService {
             }),
           )
           .toList();
+
+      lawyers.sort((a, b) => b.aiWinRate.compareTo(a.aiWinRate));
+      return lawyers.take(limit).toList();
     } catch (e) {
       throw Exception('Failed to get top AI lawyers: $e');
     }
