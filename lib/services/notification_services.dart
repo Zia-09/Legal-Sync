@@ -194,4 +194,27 @@ class NotificationService {
 
     await batch.commit();
   }
+
+  Future<void> clearChatNotifications({
+    required String userId,
+    required String partnerId,
+  }) async {
+    final snapshot = await _notifications
+        .where('userId', isEqualTo: userId)
+        .where('type', isEqualTo: 'chat')
+        .where('isRead', isEqualTo: false)
+        .get();
+
+    final batch = FirebaseFirestore.instance.batch();
+    for (var doc in snapshot.docs) {
+      final metadata = doc.data() as Map<String, dynamic>?;
+      if (metadata?['metadata']?['senderId'] == partnerId) {
+        batch.update(doc.reference, {
+          'isRead': true,
+          'updatedAt': Timestamp.now(),
+        });
+      }
+    }
+    await batch.commit();
+  }
 }

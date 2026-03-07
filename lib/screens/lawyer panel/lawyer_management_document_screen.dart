@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/provider/auth_provider.dart';
 import 'package:legal_sync/provider/document_provider.dart';
 import 'package:legal_sync/provider/case_provider.dart';
+import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/model/document_Model.dart';
 import 'package:intl/intl.dart';
 
@@ -61,6 +62,7 @@ class _LawyerManagementDocumentScreenState
         data: (documents) {
           final filteredDocs = _applyFilters(documents);
           final cases = casesAsync.value ?? [];
+          final clients = ref.watch(allClientsProvider).value ?? [];
 
           return SingleChildScrollView(
             child: Column(
@@ -68,9 +70,9 @@ class _LawyerManagementDocumentScreenState
               children: [
                 _buildTopSnapshotCard(documents),
                 const SizedBox(height: 20),
-                _buildFilterSection(cases),
+                _buildFilterSection(cases, documents, clients),
                 const SizedBox(height: 24),
-                _buildClientUploadsList(filteredDocs),
+                _buildClientUploadsList(filteredDocs, cases, clients),
               ],
             ),
           );
@@ -112,8 +114,11 @@ class _LawyerManagementDocumentScreenState
   }
 
   Widget _buildTopSnapshotCard(List<DocumentModel> documents) {
-    final pending = documents.where((d) => !d.isApprovedForClient).length;
+    final pending = documents
+        .where((d) => !d.isApprovedForClient && !d.isRejected)
+        .length;
     final approved = documents.where((d) => d.isApprovedForClient).length;
+    final rejected = documents.where((d) => d.isRejected).length;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -139,7 +144,7 @@ class _LawyerManagementDocumentScreenState
                 const Color(0xFFFF6B00),
               ), // Orange
               _buildSnapshotItem('Approved', approved.toString(), Colors.green),
-              _buildSnapshotItem('Rejected', '0', Colors.red),
+              _buildSnapshotItem('Rejected', rejected.toString(), Colors.red),
             ],
           ),
           const SizedBox(height: 16),
@@ -196,10 +201,22 @@ class _LawyerManagementDocumentScreenState
     );
   }
 
-  Widget _buildFilterSection(List<dynamic> cases) {
+  Widget _buildFilterSection(
+    List<dynamic> cases,
+    List<DocumentModel> documents,
+    List<dynamic> clients,
+  ) {
     final caseItems = [
       'All cases',
       ...cases.map((c) => c.caseNumber as String),
+    ];
+
+    final clientIds = documents.map((d) => d.uploadedBy).toSet();
+    final clientItems = [
+      'All Clients',
+      ...clients
+          .where((c) => clientIds.contains(c.clientId))
+          .map((c) => c.name as String),
     ];
 
     return Padding(
@@ -268,9 +285,11 @@ class _LawyerManagementDocumentScreenState
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _buildFilterDropdown('CLIENT', _selectedClientFilter, [
-                  'All Clients',
-                ]),
+                child: _buildFilterDropdown(
+                  'CLIENT',
+                  _selectedClientFilter,
+                  clientItems,
+                ),
               ),
             ],
           ),
@@ -426,7 +445,11 @@ class _LawyerManagementDocumentScreenState
     );
   }
 
-  Widget _buildClientUploadsList(List<DocumentModel> docs) {
+  Widget _buildClientUploadsList(
+    List<DocumentModel> docs,
+    List<dynamic> cases,
+    List<dynamic> clients,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -485,15 +508,24 @@ class _LawyerManagementDocumentScreenState
               ),
             )
           else
-            ...docs.map(
-              (doc) => Padding(
+            ...docs.map((doc) {
+              final caseObj = cases.firstWhere(
+                (c) => c.caseId == doc.caseId,
+                orElse: () => null,
+              );
+              final clientObj = clients.firstWhere(
+                (c) => c.clientId == doc.uploadedBy,
+                orElse: () => null,
+              );
+
+              return Padding(
                 padding: const EdgeInsets.only(bottom: 12.0),
                 child: _buildDocumentListItem(
                   docId: doc.documentId,
                   docTitle: doc.fileName ?? 'Untitled Document',
                   clientName:
-                      'Uploaded by: ${doc.uploadedBy.substring(0, 5)}...',
-                  caseName: 'Case ID: ${doc.caseId.substring(0, 5)}...',
+                      'Uploaded by: ${clientObj?.name ?? doc.uploadedBy}',
+                  caseName: 'Case: ${caseObj?.caseNumber ?? doc.caseId}',
                   iconType: doc.isPDF
                       ? Icons.picture_as_pdf
                       : (doc.isImage ? Icons.image : Icons.description),
@@ -510,8 +542,8 @@ class _LawyerManagementDocumentScreenState
                       'Submitted: ${DateFormat('dd MMM yyyy').format(doc.uploadedAt)}',
                   isPending: !doc.isApprovedForClient,
                 ),
-              ),
-            ),
+              );
+            }),
           const SizedBox(height: 40),
         ],
       ),
@@ -649,6 +681,35 @@ class _LawyerManagementDocumentScreenState
                         ),
                       ),
                     ),
+                  if (isPending && user != null)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12.0),
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          minimumSize: const Size(0, 0),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onPressed: () {
+                          _showRejectDialog(context, ref, docId);
+                        },
+                        child: const Text(
+                          'Reject',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
                   Icon(
                     Icons.calendar_today_outlined,
                     size: 14,
@@ -695,6 +756,38 @@ class _LawyerManagementDocumentScreenState
                 ],
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRejectDialog(BuildContext context, WidgetRef ref, String docId) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reject Document'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: 'Enter reason for rejection...',
+          ),
+          maxLines: 3,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              ref
+                  .read(documentStateProvider.notifier)
+                  .rejectDocument(docId, reason: controller.text);
+              Navigator.pop(context);
+            },
+            child: const Text('Reject', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),

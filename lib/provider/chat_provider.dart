@@ -2,11 +2,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../model/chat_Model.dart';
 import '../services/chat_service.dart';
+import 'notification_provider.dart';
 
 // ===============================
 // Chat Service Provider
 // ===============================
-final chatServiceProvider = Provider((ref) => ChatService());
+final chatServiceProvider = Provider((ref) {
+  final notificationService = ref.watch(notificationServiceProvider);
+  return ChatService(notificationService: notificationService);
+});
 
 // ===============================
 // All Messages Provider
@@ -131,6 +135,17 @@ class ChatNotifier extends StateNotifier<ChatModel?> {
   Future<void> loadMessage(String messageId) async {
     final message = await _service.getMessage(messageId);
     state = message;
+  }
+
+  Future<void> markConversationAsRead({
+    required String userId,
+    required String partnerId,
+  }) async {
+    await _service.markConversationAsRead(userId: userId, partnerId: partnerId);
+  }
+
+  Future<void> deleteConversation(String chatId) async {
+    await _service.deleteConversation(chatId);
   }
 }
 

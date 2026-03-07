@@ -832,7 +832,7 @@ class _StatCard extends StatelessWidget {
               TweenAnimationBuilder(
                 tween: IntTween(begin: 0, end: value),
                 duration: const Duration(milliseconds: 900),
-                builder: (_, int v, __) => Text(
+                builder: (_, int v, _) => Text(
                   _fmt(v),
                   style: const TextStyle(
                     color: Color(0xFF1F2937),

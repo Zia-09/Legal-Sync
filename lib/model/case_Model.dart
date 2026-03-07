@@ -22,6 +22,8 @@ class CaseModel {
   final bool isArchived;
   final List<String> notes;
   final List<Map<String, dynamic>> hearings;
+  final String? caseNumber;
+  final String? clientName;
 
   final double? aiConfidence;
   final String? predictedOutcome;
@@ -56,6 +58,8 @@ class CaseModel {
     this.aiPredictedAt,
     this.notes = const [],
     this.hearings = const [],
+    this.caseNumber,
+    this.clientName,
   });
 
   // AI Prediction Fields comment (for clarity)
@@ -101,6 +105,8 @@ class CaseModel {
           : null,
       'notes': notes,
       'hearings': hearings,
+      'caseNumber': caseNumber,
+      'clientName': clientName,
     };
   }
 
@@ -137,6 +143,8 @@ class CaseModel {
           : null,
       'notes': notes,
       'hearings': hearings,
+      'caseNumber': caseNumber,
+      'clientName': clientName,
     };
   }
 
@@ -177,6 +185,8 @@ class CaseModel {
               ?.map((e) => e as Map<String, dynamic>)
               .toList() ??
           const [],
+      caseNumber: json['caseNumber']?.toString(),
+      clientName: json['clientName']?.toString(),
     );
   }
 
@@ -216,6 +226,8 @@ class CaseModel {
               ?.map((e) => e as Map<String, dynamic>)
               .toList() ??
           const [],
+      caseNumber: map['caseNumber']?.toString(),
+      clientName: map['clientName']?.toString(),
     );
   }
 
@@ -242,6 +254,8 @@ class CaseModel {
     DateTime? aiPredictedAt,
     List<String>? notes,
     List<Map<String, dynamic>>? hearings,
+    String? caseNumber,
+    String? clientName,
   }) {
     return CaseModel(
       caseId: caseId,
@@ -270,6 +284,8 @@ class CaseModel {
       aiPredictedAt: aiPredictedAt ?? this.aiPredictedAt,
       notes: notes ?? this.notes,
       hearings: hearings ?? this.hearings,
+      caseNumber: caseNumber ?? this.caseNumber,
+      clientName: clientName ?? this.clientName,
     );
   }
 }

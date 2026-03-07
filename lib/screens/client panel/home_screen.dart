@@ -7,7 +7,10 @@ import 'messages_screen.dart';
 import 'case_status_screen.dart';
 import 'search_filter_screen.dart';
 import 'app_setting_screen.dart';
+import 'client_notifications_screen.dart';
 import 'widgets/home_widgets.dart';
+import 'package:legal_sync/provider/notification_provider.dart';
+import 'package:legal_sync/provider/auth_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -117,79 +120,85 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       letterSpacing: 0.5,
                     ),
                   ),
-                  Consumer(
-                    builder: (context, ref, child) {
-                      final clientAsync = ref.watch(currentClientProvider);
-                      return clientAsync.when(
-                        data: (client) => GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const AppSettingScreen(),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1E1E1E),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: const Color(
-                                  0xFFFF6B00,
-                                ).withValues(alpha: 0.3),
-                                width: 1,
-                              ),
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child:
-                                  (client?.profileImage != null &&
-                                      client!.profileImage!.isNotEmpty)
-                                  ? Image.network(
-                                      client.profileImage!,
-                                      fit: BoxFit.cover,
-                                      errorBuilder:
-                                          (context, error, stackTrace) =>
-                                              Image.asset(
-                                                'images/profile.jpg',
-                                                fit: BoxFit.cover,
-                                              ),
-                                    )
-                                  : Image.asset(
-                                      'images/profile.jpg',
-                                      fit: BoxFit.cover,
-                                    ),
-                            ),
-                          ),
-                        ),
-                        loading: () => Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1E1E1E),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Center(
-                            child: SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Color(0xFFFF6B00),
+                  Row(
+                    children: [
+                      _buildNotificationBell(context, ref),
+                      const SizedBox(width: 12),
+                      Consumer(
+                        builder: (context, ref, child) {
+                          final clientAsync = ref.watch(currentClientProvider);
+                          return clientAsync.when(
+                            data: (client) => GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const AppSettingScreen(),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1E1E1E),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: const Color(
+                                      0xFFFF6B00,
+                                    ).withValues(alpha: 0.3),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child:
+                                      (client?.profileImage != null &&
+                                          client!.profileImage!.isNotEmpty)
+                                      ? Image.network(
+                                          client.profileImage!,
+                                          fit: BoxFit.cover,
+                                          errorBuilder:
+                                              (context, error, stackTrace) =>
+                                                  Image.asset(
+                                                    'images/profile.jpg',
+                                                    fit: BoxFit.cover,
+                                                  ),
+                                        )
+                                      : Image.asset(
+                                          'images/profile.jpg',
+                                          fit: BoxFit.cover,
+                                        ),
+                                ),
                               ),
                             ),
-                          ),
-                        ),
-                        error: (_, __) => const Icon(
-                          Icons.account_circle,
-                          color: Colors.white,
-                          size: 40,
-                        ),
-                      );
-                    },
+                            loading: () => Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1E1E1E),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Color(0xFFFF6B00),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            error: (_, _) => const Icon(
+                              Icons.account_circle,
+                              color: Colors.white,
+                              size: 40,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -705,6 +714,72 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           );
         }),
+      ),
+    );
+  }
+
+  Widget _buildNotificationBell(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authStateProvider).value;
+    if (user == null) return const SizedBox.shrink();
+
+    final unreadCountAsync = ref.watch(
+      unreadNotificationsCountProvider(user.uid),
+    );
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ClientNotificationsScreen()),
+        );
+      },
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E1E1E),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            const Icon(
+              Icons.notifications_none_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
+            unreadCountAsync.when(
+              data: (count) => count > 0
+                  ? Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFF6B00),
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 14,
+                          minHeight: 14,
+                        ),
+                        child: Text(
+                          '$count',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
+          ],
+        ),
       ),
     );
   }

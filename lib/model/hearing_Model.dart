@@ -15,6 +15,9 @@ class HearingModel {
   final String? createdBy; // lawyerId or clientId
   final String? outcome; // "win", "lose", "postponed", etc.
   final String? judgeNotes;
+  final String? modeOfConduct; // "Online", "Offline"
+  final String? hearingType;
+  final String? clientId;
 
   const HearingModel({
     required this.hearingId,
@@ -30,6 +33,9 @@ class HearingModel {
     this.createdBy,
     this.outcome,
     this.judgeNotes,
+    this.modeOfConduct,
+    this.hearingType,
+    this.clientId,
   });
 
   factory HearingModel.fromJson(Map<String, dynamic> json) {
@@ -57,6 +63,9 @@ class HearingModel {
       createdBy: json['createdBy']?.toString(),
       outcome: json['outcome']?.toString(),
       judgeNotes: json['judgeNotes']?.toString(),
+      modeOfConduct: json['modeOfConduct']?.toString(),
+      hearingType: json['hearingType']?.toString(),
+      clientId: json['clientId']?.toString(),
     );
   }
 
@@ -75,6 +84,9 @@ class HearingModel {
       'createdBy': createdBy,
       'outcome': outcome,
       'judgeNotes': judgeNotes,
+      'modeOfConduct': modeOfConduct,
+      'hearingType': hearingType,
+      'clientId': clientId,
     };
   }
 
@@ -88,6 +100,9 @@ class HearingModel {
     DateTime? updatedAt,
     String? outcome,
     String? judgeNotes,
+    String? modeOfConduct,
+    String? hearingType,
+    String? clientId,
   }) {
     return HearingModel(
       hearingId: hearingId,
@@ -103,6 +118,9 @@ class HearingModel {
       createdBy: createdBy,
       outcome: outcome ?? this.outcome,
       judgeNotes: judgeNotes ?? this.judgeNotes,
+      modeOfConduct: modeOfConduct ?? this.modeOfConduct,
+      hearingType: hearingType ?? this.hearingType,
+      clientId: clientId ?? this.clientId,
     );
   }
 

@@ -1,16 +1,149 @@
+import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:legal_sync/model/case_Model.dart';
+import 'package:legal_sync/model/client_Model.dart';
+import 'package:legal_sync/provider/auth_provider.dart';
+import 'package:legal_sync/provider/case_provider.dart';
+import 'package:legal_sync/provider/client_provider.dart';
+import 'package:legal_sync/provider/document_provider.dart';
 
-class CreateCaseScreen extends StatefulWidget {
+class CreateCaseScreen extends ConsumerStatefulWidget {
   const CreateCaseScreen({super.key});
 
   @override
-  State<CreateCaseScreen> createState() => _CreateCaseScreenState();
+  ConsumerState<CreateCaseScreen> createState() => _CreateCaseScreenState();
 }
 
-class _CreateCaseScreenState extends State<CreateCaseScreen> {
+class _CreateCaseScreenState extends ConsumerState<CreateCaseScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _refIdController = TextEditingController();
+  final _feeController = TextEditingController(text: '350.00');
+
   String _billingType = 'Hourly Rate';
   String _estimatedDuration = '1-3 Months';
   String _selectedCaseType = 'Select case type';
+  ClientModel? _selectedClient;
+  File? _engagementLetter;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _refIdController.text = _generateReferenceId();
+  }
+
+  String _generateReferenceId() {
+    final now = DateTime.now();
+    final timestamp = now.millisecondsSinceEpoch.toString();
+    final shortHash = timestamp.substring(timestamp.length - 4);
+    return 'REF-${now.year}-$shortHash';
+  }
+
+  Future<void> _pickEngagementLetter() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'],
+      );
+
+      if (result != null && result.files.single.path != null) {
+        setState(() {
+          _engagementLetter = File(result.files.single.path!);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error picking file: $e')));
+      }
+    }
+  }
+
+  Future<void> _handleCreateCase() async {
+    if (!_formKey.currentState!.validate() || _selectedClient == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill all required fields and select a client'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final user = ref.read(authStateProvider).value;
+      if (user == null) throw 'User not authenticated';
+
+      // 1. Generate Case ID upfront
+      final caseId = FirebaseFirestore.instance.collection('cases').doc().id;
+
+      String? documentUrl;
+      if (_engagementLetter != null) {
+        // 2. Upload and Save Document Metadata
+        final doc = await ref
+            .read(documentServiceProvider)
+            .uploadAndSaveDocument(
+              file: _engagementLetter!,
+              caseId: caseId,
+              lawyerId: user.uid,
+              uploadedBy: user.uid,
+              fileType: _engagementLetter!.path.split('.').last,
+              description:
+                  'Engagement Letter for Case ${_refIdController.text}',
+              tags: ['engagement_letter'],
+            );
+        documentUrl = doc.fileUrl;
+      }
+
+      final newCase = CaseModel(
+        caseId: caseId,
+        clientId: _selectedClient!.clientId,
+        lawyerId: user.uid,
+        title: _titleController.text,
+        description: _descriptionController.text,
+        caseNumber: _refIdController.text,
+        caseType: _selectedCaseType != 'Select case type'
+            ? _selectedCaseType
+            : 'General',
+        caseFee: double.tryParse(_feeController.text),
+        createdAt: DateTime.now(),
+        documentUrls: documentUrl != null ? [documentUrl] : [],
+        clientName: _selectedClient!.name,
+        status: 'pending',
+        isApproved: false,
+      );
+
+      await ref.read(caseStateNotifierProvider.notifier).createCase(newCase);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Case created successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error creating case: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,12 +170,15 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            _buildSection(
-              header: 'Client Name',
-              child: _buildInputField(
-                hint: 'Search or enter client name',
-                prefixIcon: Icons.search,
-                controller: TextEditingController(),
+            Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  _buildSection(
+                    header: 'Client Name',
+                    child: _buildClientSelector(),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 20),
@@ -70,7 +206,9 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
               header: 'Case Title / Reference',
               child: _buildInputField(
                 hint: 'e.g. Smith v. Johnson Real Estate Dispute',
-                controller: TextEditingController(),
+                controller: _titleController,
+                validator: (val) =>
+                    val == null || val.isEmpty ? 'Title is required' : null,
               ),
             ),
             const SizedBox(height: 30),
@@ -80,8 +218,11 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
               header: 'Description of Matter',
               child: _buildInputField(
                 hint: 'Briefly describe the legal matter and objectives...',
-                controller: TextEditingController(),
+                controller: _descriptionController,
                 maxLines: 4,
+                validator: (val) => val == null || val.isEmpty
+                    ? 'Description is required'
+                    : null,
               ),
             ),
             const SizedBox(height: 16),
@@ -89,7 +230,10 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
               header: 'Internal Reference ID',
               child: _buildInputField(
                 hint: 'REF-2024-001',
-                controller: TextEditingController(text: 'REF-2024-001'),
+                controller: _refIdController,
+                validator: (val) => val == null || val.isEmpty
+                    ? 'Reference ID is required'
+                    : null,
               ),
             ),
             const SizedBox(height: 16),
@@ -125,7 +269,13 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
                 child: _buildInputField(
                   hint: '0.00',
                   prefixIcon: Icons.attach_money,
-                  controller: TextEditingController(text: '350.00'),
+                  controller: _feeController,
+                  validator: (val) {
+                    if (val == null || val.isEmpty) return 'Fee is required';
+                    if (double.tryParse(val) == null)
+                      return 'Enter a valid number';
+                    return null;
+                  },
                 ),
               ),
             const SizedBox(height: 20),
@@ -168,16 +318,19 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
                       ),
                       const SizedBox(height: 16),
                       SizedBox(
-                        width: 150,
+                        width: 200,
                         child: OutlinedButton(
-                          onPressed: () {},
+                          onPressed: _pickEngagementLetter,
                           style: OutlinedButton.styleFrom(
                             backgroundColor: Colors.white,
                             side: const BorderSide(color: Color(0xFFFF6B00)),
                           ),
-                          child: const Text(
-                            'Browse Files',
-                            style: TextStyle(color: Color(0xFFFF6B00)),
+                          child: Text(
+                            _engagementLetter != null
+                                ? _engagementLetter!.path.split('/').last
+                                : 'Browse Files',
+                            style: const TextStyle(color: Color(0xFFFF6B00)),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ),
@@ -207,14 +360,7 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Case created successfully!'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    },
+                    onPressed: _isLoading ? null : _handleCreateCase,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFFF6B00),
                       padding: const EdgeInsets.symmetric(vertical: 16),
@@ -223,13 +369,22 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
                       ),
                       elevation: 0,
                     ),
-                    child: const Text(
-                      'Next Step',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text(
+                            'Next Step',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                   ),
                 ),
               ],
@@ -288,10 +443,12 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
     required TextEditingController controller,
     int maxLines = 1,
     IconData? prefixIcon,
+    String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
+      validator: validator,
       style: const TextStyle(fontSize: 15, color: Colors.black87),
       decoration: InputDecoration(
         hintText: hint,
@@ -312,6 +469,57 @@ class _CreateCaseScreenState extends State<CreateCaseScreen> {
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildClientSelector() {
+    final clientsAsync = ref.watch(myClientsProvider);
+
+    return clientsAsync.when(
+      data: (clients) {
+        if (clients.isEmpty) {
+          // Fallback to all clients if no specific clients found
+          return ref
+              .watch(allClientsProvider)
+              .when(
+                data: (allClients) {
+                  return _buildDropdown(allClients, isFallback: true);
+                },
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (err, stack) => Text('Error: $err'),
+              );
+        }
+        return _buildDropdown(clients);
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, stack) => Text('Error loading clients: $err'),
+    );
+  }
+
+  Widget _buildDropdown(List<ClientModel> clients, {bool isFallback = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<ClientModel>(
+          value: _selectedClient,
+          hint: Text(isFallback ? 'Select From All Clients' : 'Select Client'),
+          isExpanded: true,
+          items: clients.map((client) {
+            return DropdownMenuItem<ClientModel>(
+              value: client,
+              child: Text(client.name),
+            );
+          }).toList(),
+          onChanged: (val) {
+            setState(() => _selectedClient = val);
+          },
         ),
       ),
     );

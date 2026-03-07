@@ -2,15 +2,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:legal_sync/model/chat_Model.dart';
 import 'package:legal_sync/model/lawyer_Model.dart';
 import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/provider/chat_provider.dart';
 import 'package:legal_sync/provider/chat_thread_provider.dart';
-import 'package:legal_sync/services/chat_thread_service.dart';
 import 'package:legal_sync/services/supabase_service.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ChatDetailScreen extends ConsumerStatefulWidget {
   final String receiverId;
@@ -41,47 +39,40 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
   Future<void> _pickAndSendFile(String clientId) async {
     try {
-      final picker = ImagePicker();
-      final XFile? image = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 70,
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx'],
       );
 
-      if (image == null) return;
+      if (result == null || result.files.isEmpty) return;
+
+      final file = File(result.files.first.path!);
+      final fileName = result.files.first.name;
+      final isImage = [
+        'jpg',
+        'jpeg',
+        'png',
+      ].contains(result.files.first.extension?.toLowerCase());
 
       // Upload to Supabase
-      final imageUrl = await supabaseService.uploadFile(
-        file: File(image.path),
+      final fileUrl = await supabaseService.uploadFile(
+        file: file,
         path: 'chat_attachments/${widget.receiverId}',
       );
 
-      // Send message
-      final threads = await ref
-          .read(chatThreadServiceProvider)
-          .streamThreadsBetween(clientId, widget.receiverId)
-          .first;
-      String threadId;
-      if (threads.isEmpty) {
-        threadId = await ref
-            .read(chatThreadServiceProvider)
-            .createThread(lawyerId: widget.receiverId, clientId: clientId);
-      } else {
-        threadId = threads.first.threadId;
-      }
-
       final newMessage = ChatMessage(
-        messageId: FirebaseFirestore.instance.collection('dummy').doc().id,
+        messageId: '', // Service will generate
         senderId: clientId,
         receiverId: widget.receiverId,
-        message: 'Shared an image',
-        messageType: 'image',
-        fileUrl: imageUrl,
+        message: isImage ? 'Shared an image' : 'Shared a file: $fileName',
+        messageType: isImage ? 'image' : 'file',
+        fileUrl: fileUrl,
         sentAt: DateTime.now(),
       );
 
       await ref
-          .read(chatThreadServiceProvider)
-          .sendMessage(threadId: threadId, message: newMessage);
+          .read(chatStateNotifierProvider.notifier)
+          .sendMessage(newMessage);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -91,9 +82,79 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
     }
   }
 
+  Future<void> _deleteConversation() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: const Text(
+          'Delete Conversation',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Are you sure you want to delete this conversation? This action cannot be undone.',
+          style: TextStyle(color: Color(0xFFCCCCCC)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final client = ref.read(currentClientProvider).value;
+      if (client != null) {
+        final chatId = [client.clientId, widget.receiverId]..sort();
+        final threadId = chatId.join('_');
+        await ref
+            .read(chatStateNotifierProvider.notifier)
+            .deleteConversation(threadId);
+        if (mounted) {
+          Navigator.pop(context);
+        }
+      }
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _ensureThreadExists();
+      _markAsRead();
+    });
+  }
+
+  Future<void> _markAsRead() async {
+    final client = ref.read(currentClientProvider).value;
+    if (client != null) {
+      await ref
+          .read(chatStateNotifierProvider.notifier)
+          .markConversationAsRead(
+            userId: client.clientId,
+            partnerId: widget.receiverId,
+          );
+    }
+  }
+
+  Future<void> _ensureThreadExists() async {
+    final client = ref.read(currentClientProvider).value;
+    if (client != null) {
+      await ref
+          .read(chatThreadServiceProvider)
+          .createThread(lawyerId: widget.receiverId, clientId: client.clientId);
+    }
+  }
+
   @override
   void dispose() {
-    // 🔹 Clear typing status on exit
     final clientAsync = ref.read(currentClientProvider);
     clientAsync.whenData((client) {
       if (client != null) {
@@ -119,6 +180,26 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
       data: (client) {
         if (client == null) return const Scaffold();
 
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final scaffoldBg = isDark
+            ? const Color(0xFF121212)
+            : const Color(0xFFF7F9FC);
+        final cardColor = isDark ? const Color(0xFF1A1A1A) : Colors.white;
+        final appBarColor = isDark ? const Color(0xFF141414) : Colors.white;
+        final textColor = isDark ? Colors.white : Colors.black87;
+        final subtitleColor = isDark
+            ? const Color(0xFF6B6B6B)
+            : Colors.grey.shade600;
+        final inputBg = isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade100;
+        final msgMineColor = const Color(0xFFFF6B00);
+        final msgTheirsColor = isDark
+            ? const Color(0xFF1E1E1E)
+            : Colors.grey.shade200;
+        final msgTextColorMine = Colors.white;
+        final msgTextColorTheirs = isDark
+            ? const Color(0xFFDDDDDD)
+            : Colors.black87;
+
         return ref
             .watch(
               messagesBetweenUsersProvider((
@@ -132,16 +213,18 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                   (_) => _scrollToBottom(),
                 );
                 return Scaffold(
-                  backgroundColor: const Color(0xFF0F0F0F),
+                  backgroundColor: scaffoldBg,
                   appBar: AppBar(
-                    backgroundColor: const Color(0xFF141414),
+                    backgroundColor: appBarColor,
+                    elevation: 1,
+                    shadowColor: isDark ? Colors.black54 : Colors.black12,
                     leadingWidth: 40,
                     leading: IconButton(
                       padding: EdgeInsets.zero,
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.arrow_back_ios_new,
-                        color: Colors.white,
+                        color: textColor,
                         size: 18,
                       ),
                     ),
@@ -151,7 +234,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1E1E1E),
+                            color: inputBg,
                             borderRadius: BorderRadius.circular(18),
                           ),
                           child: ClipRRect(
@@ -164,8 +247,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                                 : Center(
                                     child: Text(
                                       widget.lawyer.name[0],
-                                      style: const TextStyle(
-                                        color: Colors.white,
+                                      style: TextStyle(
+                                        color: textColor,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -179,8 +262,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                             children: [
                               Text(
                                 widget.lawyer.name,
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                style: TextStyle(
+                                  color: textColor,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -210,7 +293,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                                             style: TextStyle(
                                               color: widget.lawyer.isOnline
                                                   ? const Color(0xFF059669)
-                                                  : const Color(0xFF6B6B6B),
+                                                  : subtitleColor,
                                               fontSize: 11,
                                             ),
                                           ),
@@ -221,7 +304,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                                       style: TextStyle(
                                         color: widget.lawyer.isOnline
                                             ? const Color(0xFF059669)
-                                            : const Color(0xFF6B6B6B),
+                                            : subtitleColor,
                                         fontSize: 11,
                                       ),
                                     ),
@@ -232,7 +315,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                                       style: TextStyle(
                                         color: widget.lawyer.isOnline
                                             ? const Color(0xFF059669)
-                                            : const Color(0xFF6B6B6B),
+                                            : subtitleColor,
                                         fontSize: 11,
                                       ),
                                     ),
@@ -245,14 +328,35 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                     actions: [
                       IconButton(
                         onPressed: () {},
-                        icon: const Icon(
-                          Icons.call_outlined,
-                          color: Colors.white,
-                        ),
+                        icon: Icon(Icons.call_outlined, color: textColor),
                       ),
-                      IconButton(
-                        onPressed: () {},
-                        icon: const Icon(Icons.more_vert, color: Colors.white),
+                      PopupMenuButton<String>(
+                        color: cardColor,
+                        icon: Icon(Icons.more_vert, color: textColor),
+                        onSelected: (value) {
+                          if (value == 'delete') {
+                            _deleteConversation();
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.red,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Delete Chat',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -267,6 +371,12 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                           itemBuilder: (_, i) {
                             final msg = messages[i];
                             final isMine = msg.senderId == client.clientId;
+
+                            // 🔹 Mark message as read if it's new and for me
+                            if (!isMine && !msg.isRead) {
+                              _markAsRead();
+                            }
+
                             return Align(
                               alignment: isMine
                                   ? Alignment.centerRight
@@ -282,9 +392,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                                       MediaQuery.of(context).size.width * 0.72,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: isMine
-                                      ? const Color(0xFFFF6B00)
-                                      : const Color(0xFF1E1E1E),
+                                  color: isMine ? msgMineColor : msgTheirsColor,
                                   borderRadius: BorderRadius.only(
                                     topLeft: const Radius.circular(16),
                                     topRight: const Radius.circular(16),
@@ -341,29 +449,96 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                                           ),
                                         ),
                                       ),
+                                    if (msg.messageType == 'file' &&
+                                        msg.fileUrl != null)
+                                      Container(
+                                        margin: const EdgeInsets.only(
+                                          bottom: 8,
+                                        ),
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: isMine
+                                              ? Colors.white.withOpacity(0.1)
+                                              : (isDark
+                                                    ? Colors.grey[850]
+                                                    : Colors.white),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.insert_drive_file,
+                                              color: isMine
+                                                  ? Colors.white
+                                                  : const Color(0xFFFF6B00),
+                                              size: 30,
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Flexible(
+                                              child: Text(
+                                                msg.message.replaceFirst(
+                                                  'Shared a file: ',
+                                                  '',
+                                                ),
+                                                style: TextStyle(
+                                                  color: isMine
+                                                      ? msgTextColorMine
+                                                      : msgTextColorTheirs,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     if (msg.message.isNotEmpty &&
                                         msg.messageType == 'text')
                                       Text(
                                         msg.message,
                                         style: TextStyle(
                                           color: isMine
-                                              ? Colors.white
-                                              : const Color(0xFFDDDDDD),
+                                              ? msgTextColorMine
+                                              : msgTextColorTheirs,
                                           fontSize: 13,
                                           height: 1.4,
                                         ),
                                       ),
                                     const SizedBox(height: 4),
-                                    Text(
-                                      DateFormat('hh:mm a').format(msg.sentAt),
-                                      style: TextStyle(
-                                        color: isMine
-                                            ? Colors.white.withValues(
-                                                alpha: 0.6,
-                                              )
-                                            : const Color(0xFF5A5A5A),
-                                        fontSize: 10,
-                                      ),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          DateFormat(
+                                            'hh:mm a',
+                                          ).format(msg.sentAt),
+                                          style: TextStyle(
+                                            color: isMine
+                                                ? msgTextColorMine.withOpacity(
+                                                    0.6,
+                                                  )
+                                                : subtitleColor,
+                                            fontSize: 10,
+                                          ),
+                                        ),
+                                        if (isMine) ...[
+                                          const SizedBox(width: 4),
+                                          Icon(
+                                            msg.isRead
+                                                ? Icons.done_all
+                                                : Icons.done,
+                                            size: 14,
+                                            color: msg.isRead
+                                                ? Colors.lightBlueAccent
+                                                : Colors.white60,
+                                          ),
+                                        ],
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -372,13 +547,18 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                           },
                         ),
                       ),
+
                       // Input bar
                       Container(
                         padding: const EdgeInsets.fromLTRB(12, 10, 12, 16),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF141414),
+                        decoration: BoxDecoration(
+                          color: appBarColor,
                           border: Border(
-                            top: BorderSide(color: Color(0xFF1E1E1E)),
+                            top: BorderSide(
+                              color: isDark
+                                  ? const Color(0xFF1E1E1E)
+                                  : Colors.grey.shade200,
+                            ),
                           ),
                         ),
                         child: Row(
@@ -386,9 +566,9 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                             IconButton(
                               onPressed: () =>
                                   _pickAndSendFile(client.clientId),
-                              icon: const Icon(
+                              icon: Icon(
                                 Icons.attach_file,
-                                color: Color(0xFF6B6B6B),
+                                color: subtitleColor,
                               ),
                             ),
                             Expanded(
@@ -397,10 +577,12 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                                   horizontal: 14,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF1E1E1E),
+                                  color: inputBg,
                                   borderRadius: BorderRadius.circular(24),
                                   border: Border.all(
-                                    color: const Color(0xFF2A2A2A),
+                                    color: isDark
+                                        ? const Color(0xFF2A2A2A)
+                                        : Colors.transparent,
                                   ),
                                 ),
                                 child: TextField(
@@ -416,15 +598,13 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                                           isTyping: val.isNotEmpty,
                                         );
                                   },
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: textColor,
                                     fontSize: 13,
                                   ),
-                                  decoration: const InputDecoration(
+                                  decoration: InputDecoration(
                                     hintText: 'Type a message...',
-                                    hintStyle: TextStyle(
-                                      color: Color(0xFF5A5A5A),
-                                    ),
+                                    hintStyle: TextStyle(color: subtitleColor),
                                     border: InputBorder.none,
                                     isDense: true,
                                     contentPadding: EdgeInsets.symmetric(
@@ -448,31 +628,11 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                                         receiverId: widget.receiverId,
                                         isTyping: false,
                                       );
-                                  // 🔹 Find or create thread
-                                  final threads = await ref
-                                      .read(chatThreadServiceProvider)
-                                      .streamThreadsBetween(
-                                        client.clientId,
-                                        widget.receiverId,
-                                      )
-                                      .first;
-                                  String threadId;
-                                  if (threads.isEmpty) {
-                                    threadId = await ref
-                                        .read(chatThreadServiceProvider)
-                                        .createThread(
-                                          lawyerId: widget.receiverId,
-                                          clientId: client.clientId,
-                                        );
-                                  } else {
-                                    threadId = threads.first.threadId;
-                                  }
+                                  // Ensure thread exists before sending
+                                  await _ensureThreadExists();
 
                                   final newMessage = ChatMessage(
-                                    messageId: FirebaseFirestore.instance
-                                        .collection('dummy')
-                                        .doc()
-                                        .id,
+                                    messageId: '',
                                     senderId: client.clientId,
                                     receiverId: widget.receiverId,
                                     message: text,
@@ -480,11 +640,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                                   );
 
                                   await ref
-                                      .read(chatThreadServiceProvider)
-                                      .sendMessage(
-                                        threadId: threadId,
-                                        message: newMessage,
-                                      );
+                                      .read(chatStateNotifierProvider.notifier)
+                                      .sendMessage(newMessage);
                                 }
                               },
                               child: Container(
@@ -508,35 +665,40 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                   ),
                 );
               },
-              loading: () => const Scaffold(
-                backgroundColor: Color(0xFF0F0F0F),
-                body: Center(
+              loading: () => Scaffold(
+                backgroundColor: scaffoldBg,
+                body: const Center(
                   child: CircularProgressIndicator(color: Color(0xFFFF6B00)),
                 ),
               ),
               error: (e, st) => Scaffold(
-                backgroundColor: const Color(0xFF0F0F0F),
+                backgroundColor: scaffoldBg,
                 body: Center(
-                  child: Text(
-                    'Error: $e',
-                    style: const TextStyle(color: Colors.white),
-                  ),
+                  child: Text('Error: $e', style: TextStyle(color: textColor)),
                 ),
               ),
             );
       },
-      loading: () => const Scaffold(
-        backgroundColor: Color(0xFF0F0F0F),
-        body: Center(
+      loading: () => Scaffold(
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF121212)
+            : const Color(0xFFF7F9FC),
+        body: const Center(
           child: CircularProgressIndicator(color: Color(0xFFFF6B00)),
         ),
       ),
       error: (e, st) => Scaffold(
-        backgroundColor: const Color(0xFF0F0F0F),
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF121212)
+            : const Color(0xFFF7F9FC),
         body: Center(
           child: Text(
             'Auth Error: $e',
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white
+                  : Colors.black87,
+            ),
           ),
         ),
       ),

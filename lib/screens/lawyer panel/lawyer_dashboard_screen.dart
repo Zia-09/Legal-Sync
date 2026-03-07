@@ -7,12 +7,19 @@ import 'package:legal_sync/provider/lawyer_provider.dart';
 import 'package:legal_sync/provider/notification_provider.dart';
 import 'package:legal_sync/provider/hearing_provider.dart';
 import 'package:legal_sync/model/lawyer_Model.dart';
-import 'package:legal_sync/screens/lawyer%20panel/all_consultation_request_screen.dart';
+import 'package:legal_sync/model/case_Model.dart';
+import 'package:legal_sync/model/hearing_Model.dart';
+import 'package:legal_sync/model/appoinment_model.dart';
+import 'package:legal_sync/model/client_Model.dart';
+import 'package:legal_sync/screens/lawyer panel/all_consultation_request_screen.dart';
 import 'package:legal_sync/screens/lawyer%20panel/lawyer_management_document_screen.dart';
 import 'package:legal_sync/screens/lawyer%20panel/lawyer_messages_screen.dart';
 import 'package:legal_sync/screens/lawyer%20panel/lawyer_settings_screen.dart';
 import 'package:legal_sync/screens/lawyer%20panel/create_case_screen.dart';
 import 'package:legal_sync/screens/lawyer%20panel/lawyer_notifications_screen.dart';
+import 'package:legal_sync/screens/lawyer%20panel/add_hearing_screen.dart';
+import 'package:legal_sync/provider/client_provider.dart';
+import 'package:legal_sync/screens/lawyer%20panel/lawyer_cases_screen.dart';
 import 'package:intl/intl.dart';
 
 class LawyerDashboardScreen extends ConsumerStatefulWidget {
@@ -111,6 +118,7 @@ class _LawyerHomeContent extends ConsumerWidget {
     final unreadCountAsync = ref.watch(
       unreadNotificationsCountProvider(user.uid),
     );
+    final clientsAsync = ref.watch(allClientsProvider);
 
     return lawyerAsync.when(
       data: (lawyer) {
@@ -125,22 +133,69 @@ class _LawyerHomeContent extends ConsumerWidget {
                 _buildHeader(context, lawyer, unreadCountAsync.value ?? 0),
                 const SizedBox(height: 16),
                 casesAsync.when(
-                  data: (cases) => _buildSummaryCards(cases),
+                  data: (List<CaseModel> cases) => Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Case Summary',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const LawyerCasesScreen(),
+                                ),
+                              ),
+                              child: Text(
+                                'View All',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.blue.shade700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildSummaryCards(cases),
+                    ],
+                  ),
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
                   error: (e, _) => Center(child: Text('Error: $e')),
                 ),
                 const SizedBox(height: 24),
                 consultationAsync.when(
-                  data: (requests) =>
-                      _buildConsultationRequests(context, ref, requests),
+                  data: (List<AppointmentModel> requests) => clientsAsync.when(
+                    data: (List<ClientModel> clients) =>
+                        _buildConsultationRequests(
+                          context,
+                          ref,
+                          requests,
+                          clients,
+                        ),
+                    loading: () => const SizedBox.shrink(),
+                    error: (e, _) => const SizedBox.shrink(),
+                  ),
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
                   error: (e, _) => Center(child: Text('Error: $e')),
                 ),
                 const SizedBox(height: 24),
                 hearingsAsync.when(
-                  data: (hearings) => _buildSchedule(hearings),
+                  data: (List<HearingModel> hearings) =>
+                      _buildSchedule(context, ref, hearings),
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
                   error: (e, _) => Center(child: Text('Error: $e')),
@@ -169,11 +224,10 @@ class _LawyerHomeContent extends ConsumerWidget {
           CircleAvatar(
             radius: 22,
             backgroundColor: const Color(0xFFFF6B00),
-            backgroundImage:
-                lawyer.profileImage != null && lawyer.profileImage!.isNotEmpty
+            backgroundImage: (lawyer.profileImage ?? '').isNotEmpty
                 ? NetworkImage(lawyer.profileImage!)
                 : null,
-            child: lawyer.profileImage == null || lawyer.profileImage!.isEmpty
+            child: (lawyer.profileImage ?? '').isEmpty
                 ? const Icon(Icons.person, color: Colors.white, size: 22)
                 : null,
           ),
@@ -272,7 +326,9 @@ class _LawyerHomeContent extends ConsumerWidget {
 
   Widget _buildSummaryCards(List<dynamic> cases) {
     final total = cases.length;
-    final active = cases.where((c) => c.status == 'active').length;
+    final active = cases
+        .where((c) => c.status == 'active' || c.status == 'in_progress')
+        .length;
     final pending = cases.where((c) => c.status == 'pending').length;
     final closed = cases
         .where((c) => c.status == 'closed' || c.status == 'completed')
@@ -281,7 +337,6 @@ class _LawyerHomeContent extends ConsumerWidget {
     // Simple percentage calculation relative to total
     final activePercent = total > 0 ? (active / total * 100).round() : 0;
     final pendingPercent = total > 0 ? (pending / total * 100).round() : 0;
-    final closedPercent = total > 0 ? (closed / total * 100).round() : 0;
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -309,12 +364,7 @@ class _LawyerHomeContent extends ConsumerWidget {
             pendingPercent >= 0,
           ),
           const SizedBox(width: 12),
-          _buildStatCard(
-            'Completed',
-            closed.toString(),
-            '+$closedPercent%',
-            true,
-          ),
+          _buildStatCard('Completed', closed.toString(), 'Success', true),
         ],
       ),
     );
@@ -381,7 +431,8 @@ class _LawyerHomeContent extends ConsumerWidget {
   Widget _buildConsultationRequests(
     BuildContext context,
     WidgetRef ref,
-    List<dynamic> requests,
+    List<AppointmentModel> requests,
+    List<ClientModel> clients,
   ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -451,7 +502,11 @@ class _LawyerHomeContent extends ConsumerWidget {
                       context,
                       ref,
                       appointmentId: req.appointmentId,
-                      name: 'Client ID: ${req.clientId.substring(0, 5)}...',
+                      name: clients.any((c) => c.clientId == req.clientId)
+                          ? clients
+                                .firstWhere((c) => c.clientId == req.clientId)
+                                .name
+                          : 'Client ID: ${req.clientId.length > 5 ? req.clientId.substring(0, 5) : req.clientId}...',
                       priority: 'CONSULTATION',
                       priorityColor: Colors.red.shade50,
                       priorityTextColor: Colors.red,
@@ -611,19 +666,53 @@ class _LawyerHomeContent extends ConsumerWidget {
     );
   }
 
-  Widget _buildSchedule(List<dynamic> hearings) {
+  Widget _buildSchedule(
+    BuildContext context,
+    WidgetRef ref,
+    List<HearingModel> hearings,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Upcoming Hearings',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Upcoming Hearings',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AddHearingScreen()),
+                  );
+                },
+                icon: const Icon(Icons.add, size: 14),
+                label: const Text(
+                  'Add Hearing',
+                  style: TextStyle(fontSize: 12),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF6B00),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 0,
+                  ),
+                  minimumSize: const Size(0, 32),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           if (hearings.isEmpty)
@@ -647,11 +736,27 @@ class _LawyerHomeContent extends ConsumerWidget {
                   (hearing) => Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _buildScheduleItem(
-                      time: DateFormat('h:mm a').format(hearing.scheduledAt),
-                      title: hearing.hearingType,
+                      time: DateFormat('h:mm a').format(hearing.hearingDate),
+                      title: hearing.hearingType ?? 'Hearing',
                       subtitle:
-                          'Room: ${hearing.courtRoom ?? 'TBD'} | ${hearing.modeOfConduct}',
+                          'Room: ${hearing.courtName ?? 'TBD'} | ${hearing.modeOfConduct ?? 'Offline'}',
                       iconColor: const Color(0xFFFF6B00),
+                      onSendReminder: hearing.clientId != null
+                          ? () {
+                              ref
+                                  .read(hearingStateNotifierProvider.notifier)
+                                  .sendManualReminder(
+                                    hearing: hearing,
+                                    clientId: hearing.clientId ?? '',
+                                  );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Reminder sent to client'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
+                          : null,
                     ),
                   ),
                 ),
@@ -665,6 +770,7 @@ class _LawyerHomeContent extends ConsumerWidget {
     required String title,
     required String subtitle,
     required Color iconColor,
+    VoidCallback? onSendReminder,
   }) {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -720,6 +826,20 @@ class _LawyerHomeContent extends ConsumerWidget {
               ],
             ),
           ),
+          if (onSendReminder != null) ...[
+            const SizedBox(width: 8),
+            IconButton(
+              onPressed: onSendReminder,
+              icon: const Icon(
+                Icons.notifications_active_outlined,
+                color: Color(0xFFFF6B00),
+                size: 20,
+              ),
+              tooltip: 'Send Reminder',
+              constraints: const BoxConstraints(),
+              padding: EdgeInsets.zero,
+            ),
+          ],
         ],
       ),
     );
@@ -731,7 +851,13 @@ class _LawyerHomeContent extends ConsumerWidget {
 class _LawyerSearchDelegate extends SearchDelegate<String> {
   @override
   List<Widget> buildActions(BuildContext context) => [
-    IconButton(icon: const Icon(Icons.clear), onPressed: () => query = ''),
+    IconButton(
+      icon: const Icon(Icons.clear),
+      onPressed: () {
+        query = '';
+        showSuggestions(context);
+      },
+    ),
   ];
 
   @override
@@ -741,10 +867,59 @@ class _LawyerSearchDelegate extends SearchDelegate<String> {
   );
 
   @override
-  Widget buildResults(BuildContext context) =>
-      Center(child: Text('Searching: $query'));
+  Widget buildResults(BuildContext context) {
+    return Consumer(
+      builder: (context, ref, _) {
+        final auth = ref.watch(authStateProvider).value;
+        if (auth == null) return const SizedBox.shrink();
+
+        final casesAsync = ref.watch(casesByLawyerProvider(auth.uid));
+
+        return casesAsync.when(
+          data: (cases) {
+            final results = cases.where((c) {
+              final q = query.toLowerCase();
+              return c.caseId.toLowerCase().contains(q) ||
+                  c.title.toLowerCase().contains(q) ||
+                  (c.caseType?.toLowerCase().contains(q) ?? false);
+            }).toList();
+
+            if (results.isEmpty) {
+              return Center(child: Text('No results found for "$query"'));
+            }
+
+            return ListView.builder(
+              itemCount: results.length,
+              itemBuilder: (context, index) {
+                final c = results[index];
+                return ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFFF6B00),
+                    child: Icon(Icons.gavel, color: Colors.white, size: 18),
+                  ),
+                  title: Text(c.caseId),
+                  subtitle: Text('${c.title} • ${c.caseType ?? "General"}'),
+                  trailing: const Icon(Icons.chevron_right, size: 18),
+                  onTap: () {
+                    // Navigate to case details if needed
+                    close(context, c.caseId);
+                  },
+                );
+              },
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Error: $e')),
+        );
+      },
+    );
+  }
 
   @override
-  Widget buildSuggestions(BuildContext context) =>
-      const Center(child: Text('Search for cases, clients...'));
+  Widget buildSuggestions(BuildContext context) {
+    if (query.isEmpty) {
+      return const Center(child: Text('Search for cases or clients...'));
+    }
+    return buildResults(context);
+  }
 }

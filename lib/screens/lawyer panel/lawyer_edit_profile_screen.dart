@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:legal_sync/model/lawyer_Model.dart';
 import 'package:legal_sync/provider/lawyer_provider.dart';
 import 'package:legal_sync/services/supabase_service.dart';
 import 'dart:io';
@@ -15,7 +16,6 @@ class LawyerEditProfileScreen extends ConsumerStatefulWidget {
 
 class _LawyerEditProfileScreenState
     extends ConsumerState<LawyerEditProfileScreen> {
-  bool _isUploading = false;
   final List<String> _specializations = [
     'Corporate Law',
     'Intellectual Property',
@@ -23,12 +23,47 @@ class _LawyerEditProfileScreenState
     'M&A',
     'Taxation',
   ];
+  final List<String> _selectedSpecializations = [];
+  bool _isUploading = false;
 
-  final List<String> _selectedSpecializations = [
-    'Corporate Law',
-    'Litigation',
-    'M&A',
-  ];
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _locationController = TextEditingController();
+  bool _isInitialized = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _locationController.dispose();
+    super.dispose();
+  }
+
+  void _initializeControllers(LawyerModel lawyer) {
+    if (_isInitialized) return;
+    _nameController.text = lawyer.name;
+    _emailController.text = lawyer.email;
+    _phoneController.text = lawyer.phone;
+    _locationController.text = lawyer.location ?? '';
+
+    // Initialize specializations
+    if (lawyer.specialization.isNotEmpty) {
+      final specs = lawyer.specialization.split(',').map((s) => s.trim());
+      _selectedSpecializations.clear();
+      for (var s in specs) {
+        if (s.isNotEmpty && !_selectedSpecializations.contains(s)) {
+          _selectedSpecializations.add(s);
+          // Add to available specializations if not present
+          if (!_specializations.contains(s)) {
+            _specializations.add(s);
+          }
+        }
+      }
+    }
+    _isInitialized = true;
+  }
 
   Future<void> _pickAndUploadImage(String lawyerId) async {
     try {
@@ -51,10 +86,7 @@ class _LawyerEditProfileScreenState
       // Update Firestore
       await ref
           .read(lawyerServiceProvider)
-          .updateLawyer(
-            lawyerId: lawyerId,
-            data: {'profileImageUrl': imageUrl},
-          );
+          .updateLawyer(lawyerId: lawyerId, data: {'profileImage': imageUrl});
 
       // Refresh lawyer data
       ref.invalidate(currentLawyerProvider);
@@ -79,7 +111,12 @@ class _LawyerEditProfileScreenState
   Widget build(BuildContext context) {
     final lawyerAsync = ref.watch(currentLawyerProvider);
     return lawyerAsync.when(
-      data: (lawyer) => _buildScaffold(lawyer),
+      data: (lawyer) {
+        if (lawyer != null) {
+          _initializeControllers(lawyer);
+        }
+        return _buildScaffold(lawyer);
+      },
       loading: () => const Scaffold(
         body: Center(
           child: CircularProgressIndicator(color: Color(0xFFFF6B00)),
@@ -124,9 +161,7 @@ class _LawyerEditProfileScreenState
                     backgroundImage:
                         (lawyer != null && lawyer.profileImageUrl.isNotEmpty)
                         ? NetworkImage(lawyer.profileImageUrl)
-                        : Image.network(
-                                'https://i.pravatar.cc/150?img=12',
-                              ).image
+                        : const NetworkImage('https://i.pravatar.cc/150?img=12')
                               as ImageProvider,
                   ),
                   Positioned(
@@ -167,21 +202,23 @@ class _LawyerEditProfileScreenState
             _buildInputField(
               label: 'FULL NAME',
               hint: 'e.g. Jonathan Sterling',
-              controller: TextEditingController(text: lawyer?.name ?? ''),
+              controller: _nameController,
             ),
             const SizedBox(height: 20),
 
             _buildInputField(
               label: 'EMAIL ADDRESS',
               hint: 'e.g. j.sterling@lawfirm.com',
-              controller: TextEditingController(text: lawyer?.email ?? ''),
+              controller: _emailController,
             ),
             const SizedBox(height: 20),
 
             _buildInputField(
               label: 'STATE BAR NUMBER',
               hint: 'CA-983241',
-              controller: TextEditingController(text: 'CA-983241'),
+              controller: TextEditingController(
+                text: 'CA-983241',
+              ), // Assuming static for now or from other field
               suffixIcon: const Icon(
                 Icons.check_circle,
                 color: Colors.green,
@@ -213,14 +250,14 @@ class _LawyerEditProfileScreenState
             _buildInputField(
               label: 'MOBILE NUMBER',
               hint: '+1 (555) 012-3456',
-              controller: TextEditingController(text: lawyer?.phone ?? ''),
+              controller: _phoneController,
             ),
             const SizedBox(height: 20),
 
             _buildInputField(
               label: 'OFFICE ADDRESS',
               hint: 'Enter your office address',
-              controller: TextEditingController(text: lawyer?.location ?? ''),
+              controller: _locationController,
               maxLines: 3,
             ),
             const SizedBox(height: 40),
@@ -228,13 +265,45 @@ class _LawyerEditProfileScreenState
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Profile updated successfully!'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
+                onPressed: () async {
+                  if (lawyer == null) return;
+                  try {
+                    setState(() => _isUploading = true);
+                    await ref
+                        .read(lawyerServiceProvider)
+                        .updateLawyer(
+                          lawyerId: lawyer.lawyerId,
+                          data: {
+                            'name': _nameController.text.trim(),
+                            'email': _emailController.text.trim(),
+                            'phone': _phoneController.text.trim(),
+                            'location': _locationController.text.trim(),
+                            'specialization': _selectedSpecializations.join(
+                              ', ',
+                            ),
+                          },
+                        );
+
+                    // Refresh lawyer data
+                    ref.invalidate(currentLawyerProvider);
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Profile updated successfully!'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to update: $e')),
+                      );
+                    }
+                  } finally {
+                    if (mounted) setState(() => _isUploading = false);
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFFF6B00),
@@ -358,30 +427,68 @@ class _LawyerEditProfileScreenState
   }
 
   Widget _buildAddSpecChip() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(
-          color: const Color(0xFFFF6B00),
-          style: BorderStyle.solid,
-        ),
-      ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.add, color: Color(0xFFFF6B00), size: 16),
-          SizedBox(width: 4),
-          Text(
-            'Add',
-            style: TextStyle(
-              color: Color(0xFFFF6B00),
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
+    return GestureDetector(
+      onTap: () async {
+        final TextEditingController newSpecController = TextEditingController();
+        final String? newSpec = await showDialog<String>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Add Specialization'),
+            content: TextField(
+              controller: newSpecController,
+              decoration: const InputDecoration(hintText: 'e.g. Real Estate'),
+              autofocus: true,
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, newSpecController.text),
+                child: const Text('Add'),
+              ),
+            ],
           ),
-        ],
+        );
+
+        if (newSpec != null && newSpec.trim().isNotEmpty) {
+          final trimmed = newSpec.trim();
+          setState(() {
+            if (!_specializations.contains(trimmed)) {
+              _specializations.add(trimmed);
+            }
+            if (!_selectedSpecializations.contains(trimmed)) {
+              _selectedSpecializations.add(trimmed);
+            }
+          });
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(
+            color: const Color(0xFFFF6B00),
+            style: BorderStyle.solid,
+          ),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.add, color: Color(0xFFFF6B00), size: 16),
+            SizedBox(width: 4),
+            Text(
+              'Add',
+              style: TextStyle(
+                color: Color(0xFFFF6B00),
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -105,9 +105,7 @@ class _LawyerSettingsScreenState extends ConsumerState<LawyerSettingsScreen> {
               cardColor: cardColor,
               textColor: textColor,
               onChanged: (val) {
-                ref.read(themeModeProvider.notifier).state = val
-                    ? ThemeMode.dark
-                    : ThemeMode.light;
+                ref.read(themeModeProvider.notifier).toggleTheme(val);
               },
             ),
             _buildToggleItem(

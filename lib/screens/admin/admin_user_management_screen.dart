@@ -52,7 +52,8 @@ class _AdminUserManagementScreenState
         ),
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: null, // Removed back arrow because this is part of IndexedStack bottom nav
+        leading:
+            null, // Removed back arrow because this is part of IndexedStack bottom nav
         actions: [
           if (_searchQuery.isEmpty)
             IconButton(
@@ -261,8 +262,9 @@ class _AdminUserManagementScreenState
   List<LawyerModel> _filterLawyers(List<LawyerModel> lawyers) {
     return lawyers.where((l) {
       if (_filterStatus != 'All' &&
-          l.status.toLowerCase() != _filterStatus.toLowerCase())
+          l.status.toLowerCase() != _filterStatus.toLowerCase()) {
         return false;
+      }
       if (_searchQuery.isNotEmpty) {
         if (!l.name.toLowerCase().contains(_searchQuery) &&
             !l.email.toLowerCase().contains(_searchQuery)) {
@@ -276,8 +278,9 @@ class _AdminUserManagementScreenState
   List<ClientModel> _filterClients(List<ClientModel> clients) {
     return clients.where((c) {
       if (_filterStatus != 'All' &&
-          c.status.toLowerCase() != _filterStatus.toLowerCase())
+          c.status.toLowerCase() != _filterStatus.toLowerCase()) {
         return false;
+      }
       if (_searchQuery.isNotEmpty) {
         if (!c.name.toLowerCase().contains(_searchQuery) &&
             !c.email.toLowerCase().contains(_searchQuery)) {

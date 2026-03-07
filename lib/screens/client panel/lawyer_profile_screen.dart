@@ -8,6 +8,7 @@ import 'package:legal_sync/services/notification_services.dart';
 import 'package:legal_sync/services/review_service.dart';
 import 'chat_detail_screen.dart';
 import 'messages_screen.dart';
+import 'leave_review_screen.dart';
 
 class LawyerProfileScreen extends ConsumerWidget {
   final LawyerModel? lawyer;
@@ -100,7 +101,7 @@ class LawyerProfileScreen extends ConsumerWidget {
                             ? Image.network(
                                 _profileImageUrl!,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Image.asset(
+                                errorBuilder: (_, _, _) => Image.asset(
                                   'images/profile.jpg',
                                   fit: BoxFit.cover,
                                 ),
@@ -578,14 +579,43 @@ class LawyerProfileScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 24),
 
-                  // Reviews Section
-                  const Text(
-                    'Client Reviews',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Client Reviews',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (lawyer != null)
+                        TextButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    LeaveReviewScreen(lawyer: lawyer!),
+                              ),
+                            );
+                          },
+                          icon: const Icon(
+                            Icons.rate_review_outlined,
+                            color: Color(0xFFFF6B00),
+                            size: 16,
+                          ),
+                          label: const Text(
+                            'Leave Review',
+                            style: TextStyle(
+                              color: Color(0xFFFF6B00),
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   if (lawyer != null)

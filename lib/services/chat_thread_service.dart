@@ -10,6 +10,12 @@ class ChatThreadService {
 
   static const String _collection = 'chats';
 
+  String getThreadId(String userId1, String userId2) {
+    return (userId1.hashCode <= userId2.hashCode)
+        ? '${userId1}_$userId2'
+        : '${userId2}_$userId1';
+  }
+
   // ===============================
   // CREATE NEW CHAT THREAD
   // ===============================
@@ -18,20 +24,23 @@ class ChatThreadService {
     required String clientId,
     String? caseId,
   }) async {
-    final docRef = _db.collection(_collection).doc();
+    final threadId = getThreadId(lawyerId, clientId);
+    final docRef = _db.collection(_collection).doc(threadId);
     final now = DateTime.now();
 
-    final thread = ChatThread(
-      threadId: docRef.id,
-      lawyerId: lawyerId,
-      clientId: clientId,
-      caseId: caseId,
-      createdAt: now,
-      updatedAt: now,
-    );
-
-    await docRef.set({...thread.toJson(), 'threadId': docRef.id});
-    return docRef.id;
+    final threadDoc = await docRef.get();
+    if (!threadDoc.exists) {
+      final thread = ChatThread(
+        threadId: threadId,
+        lawyerId: lawyerId,
+        clientId: clientId,
+        caseId: caseId,
+        createdAt: now,
+        updatedAt: now,
+      );
+      await docRef.set({...thread.toJson(), 'threadId': threadId});
+    }
+    return threadId;
   }
 
   // ===============================

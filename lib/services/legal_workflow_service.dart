@@ -53,6 +53,7 @@ class LegalWorkflowService {
       await _documentService.uploadAndSaveDocument(
         file: initialDocument,
         caseId: caseId,
+        lawyerId: caseModel.lawyerId,
         uploadedBy: uploadedBy ?? caseModel.lawyerId,
         fileType: initialDocumentType,
       );

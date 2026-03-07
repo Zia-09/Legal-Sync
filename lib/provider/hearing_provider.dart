@@ -24,6 +24,20 @@ final streamUpcomingHearingsProvider =
       return service.getUpcomingHearings(lawyerId);
     });
 
+/// Stream upcoming hearings for a client (legacy mapping - may miss docs w/o clientId)
+final streamUpcomingHearingsForClientProvider =
+    StreamProvider.family<List<HearingModel>, String>((ref, clientId) {
+      final service = ref.watch(hearingServiceProvider);
+      return service.getUpcomingHearingsForClient(clientId);
+    });
+
+/// Robust: Stream all hearings for a given list of case IDs
+final streamHearingsByCaseIdsProvider =
+    StreamProvider.family<List<HearingModel>, List<String>>((ref, caseIds) {
+      final service = ref.watch(hearingServiceProvider);
+      return service.streamHearingsByCaseIds(caseIds);
+    });
+
 /// Get single hearing by ID (Future provider)
 final getHearingByIdProvider = FutureProvider.family<HearingModel?, String>((
   ref,
@@ -45,7 +59,7 @@ class HearingStateNotifier
     try {
       state = const AsyncValue.loading();
       await _service.addHearing(hearing);
-      state = const AsyncValue.data([]);
+      state = const AsyncValue.data(<HearingModel>[]);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -59,7 +73,7 @@ class HearingStateNotifier
     try {
       state = const AsyncValue.loading();
       await _service.updateHearing(hearingId, data);
-      state = const AsyncValue.data([]);
+      state = const AsyncValue.data(<HearingModel>[]);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -70,7 +84,7 @@ class HearingStateNotifier
     try {
       state = const AsyncValue.loading();
       await _service.deleteHearing(hearingId);
-      state = const AsyncValue.data([]);
+      state = const AsyncValue.data(<HearingModel>[]);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -93,6 +107,18 @@ class HearingStateNotifier
       state = AsyncValue.data(hearings);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+    }
+  }
+
+  /// Send manual reminder to client
+  Future<void> sendManualReminder({
+    required HearingModel hearing,
+    required String clientId,
+  }) async {
+    try {
+      await _service.sendManualReminder(hearing: hearing, clientId: clientId);
+    } catch (e) {
+      print('Error sending manual reminder: $e');
     }
   }
 }

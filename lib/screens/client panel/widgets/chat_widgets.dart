@@ -26,16 +26,25 @@ class ChatList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final subtitleColor = isDark
+        ? const Color(0xFF9E9E9E)
+        : Colors.grey.shade600;
+
     if (threads.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.chat_bubble_outline, color: Color(0xFF2A2A2A), size: 52),
-            SizedBox(height: 12),
+            Icon(
+              Icons.chat_bubble_outline,
+              color: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade300,
+              size: 52,
+            ),
+            const SizedBox(height: 12),
             Text(
               'No conversations here',
-              style: TextStyle(color: Color(0xFF6B6B6B), fontSize: 14),
+              style: TextStyle(color: subtitleColor, fontSize: 14),
             ),
           ],
         ),
@@ -86,6 +95,13 @@ class ChatTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? const Color(0xFF1A1A1A) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark
+        ? const Color(0xFF9E9E9E)
+        : Colors.grey.shade600;
+
     final typingAsync = ref.watch(
       typingStatusProvider((
         senderId: lawyer.lawyerId, // Check if lawyer is typing
@@ -107,9 +123,20 @@ class ChatTile extends ConsumerWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
+          color: cardColor,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFF252525)),
+          border: Border.all(
+            color: isDark ? const Color(0xFF252525) : Colors.grey.shade200,
+          ),
+          boxShadow: isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
         ),
         child: Row(
           children: [
@@ -120,7 +147,9 @@ class ChatTile extends ConsumerWidget {
                   width: 50,
                   height: 50,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E1E1E),
+                    color: isDark
+                        ? const Color(0xFF1E1E1E)
+                        : Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(25),
                   ),
                   child: ClipRRect(
@@ -133,8 +162,8 @@ class ChatTile extends ConsumerWidget {
                         : Center(
                             child: Text(
                               lawyer.name[0],
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: textColor,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -151,10 +180,7 @@ class ChatTile extends ConsumerWidget {
                       decoration: BoxDecoration(
                         color: const Color(0xFF059669),
                         shape: BoxShape.circle,
-                        border: Border.all(
-                          color: const Color(0xFF1A1A1A),
-                          width: 2,
-                        ),
+                        border: Border.all(color: cardColor, width: 2),
                       ),
                     ),
                   ),
@@ -168,8 +194,8 @@ class ChatTile extends ConsumerWidget {
                 children: [
                   Text(
                     name,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: textColor,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -182,7 +208,7 @@ class ChatTile extends ConsumerWidget {
                     style: TextStyle(
                       color: isTyping
                           ? const Color(0xFFFF6B00)
-                          : (isUnread ? Colors.white : const Color(0xFF6B6B6B)),
+                          : (isUnread ? textColor : subtitleColor),
                       fontSize: 12,
                       fontWeight: isUnread || isTyping
                           ? FontWeight.bold
@@ -201,9 +227,7 @@ class ChatTile extends ConsumerWidget {
                 Text(
                   timeStr,
                   style: TextStyle(
-                    color: isUnread
-                        ? const Color(0xFFFF6B00)
-                        : const Color(0xFF5A5A5A),
+                    color: isUnread ? const Color(0xFFFF6B00) : subtitleColor,
                     fontSize: 11,
                   ),
                 ),
@@ -234,24 +258,78 @@ class ChatTile extends ConsumerWidget {
       );
     }
 
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) =>
-              ChatDetailScreen(receiverId: lawyer.lawyerId, lawyer: lawyer),
+    return Dismissible(
+      key: Key(thread.threadId),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (direction) async {
+        return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+            title: Text(
+              'Delete Conversation',
+              style: TextStyle(color: textColor),
+            ),
+            content: Text(
+              'Are you sure you want to delete this conversation? This action cannot be undone.',
+              style: TextStyle(color: subtitleColor),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text(
+                  'Delete',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      onDismissed: (direction) {
+        ref
+            .read(chatStateNotifierProvider.notifier)
+            .deleteConversation(thread.threadId);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Conversation deleted'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      },
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          color: Colors.redAccent.withOpacity(0.8),
+          borderRadius: BorderRadius.circular(14),
         ),
+        child: const Icon(Icons.delete_outline, color: Colors.white),
       ),
-      child: isGroup && thread.caseId != null
-          ? ref
-                .watch(getCaseByIdProvider(thread.caseId!))
-                .when(
-                  data: (caseModel) =>
-                      buildTileContent(caseModel?.caseType ?? 'Case Chat'),
-                  loading: () => buildTileContent('Loading Group...'),
-                  error: (_, __) => buildTileContent('Case Chat'),
-                )
-          : buildTileContent(lawyer.name),
+      child: GestureDetector(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                ChatDetailScreen(receiverId: lawyer.lawyerId, lawyer: lawyer),
+          ),
+        ),
+        child: isGroup && thread.caseId != null
+            ? ref
+                  .watch(getCaseByIdProvider(thread.caseId!))
+                  .when(
+                    data: (caseModel) =>
+                        buildTileContent(caseModel?.caseType ?? 'Case Chat'),
+                    loading: () => buildTileContent('Loading Group...'),
+                    error: (_, _) => buildTileContent('Case Chat'),
+                  )
+            : buildTileContent(lawyer.name),
+      ),
     );
   }
 }

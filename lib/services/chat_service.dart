@@ -1,11 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../model/chat_Model.dart';
+import '../services/notification_services.dart';
 
 class ChatService {
-  final FirebaseFirestore _db;
+  ChatService({
+    FirebaseFirestore? firestore,
+    NotificationService? notificationService,
+  }) : _db = firestore ?? FirebaseFirestore.instance,
+       _notificationService = notificationService ?? NotificationService();
 
-  ChatService({FirebaseFirestore? firestore})
-    : _db = firestore ?? FirebaseFirestore.instance;
+  final FirebaseFirestore _db;
+  final NotificationService _notificationService;
 
   static const String _collection = 'chats';
 
@@ -36,10 +41,11 @@ class ChatService {
     String? caseId,
   }) async {
     final chatId = _getChatId(senderId, receiverId);
-    final docRef = _messagesRef(chatId).doc();
+    final threadRef = _db.collection(_collection).doc(chatId);
+    final msgDocRef = _messagesRef(chatId).doc();
 
     final newMessage = ChatMessage(
-      messageId: docRef.id,
+      messageId: msgDocRef.id,
       senderId: senderId,
       receiverId: receiverId,
       message: message,
@@ -50,8 +56,67 @@ class ChatService {
       sentAt: DateTime.now(),
     );
 
-    await docRef.set(newMessage.toMap());
-    return docRef.id;
+    // Run as a batch or transaction to ensure consistency
+    final batch = _db.batch();
+
+    // 1. Save the message
+    batch.set(msgDocRef, newMessage.toMap());
+
+    // 2. Update/Create the thread metadata
+    final threadDoc = await threadRef.get();
+    if (!threadDoc.exists) {
+      // Create new thread doc
+      batch.set(threadRef, {
+        'threadId': chatId,
+        'lawyerId': senderId.contains('lawyer') ? senderId : receiverId,
+        'clientId': senderId.contains('lawyer') ? receiverId : senderId,
+        'caseId': caseId,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'lastMessage': message,
+        'lastMessageSenderId': senderId,
+        'lastMessageAt': FieldValue.serverTimestamp(),
+        'unreadByLawyer': senderId.contains('lawyer') ? 0 : 1,
+        'unreadByClient': senderId.contains('lawyer') ? 1 : 0,
+        'isArchived': false,
+        'isBlocked': false,
+      });
+    } else {
+      // Update existing thread doc
+      final data = threadDoc.data()!;
+      int unreadByLawyer = data['unreadByLawyer'] ?? 0;
+      int unreadByClient = data['unreadByClient'] ?? 0;
+
+      // Increment unread count for the receiver
+      if (senderId == (data['clientId'] ?? '') ||
+          (data['clientId'] == null && !senderId.contains('lawyer'))) {
+        unreadByLawyer++;
+      } else {
+        unreadByClient++;
+      }
+
+      batch.update(threadRef, {
+        'lastMessage': message,
+        'lastMessageSenderId': senderId,
+        'lastMessageAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'unreadByLawyer': unreadByLawyer,
+        'unreadByClient': unreadByClient,
+      });
+    }
+
+    await batch.commit();
+
+    // 3. Send a notification to the receiver
+    await _notificationService.createNotification(
+      userId: receiverId,
+      title: 'New Message',
+      message: messageType == 'text' ? message : 'Sent you a $messageType',
+      type: 'chat',
+      metadata: {'senderId': senderId, 'chatId': chatId},
+    );
+
+    return msgDocRef.id;
   }
 
   /// =========================
@@ -78,8 +143,51 @@ class ChatService {
     String messageId,
   ) async {
     final chatId = _getChatId(userId1, userId2);
-
     await _messagesRef(chatId).doc(messageId).update({'isRead': true});
+  }
+
+  /// =========================
+  /// MARK CONVERSATION AS READ
+  /// =========================
+  Future<void> markConversationAsRead({
+    required String userId,
+    required String partnerId,
+  }) async {
+    final chatId = _getChatId(userId, partnerId);
+    final threadRef = _db.collection(_collection).doc(chatId);
+
+    // 1. Get all unread messages for this user
+    final unreadMsgs = await _messagesRef(chatId)
+        .where('receiverId', isEqualTo: userId)
+        .where('isRead', isEqualTo: false)
+        .get();
+
+    if (unreadMsgs.docs.isEmpty) {
+      // Still reset thread count just in case of desync
+      await threadRef.update({
+        userId.contains('lawyer') ? 'unreadByLawyer' : 'unreadByClient': 0,
+      });
+      return;
+    }
+
+    // 2. Mark them as read in a batch
+    final batch = _db.batch();
+    for (final doc in unreadMsgs.docs) {
+      batch.update(doc.reference, {'isRead': true});
+    }
+
+    // 3. Reset thread unread count
+    batch.update(threadRef, {
+      userId.contains('lawyer') ? 'unreadByLawyer' : 'unreadByClient': 0,
+    });
+
+    await batch.commit();
+
+    // 4. Clear related notifications
+    await _notificationService.clearChatNotifications(
+      userId: userId,
+      partnerId: partnerId,
+    );
   }
 
   /// =========================
@@ -162,7 +270,6 @@ class ChatService {
     return getMessages(userId1, userId2);
   }
 
-  // Case-based chat is handled by chat threads; keep this safe fallback.
   Stream<List<ChatMessage>> streamMessagesByCase(String caseId) {
     return Stream<List<ChatMessage>>.value(const <ChatMessage>[]);
   }
@@ -257,5 +364,29 @@ class ChatService {
     }
 
     return snapshot.docs.first;
+  }
+
+  /// =========================
+  /// DELETE CONVERSATION
+  /// =========================
+  Future<void> deleteConversation(String chatId) async {
+    try {
+      // 1. Get all messages in the thread
+      final messagesSnapshot = await _messagesRef(chatId).get();
+
+      // 2. Delete all messages and the thread doc in a batch
+      final batch = _db.batch();
+
+      for (var doc in messagesSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+
+      // Delete thread metadata
+      batch.delete(_db.collection(_collection).doc(chatId));
+
+      await batch.commit();
+    } catch (e) {
+      throw Exception('Failed to delete conversation: $e');
+    }
   }
 }

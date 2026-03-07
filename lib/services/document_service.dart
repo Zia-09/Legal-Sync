@@ -43,6 +43,7 @@ class DocumentService {
   Future<DocumentModel> uploadAndSaveDocument({
     required File file,
     required String caseId,
+    required String lawyerId,
     required String uploadedBy,
     required String fileType,
     String? description,
@@ -60,6 +61,7 @@ class DocumentService {
       final document = DocumentModel(
         documentId: documentId,
         caseId: caseId,
+        lawyerId: lawyerId,
         uploadedBy: uploadedBy,
         fileUrl: fileUrl,
         fileType: fileType,
@@ -168,7 +170,19 @@ class DocumentService {
   }) async {
     await updateDocument(documentId, {
       'isApprovedForClient': false,
-      'revokeReason': reason,
+      'isRejected': true,
+      'rejectionReason': reason,
+    });
+  }
+
+  Future<void> rejectDocument({
+    required String documentId,
+    required String reason,
+  }) async {
+    await updateDocument(documentId, {
+      'isApprovedForClient': false,
+      'isRejected': true,
+      'rejectionReason': reason,
     });
   }
 
@@ -270,7 +284,7 @@ class DocumentService {
   Stream<List<DocumentModel>> getDocumentsByLawyer(String lawyerId) {
     return _firestore
         .collection(_collection)
-        .where('uploadedBy', isEqualTo: lawyerId)
+        .where('lawyerId', isEqualTo: lawyerId)
         .snapshots()
         .map((snapshot) {
           final docs = snapshot.docs

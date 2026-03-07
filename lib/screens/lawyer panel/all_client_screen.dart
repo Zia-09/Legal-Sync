@@ -14,6 +14,7 @@ class _AllClientScreenState extends State<AllClientScreen> {
     {
       'name': 'Luisa bibi',
       'id': '#CS-2025-081',
+      'clientId': 'client_1',
       'caseType': 'Divorce case',
       'date': 'Submitted: 14 Aug 2025',
       'status': 'PENDING',
@@ -23,6 +24,7 @@ class _AllClientScreenState extends State<AllClientScreen> {
     {
       'name': 'Silverio',
       'id': '#CS-2025-082',
+      'clientId': 'client_2',
       'caseType': 'Civil case',
       'date': 'Submitted: 14 Aug 2025',
       'status': 'COMPLETED',
@@ -32,6 +34,7 @@ class _AllClientScreenState extends State<AllClientScreen> {
     {
       'name': 'Berlin',
       'id': '#CY-2025-081',
+      'clientId': 'client_3',
       'caseType': 'Cyber crime',
       'date': 'Submitted: 14 Aug 2025',
       'status': 'PENDING',
@@ -41,6 +44,7 @@ class _AllClientScreenState extends State<AllClientScreen> {
     {
       'name': 'Jack Reacher',
       'id': '#CS-2025-081',
+      'clientId': 'client_4',
       'caseType': 'Divorce case',
       'date': 'Submitted: 14 Aug 2025',
       'status': 'COMPLETED',
@@ -50,6 +54,7 @@ class _AllClientScreenState extends State<AllClientScreen> {
     {
       'name': 'Waqas abid',
       'id': '#CS-2025-085',
+      'clientId': 'client_5',
       'caseType': 'Property dispute',
       'date': 'Submitted: 14 Aug 2025',
       'status': 'PENDING',
@@ -138,6 +143,7 @@ class _AllClientScreenState extends State<AllClientScreen> {
             builder: (_) => LawyerChatScreen(
               clientName: contact['name'],
               avatarUrl: contact['avatar'],
+              receiverId: contact['clientId'],
             ),
           ),
         );

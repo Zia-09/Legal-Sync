@@ -38,16 +38,25 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
   @override
   Widget build(BuildContext context) {
     final clientAsync = ref.watch(currentClientProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark
+        ? const Color(0xFF121212)
+        : const Color(0xFFF7F9FC);
+    final cardColor = isDark ? const Color(0xFF1A1A1A) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark
+        ? const Color(0xFF9E9E9E)
+        : Colors.grey.shade600;
 
     return clientAsync.when(
       data: (client) {
         if (client == null) {
-          return const Scaffold(
-            backgroundColor: Color(0xFF0F0F0F),
+          return Scaffold(
+            backgroundColor: scaffoldBg,
             body: Center(
               child: Text(
                 'Please login to view messages',
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(color: textColor),
               ),
             ),
           );
@@ -85,7 +94,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                 });
 
                 return Scaffold(
-                  backgroundColor: const Color(0xFF0F0F0F),
+                  backgroundColor: scaffoldBg,
                   body: SafeArea(
                     child: Column(
                       children: [
@@ -94,28 +103,15 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                           padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                           child: Row(
                             children: [
-                              GestureDetector(
-                                onTap: () => Navigator.pop(context),
-                                child: Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF1E1E1E),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(
-                                    Icons.arrow_back_ios_new,
-                                    color: Colors.white,
-                                    size: 16,
-                                  ),
-                                ),
-                              ),
-                              const Expanded(
+                              const SizedBox(
+                                width: 40,
+                              ), // Placeholder to balance the right icons
+                              Expanded(
                                 child: Center(
                                   child: Text(
                                     'Messages',
                                     style: TextStyle(
-                                      color: Colors.white,
+                                      color: textColor,
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -129,12 +125,17 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                                   width: 40,
                                   height: 40,
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF1E1E1E),
+                                    color: cardColor,
                                     borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: isDark
+                                          ? const Color(0xFF252525)
+                                          : Colors.grey.shade200,
+                                    ),
                                   ),
                                   child: Icon(
                                     _showSearch ? Icons.close : Icons.search,
-                                    color: Colors.white,
+                                    color: textColor,
                                     size: 20,
                                   ),
                                 ),
@@ -144,12 +145,17 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                                 width: 40,
                                 height: 40,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF1E1E1E),
+                                  color: cardColor,
                                   borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: isDark
+                                        ? const Color(0xFF252525)
+                                        : Colors.grey.shade200,
+                                  ),
                                 ),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.more_vert,
-                                  color: Colors.white,
+                                  color: textColor,
                                   size: 20,
                                 ),
                               ),
@@ -172,18 +178,20 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                                   child: Container(
                                     height: 46,
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF1E1E1E),
+                                      color: cardColor,
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
-                                        color: const Color(0xFF2A2A2A),
+                                        color: isDark
+                                            ? const Color(0xFF2A2A2A)
+                                            : Colors.grey.shade200,
                                       ),
                                     ),
                                     child: Row(
                                       children: [
                                         const SizedBox(width: 12),
-                                        const Icon(
+                                        Icon(
                                           Icons.search,
-                                          color: Color(0xFF6B6B6B),
+                                          color: subtitleColor,
                                           size: 18,
                                         ),
                                         const SizedBox(width: 8),
@@ -191,15 +199,16 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                                           child: TextField(
                                             controller: _searchCtrl,
                                             onChanged: (val) => setState(() {}),
-                                            style: const TextStyle(
-                                              color: Colors.white,
+                                            style: TextStyle(
+                                              color: textColor,
                                               fontSize: 13,
                                             ),
-                                            decoration: const InputDecoration(
+                                            decoration: InputDecoration(
                                               hintText:
                                                   'Search conversations...',
                                               hintStyle: TextStyle(
-                                                color: Color(0xFF5A5A5A),
+                                                color: subtitleColor
+                                                    .withOpacity(0.6),
                                               ),
                                               border: InputBorder.none,
                                               isDense: true,
@@ -220,13 +229,18 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                           margin: const EdgeInsets.symmetric(horizontal: 20),
                           height: 42,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1A1A1A),
+                            color: cardColor,
                             borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isDark
+                                  ? const Color(0xFF252525)
+                                  : Colors.grey.shade200,
+                            ),
                           ),
                           child: TabBar(
                             controller: _tabController,
                             labelColor: Colors.white,
-                            unselectedLabelColor: const Color(0xFF6B6B6B),
+                            unselectedLabelColor: subtitleColor,
                             indicator: BoxDecoration(
                               color: const Color(0xFFFF6B00),
                               borderRadius: BorderRadius.circular(10),
@@ -301,36 +315,30 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                   bottomNavigationBar: _buildBottomNav(context),
                 );
               },
-              loading: () => const Scaffold(
-                backgroundColor: Color(0xFF0F0F0F),
-                body: Center(
+              loading: () => Scaffold(
+                backgroundColor: scaffoldBg,
+                body: const Center(
                   child: CircularProgressIndicator(color: Color(0xFFFF6B00)),
                 ),
               ),
               error: (e, st) => Scaffold(
-                backgroundColor: const Color(0xFF0F0F0F),
+                backgroundColor: scaffoldBg,
                 body: Center(
-                  child: Text(
-                    'Error: $e',
-                    style: const TextStyle(color: Colors.white),
-                  ),
+                  child: Text('Error: $e', style: TextStyle(color: textColor)),
                 ),
               ),
             );
       },
-      loading: () => const Scaffold(
-        backgroundColor: Color(0xFF0F0F0F),
-        body: Center(
+      loading: () => Scaffold(
+        backgroundColor: scaffoldBg,
+        body: const Center(
           child: CircularProgressIndicator(color: Color(0xFFFF6B00)),
         ),
       ),
       error: (e, st) => Scaffold(
-        backgroundColor: const Color(0xFF0F0F0F),
+        backgroundColor: scaffoldBg,
         body: Center(
-          child: Text(
-            'Auth Error: $e',
-            style: const TextStyle(color: Colors.white),
-          ),
+          child: Text('Auth Error: $e', style: TextStyle(color: textColor)),
         ),
       ),
     );

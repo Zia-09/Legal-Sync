@@ -416,29 +416,34 @@ class _AdminCasesScreenState extends ConsumerState<AdminCasesScreen> {
 
       final status = c.status.toLowerCase();
       if (_selectedTabIndex == 0 &&
-          !(status == 'active' || status == 'in_progress'))
+          !(status == 'active' || status == 'in_progress')) {
         return false;
+      }
       if (_selectedTabIndex == 1 &&
           !(status == 'resolved' ||
               status == 'closed' ||
-              status == 'completed'))
+              status == 'completed')) {
         return false;
+      }
       if (_selectedTabIndex == 2 && status != 'pending') return false;
 
       if (_selectedDate != 'All Time') {
         final now = DateTime.now();
         final caseDate = c.createdAt;
         if (_selectedDate == 'This Month' &&
-            (caseDate.month != now.month || caseDate.year != now.year))
+            (caseDate.month != now.month || caseDate.year != now.year)) {
           return false;
+        }
         if (_selectedDate == 'Last Month') {
           final lastMonth = now.month == 1 ? 12 : now.month - 1;
           final lastMonthYear = now.month == 1 ? now.year - 1 : now.year;
-          if (caseDate.month != lastMonth || caseDate.year != lastMonthYear)
+          if (caseDate.month != lastMonth || caseDate.year != lastMonthYear) {
             return false;
+          }
         }
-        if (_selectedDate == 'This Year' && caseDate.year != now.year)
+        if (_selectedDate == 'This Year' && caseDate.year != now.year) {
           return false;
+        }
       }
 
       return true;

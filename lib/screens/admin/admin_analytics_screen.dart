@@ -67,7 +67,7 @@ Filter: $_selectedFilter
 -------------------------
 New Leads: $newLeads
 New Cases: ${filteredCases.length}
-Est. Revenue: \$${revenue}
+Est. Revenue: \$$revenue
     ''';
   }
 
@@ -676,8 +676,7 @@ Est. Revenue: \$${revenue}
             return _TopLawyerItem(
               name: l.name,
               court: '${l.specialization} • ${l.location ?? "Unknown"}',
-              rating:
-                  '${(l.rating > 0 ? l.rating : l.aiScore).toStringAsFixed(1)}',
+              rating: (l.rating > 0 ? l.rating : l.aiScore).toStringAsFixed(1),
               subtitle: 'RATING',
               avatarColor: Colors.blue,
             );

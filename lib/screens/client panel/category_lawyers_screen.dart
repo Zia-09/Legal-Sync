@@ -355,7 +355,7 @@ class _LawyerCard extends StatelessWidget {
                     ? Image.network(
                         lawyer.profileImageUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Center(
+                        errorBuilder: (_, _, _) => Center(
                           child: Text(
                             lawyer.name.isNotEmpty ? lawyer.name[0] : 'L',
                             style: TextStyle(

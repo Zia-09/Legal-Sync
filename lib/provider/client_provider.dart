@@ -196,3 +196,19 @@ final clientStateNotifierProvider =
 // Selected Client Provider
 // ===============================
 final selectedClientProvider = StateProvider<ClientModel?>((ref) => null);
+
+// ===============================
+// Lawyer's Clients Provider
+// ===============================
+final myClientsProvider = StreamProvider<List<ClientModel>>((ref) {
+  final user = ref.watch(authStateProvider).value;
+  if (user == null) return Stream.value([]);
+
+  final service = ref.watch(clientServiceProvider);
+  return service.getAllClients().map((clients) {
+    if (user.uid.isEmpty) return [];
+    return clients
+        .where((client) => client.bookedLawyers.contains(user.uid))
+        .toList();
+  });
+});

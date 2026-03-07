@@ -53,6 +53,19 @@ class DocumentNotifier extends StateNotifier<AsyncValue<void>> {
     }
   }
 
+  Future<void> rejectDocument(String documentId, {String? reason}) async {
+    state = const AsyncValue.loading();
+    try {
+      await _service.rejectDocument(
+        documentId: documentId,
+        reason: reason ?? 'Rejected by lawyer',
+      );
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
   Future<void> deleteDocument(String documentId) async {
     state = const AsyncValue.loading();
     try {

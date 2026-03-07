@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class DocumentModel {
   final String documentId;
   final String caseId;
+  final String lawyerId;
   final String uploadedBy; // lawyerId or clientId
   final String fileUrl; // Cloud Storage URL
   final String fileType; // pdf, image, doc, etc.
@@ -18,10 +19,13 @@ class DocumentModel {
   final bool isApprovedForClient;
   final DateTime? approvedAt;
   final String? approvedBy;
+  final bool isRejected;
+  final String? rejectionReason;
 
   const DocumentModel({
     required this.documentId,
     required this.caseId,
+    required this.lawyerId,
     required this.uploadedBy,
     required this.fileUrl,
     required this.fileType,
@@ -37,12 +41,15 @@ class DocumentModel {
     this.isApprovedForClient = true,
     this.approvedAt,
     this.approvedBy,
+    this.isRejected = false,
+    this.rejectionReason,
   });
 
   factory DocumentModel.fromJson(Map<String, dynamic> json) {
     return DocumentModel(
       documentId: json['documentId']?.toString() ?? '',
       caseId: json['caseId']?.toString() ?? '',
+      lawyerId: json['lawyerId']?.toString() ?? '',
       uploadedBy: json['uploadedBy']?.toString() ?? '',
       fileUrl: json['fileUrl']?.toString() ?? '',
       fileType: json['fileType']?.toString() ?? '',
@@ -71,6 +78,8 @@ class DocumentModel {
                 ? DateTime.tryParse(json['approvedAt']?.toString() ?? '')
                 : null),
       approvedBy: json['approvedBy']?.toString(),
+      isRejected: json['isRejected'] ?? false,
+      rejectionReason: json['rejectionReason']?.toString(),
     );
   }
 
@@ -78,6 +87,7 @@ class DocumentModel {
     return {
       'documentId': documentId,
       'caseId': caseId,
+      'lawyerId': lawyerId,
       'uploadedBy': uploadedBy,
       'fileUrl': fileUrl,
       'fileType': fileType,
@@ -93,6 +103,8 @@ class DocumentModel {
       'isApprovedForClient': isApprovedForClient,
       'approvedAt': approvedAt != null ? Timestamp.fromDate(approvedAt!) : null,
       'approvedBy': approvedBy,
+      'isRejected': isRejected,
+      'rejectionReason': rejectionReason,
     };
   }
 
@@ -113,6 +125,7 @@ class DocumentModel {
     return DocumentModel(
       documentId: documentId,
       caseId: caseId,
+      lawyerId: lawyerId,
       uploadedBy: uploadedBy ?? this.uploadedBy,
       fileUrl: fileUrl ?? this.fileUrl,
       fileType: fileType,

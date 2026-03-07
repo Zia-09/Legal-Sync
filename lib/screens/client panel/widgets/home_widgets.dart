@@ -5,6 +5,7 @@ import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/provider/auth_provider.dart';
 import 'package:legal_sync/screens/client panel/lawyer_profile_screen.dart';
 import 'package:legal_sync/screens/client panel/login_screen.dart';
+import 'package:legal_sync/screens/client panel/client_notifications_screen.dart';
 
 // ─── Lawyer Card Widget ───────────────────────────────────────────────────────
 
@@ -44,7 +45,7 @@ class LawyerCard extends StatelessWidget {
                     ? Image.network(
                         lawyer.profileImage!,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
+                        errorBuilder: (_, _, _) => Container(
                           color: const Color(0xFF2A2A2A),
                           child: const Icon(
                             Icons.person,
@@ -160,7 +161,15 @@ class HomeDrawer extends ConsumerWidget {
                 _buildDrawerItem(
                   icon: Icons.notifications_outlined,
                   label: 'Notifications',
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.pop(context); // Close drawer
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ClientNotificationsScreen(),
+                      ),
+                    );
+                  },
                 ),
                 _buildDrawerItem(
                   icon: Icons.bookmark_border,
@@ -253,7 +262,7 @@ class HomeDrawer extends ConsumerWidget {
         ),
       ),
       loading: () => const SizedBox(height: 140),
-      error: (_, __) => const SizedBox(height: 140),
+      error: (_, _) => const SizedBox(height: 140),
     );
   }
 
