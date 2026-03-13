@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/provider/auth_provider.dart';
 import 'package:legal_sync/screens/client%20panel/home_screen.dart';
+import 'package:legal_sync/services/email_service.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -34,14 +35,24 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     try {
+      final email = _emailController.text.trim();
+      final name = _nameController.text.trim();
+
       await ref
           .read(authNotifierProvider.notifier)
           .registerClient(
-            name: _nameController.text.trim(),
+            name: name,
             phone: _phoneController.text.trim(),
-            email: _emailController.text.trim(),
+            email: email,
             password: _passwordController.text,
           );
+
+      // ✅ Send welcome email via Resend
+      await emailService.sendWelcomeEmail(
+        email: email,
+        name: name,
+        role: 'client',
+      );
 
       if (!mounted) return;
 
@@ -73,16 +84,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authNotifierProvider);
     final isLoading = authState is AsyncLoading;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark ? const Color(0xFF0F0F0F) : const Color(0xFFF7F9FC);
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? const Color(0xFF9E9E9E) : Colors.grey.shade600;
+    final labelColor = isDark ? const Color(0xFFCCCCCC) : Colors.grey.shade700;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F0F),
+      backgroundColor: scaffoldBg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F0F0F),
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: scaffoldBg,
+        iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black),
         elevation: 0,
-        title: const Text(
+        title: Text(
           'Create Account',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
         ),
       ),
       body: SingleChildScrollView(
@@ -92,43 +108,44 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Join LegalSync',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: textColor,
                   fontSize: 26,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'Create your client account in seconds.',
-                style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
+                style: TextStyle(color: subtitleColor, fontSize: 14),
               ),
               const SizedBox(height: 28),
 
               // Full Name
-              _fieldLabel('Full Name'),
+              _fieldLabel('Full Name', labelColor),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _nameController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: textColor),
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Name is required' : null,
                 decoration: _inputDecoration(
                   hint: 'Enter your full name',
                   icon: Icons.person_outline,
+                  isDark: isDark,
                 ),
               ),
               const SizedBox(height: 16),
 
               // Phone
-              _fieldLabel('Phone Number'),
+              _fieldLabel('Phone Number', labelColor),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: textColor),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) {
                     return 'Phone number is required';
@@ -141,17 +158,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 decoration: _inputDecoration(
                   hint: 'Enter your phone number',
                   icon: Icons.phone_outlined,
+                  isDark: isDark,
                 ),
               ),
               const SizedBox(height: 16),
 
               // Email
-              _fieldLabel('Email Address'),
+              _fieldLabel('Email Address', labelColor),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: textColor),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) {
                     return 'Email is required';
@@ -166,17 +184,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 decoration: _inputDecoration(
                   hint: 'Enter your email',
                   icon: Icons.email_outlined,
+                  isDark: isDark,
                 ),
               ),
               const SizedBox(height: 16),
 
               // Password
-              _fieldLabel('Password'),
+              _fieldLabel('Password', labelColor),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _passwordController,
                 obscureText: _obscurePassword,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: textColor),
                 validator: (v) {
                   if (v == null || v.isEmpty) return 'Password is required';
                   if (v.length < 6) {
@@ -187,6 +206,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 decoration: _inputDecoration(
                   hint: 'Create a password',
                   icon: Icons.lock_outline,
+                  isDark: isDark,
                   suffixIcon: IconButton(
                     onPressed: () =>
                         setState(() => _obscurePassword = !_obscurePassword),
@@ -194,7 +214,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       _obscurePassword
                           ? Icons.visibility_off_outlined
                           : Icons.visibility_outlined,
-                      color: const Color(0xFF9E9E9E),
+                      color: subtitleColor,
                       size: 20,
                     ),
                   ),
@@ -203,12 +223,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               const SizedBox(height: 16),
 
               // Confirm Password
-              _fieldLabel('Confirm Password'),
+              _fieldLabel('Confirm Password', labelColor),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _confirmPasswordController,
                 obscureText: _obscureConfirm,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: textColor),
                 validator: (v) {
                   if (v == null || v.isEmpty) {
                     return 'Please confirm your password';
@@ -221,6 +241,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 decoration: _inputDecoration(
                   hint: 'Re-enter your password',
                   icon: Icons.lock_outline,
+                  isDark: isDark,
                   suffixIcon: IconButton(
                     onPressed: () =>
                         setState(() => _obscureConfirm = !_obscureConfirm),
@@ -228,7 +249,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       _obscureConfirm
                           ? Icons.visibility_off_outlined
                           : Icons.visibility_outlined,
-                      color: const Color(0xFF9E9E9E),
+                      color: subtitleColor,
                       size: 20,
                     ),
                   ),
@@ -278,9 +299,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
+                    Text(
                       'Already have an account? ',
-                      style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
+                      style: TextStyle(color: subtitleColor, fontSize: 14),
                     ),
                     GestureDetector(
                       onTap: () => Navigator.pop(context),
@@ -304,10 +325,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     );
   }
 
-  Widget _fieldLabel(String label) => Text(
+  Widget _fieldLabel(String label, Color color) => Text(
     label,
-    style: const TextStyle(
-      color: Color(0xFFCCCCCC),
+    style: TextStyle(
+      color: color,
       fontSize: 13,
       fontWeight: FontWeight.w500,
     ),
@@ -316,17 +337,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   InputDecoration _inputDecoration({
     required String hint,
     required IconData icon,
+    required bool isDark,
     Widget? suffixIcon,
   }) {
-    const borderSide = BorderSide(color: Color(0xFF2A2A2A));
+    final borderSide = BorderSide(color: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade300);
     final radius = BorderRadius.circular(12);
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(color: Color(0xFF5A5A5A)),
-      prefixIcon: Icon(icon, color: const Color(0xFF9E9E9E), size: 20),
+      hintStyle: TextStyle(color: isDark ? const Color(0xFF5A5A5A) : Colors.grey.shade400),
+      prefixIcon: Icon(icon, color: isDark ? const Color(0xFF9E9E9E) : Colors.grey.shade500, size: 20),
       suffixIcon: suffixIcon,
       filled: true,
-      fillColor: const Color(0xFF1E1E1E),
+      fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
       border: OutlineInputBorder(borderRadius: radius, borderSide: borderSide),
       enabledBorder: OutlineInputBorder(
         borderRadius: radius,

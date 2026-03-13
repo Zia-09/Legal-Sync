@@ -9,6 +9,8 @@ import 'package:legal_sync/provider/chat_thread_provider.dart';
 import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/services/supabase_service.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:legal_sync/widgets/full_screen_image_viewer.dart';
 
 class LawyerChatScreen extends ConsumerStatefulWidget {
   final String receiverId;
@@ -204,8 +206,9 @@ class _LawyerChatScreenState extends ConsumerState<LawyerChatScreen> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authStateProvider).value;
-    if (user == null)
+    if (user == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
     final messagesAsync = ref.watch(
       messagesBetweenUsersProvider((
@@ -288,13 +291,13 @@ class _LawyerChatScreenState extends ConsumerState<LawyerChatScreen> {
                 );
               },
               loading: () => Text(widget.clientName),
-              error: (_, __) => Text(widget.clientName),
+              error: (_, _) => Text(widget.clientName),
             ),
 
         actions: [
           IconButton(
-            icon: Icon(Icons.phone_outlined, color: textColor),
-            onPressed: () {},
+            icon: Icon(Icons.phone_outlined, color: Colors.grey),
+            onPressed: null, // Disabled as requested
           ),
           PopupMenuButton<String>(
             color: cardColor,
@@ -417,86 +420,111 @@ class _LawyerChatScreenState extends ConsumerState<LawyerChatScreen> {
                       if (msg.messageType == 'image' && msg.fileUrl != null)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 8.0),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.network(
-                              msg.fileUrl!,
-                              fit: BoxFit.cover,
-                              loadingBuilder:
-                                  (context, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return Container(
-                                      width: 200,
-                                      height: 200,
-                                      color: Colors.grey.shade200,
-                                      child: Center(
-                                        child: CircularProgressIndicator(
-                                          value:
-                                              loadingProgress
-                                                      .expectedTotalBytes !=
-                                                  null
-                                              ? loadingProgress
-                                                        .cumulativeBytesLoaded /
-                                                    loadingProgress
-                                                        .expectedTotalBytes!
-                                              : null,
-                                          color: const Color(0xFFFF6B00),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                              errorBuilder: (context, error, stackTrace) =>
-                                  Container(
-                                    width: 200,
-                                    height: 200,
-                                    color: Colors.grey.shade200,
-                                    child: const Icon(
-                                      Icons.broken_image,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
+                          child: GestureDetector(
+                            onTap: () {
+                              showDialog(
+                                context: context,
+                                builder: (_) => FullScreenImageViewer(
+                                  imageUrl: msg.fileUrl!,
+                                  heroTag:
+                                      'lawyer_chat_img_${msg.sentAt.millisecondsSinceEpoch}',
+                                ),
+                              );
+                            },
+                            child: Hero(
+                              tag:
+                                  'lawyer_chat_img_${msg.sentAt.millisecondsSinceEpoch}',
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.network(
+                                  msg.fileUrl!,
+                                  fit: BoxFit.cover,
+                                  loadingBuilder:
+                                      (context, child, loadingProgress) {
+                                        if (loadingProgress == null) {
+                                          return child;
+                                        }
+                                        return Container(
+                                          width: 200,
+                                          height: 200,
+                                          color: Colors.grey.shade200,
+                                          child: Center(
+                                            child: CircularProgressIndicator(
+                                              value:
+                                                  loadingProgress
+                                                          .expectedTotalBytes !=
+                                                      null
+                                                  ? loadingProgress
+                                                            .cumulativeBytesLoaded /
+                                                        loadingProgress
+                                                            .expectedTotalBytes!
+                                                  : null,
+                                              color: const Color(0xFFFF6B00),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                ),
+                              ),
                             ),
                           ),
                         ),
                       if (msg.messageType == 'file' && msg.fileUrl != null)
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isMe
-                                ? Colors.white.withOpacity(0.1)
-                                : (isDark
-                                      ? const Color(0xFF333333)
-                                      : Colors.white),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.insert_drive_file,
-                                color: isMe
-                                    ? Colors.white
-                                    : const Color(0xFFFF6B00),
-                                size: 30,
-                              ),
-                              const SizedBox(width: 10),
-                              Flexible(
-                                child: Text(
-                                  msg.message.replaceFirst(
-                                    'Shared a file: ',
-                                    '',
-                                  ),
-                                  style: TextStyle(
-                                    color: isMe ? Colors.white : textColor,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                        GestureDetector(
+                          onTap: () async {
+                            final url = Uri.parse(msg.fileUrl!);
+                            if (await canLaunchUrl(url)) {
+                              await launchUrl(
+                                url,
+                                mode: LaunchMode.externalApplication,
+                              );
+                            }
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isMe
+                                  ? Colors.white.withValues(alpha: 0.1)
+                                  : (isDark
+                                        ? const Color(0xFF333333)
+                                        : Colors.white),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.insert_drive_file,
+                                  color: isMe
+                                      ? Colors.white
+                                      : const Color(0xFFFF6B00),
+                                  size: 30,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 10),
+                                Flexible(
+                                  child: Text(
+                                    msg.message.replaceFirst(
+                                      'Shared a file: ',
+                                      '',
+                                    ),
+                                    style: TextStyle(
+                                      color: isMe ? Colors.white : textColor,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.open_in_new,
+                                  size: 16,
+                                  color: isMe ? Colors.white70 : Colors.grey,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       Text(
@@ -551,7 +579,7 @@ class _LawyerChatScreenState extends ConsumerState<LawyerChatScreen> {
         color: cardColor,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -4),
           ),

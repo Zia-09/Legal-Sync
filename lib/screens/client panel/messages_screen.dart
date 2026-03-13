@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/provider/chat_thread_provider.dart';
 import 'package:legal_sync/model/chat_thread_model.dart';
+import 'package:legal_sync/screens/client%20panel/case_status_view.dart';
 import 'home_screen.dart';
-import 'case_status_screen.dart';
+
 import 'app_setting_screen.dart';
 import 'widgets/chat_widgets.dart';
 
@@ -208,7 +209,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                                                   'Search conversations...',
                                               hintStyle: TextStyle(
                                                 color: subtitleColor
-                                                    .withOpacity(0.6),
+                                                    .withValues(alpha: 0.6),
                                               ),
                                               border: InputBorder.none,
                                               isDense: true,

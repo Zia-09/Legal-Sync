@@ -21,6 +21,7 @@ import 'package:legal_sync/screens/lawyer%20panel/add_hearing_screen.dart';
 import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/screens/lawyer%20panel/lawyer_cases_screen.dart';
 import 'package:intl/intl.dart';
+import 'package:legal_sync/widgets/brand_logo.dart';
 
 class LawyerDashboardScreen extends ConsumerStatefulWidget {
   const LawyerDashboardScreen({super.key});
@@ -43,7 +44,6 @@ class _LawyerDashboardScreenState extends ConsumerState<LawyerDashboardScreen> {
     ];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FC),
       body: pages[_selectedIndex],
       floatingActionButton: _selectedIndex == 0 || _selectedIndex == 1
           ? FloatingActionButton(
@@ -61,9 +61,6 @@ class _LawyerDashboardScreenState extends ConsumerState<LawyerDashboardScreen> {
         currentIndex: _selectedIndex,
         onTap: (index) => setState(() => _selectedIndex = index),
         type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        selectedItemColor: const Color(0xFFFF6B00),
-        unselectedItemColor: Colors.grey.shade400,
         selectedLabelStyle: const TextStyle(
           fontWeight: FontWeight.w600,
           fontSize: 12,
@@ -109,7 +106,7 @@ class _LawyerHomeContent extends ConsumerWidget {
     final user = ref.watch(authStateProvider).value;
     if (user == null) return const Center(child: CircularProgressIndicator());
 
-    final lawyerAsync = ref.watch(getLawyerByIdProvider(user.uid));
+    final lawyerAsync = ref.watch(lawyerStreamProvider(user.uid));
     final casesAsync = ref.watch(casesByLawyerProvider(user.uid));
     final consultationAsync = ref.watch(
       streamPendingAppointmentsForLawyerProvider(user.uid),
@@ -140,12 +137,14 @@ class _LawyerHomeContent extends ConsumerWidget {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
+                            Text(
                               'Case Summary',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.black87,
+                                color: Theme.of(
+                                  context,
+                                ).textTheme.bodyLarge?.color,
                               ),
                             ),
                             GestureDetector(
@@ -216,9 +215,14 @@ class _LawyerHomeContent extends ConsumerWidget {
     LawyerModel lawyer,
     int unreadCount,
   ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final headerColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final titleColor = isDark ? Colors.white : Colors.black87;
+    final iconBgColor = isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade100;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-      color: Colors.white,
+      color: headerColor,
       child: Row(
         children: [
           CircleAvatar(
@@ -236,14 +240,19 @@ class _LawyerHomeContent extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const BrandLogo(
+                  fontSize: 18,
+                  alignment: MainAxisAlignment.start,
+                ),
+                const SizedBox(height: 2),
                 Text(
                   'Welcome Back,',
                   style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
                 ),
                 Text(
                   lawyer.name,
-                  style: const TextStyle(
-                    color: Colors.black87,
+                  style: TextStyle(
+                    color: titleColor,
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
                   ),
@@ -260,10 +269,10 @@ class _LawyerHomeContent extends ConsumerWidget {
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
+                color: iconBgColor,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.search, color: Colors.black87, size: 20),
+              child: Icon(Icons.search, color: titleColor, size: 20),
             ),
           ),
           const SizedBox(width: 8),
@@ -285,9 +294,9 @@ class _LawyerHomeContent extends ConsumerWidget {
                     color: Colors.grey.shade100,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.notifications_none,
-                    color: Colors.black87,
+                    color: titleColor,
                     size: 20,
                   ),
                 ),
@@ -679,12 +688,12 @@ class _LawyerHomeContent extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Upcoming Hearings',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
                 ),
               ),
               ElevatedButton.icon(
@@ -720,13 +729,15 @@ class _LawyerHomeContent extends ConsumerWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade200),
+                border: Border.all(color: Theme.of(context).dividerColor),
               ),
               child: Text(
                 'No upcoming hearings scheduled',
-                style: TextStyle(color: Colors.grey.shade600),
+                style: TextStyle(
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
+                ),
               ),
             )
           else
@@ -736,6 +747,7 @@ class _LawyerHomeContent extends ConsumerWidget {
                   (hearing) => Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _buildScheduleItem(
+                      context: context,
                       time: DateFormat('h:mm a').format(hearing.hearingDate),
                       title: hearing.hearingType ?? 'Hearing',
                       subtitle:
@@ -766,6 +778,7 @@ class _LawyerHomeContent extends ConsumerWidget {
   }
 
   Widget _buildScheduleItem({
+    required BuildContext context,
     required String time,
     required String title,
     required String subtitle,
@@ -775,24 +788,26 @@ class _LawyerHomeContent extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF2A2A2A)
+                  : Colors.grey.shade100,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               time,
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
-                color: Colors.black87,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
               ),
             ),
           ),
@@ -812,16 +827,19 @@ class _LawyerHomeContent extends ConsumerWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
-                    color: Colors.black87,
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).textTheme.bodyMedium?.color,
+                  ),
                 ),
               ],
             ),

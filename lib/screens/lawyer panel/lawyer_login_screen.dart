@@ -6,8 +6,9 @@ import 'package:legal_sync/screens/admin/admin_dashboard_screen.dart';
 import 'package:legal_sync/screens/lawyer%20panel/lawyer_dashboard_screen.dart';
 import 'package:legal_sync/screens/lawyer%20panel/lawyer_registration_screen.dart';
 import 'package:legal_sync/screens/lawyer%20panel/lawyer_forgot_password_screen.dart';
-import 'package:legal_sync/screens/client%20panel/login_screen.dart';
+import 'package:legal_sync/screens/lawyer%20panel/lawyer_verification_pending_screen.dart';
 import 'package:legal_sync/services/email_service.dart';
+import 'package:legal_sync/widgets/brand_logo.dart';
 
 // ─── Static Admin Credentials ────────────────────────────────────────────────
 // Shared with client login. Not shown in UI.
@@ -68,28 +69,50 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
 
       if (!mounted) return;
 
-      if (role == 'admin' || role == 'lawyer') {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => role == 'admin'
-                ? const AdminDashboardScreen()
-                : const LawyerDashboardScreen(),
-          ),
-        );
-      } else {
-        if (!mounted) return;
+      // ─── Role Validation: Lawyer Portal Only ────────────────────────────────
+      if (role != 'lawyer') {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please use the client login for this account.'),
-            backgroundColor: Color(0xFFDC2626),
+          SnackBar(
+            content: role == 'client'
+                ? const Text(
+                    'This account is registered as a client. Please use the client login portal instead.',
+                  )
+                : const Text(
+                    'This account is not registered as a lawyer. Please use the correct login portal.',
+                  ),
+            backgroundColor: const Color(0xFFDC2626),
             behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            margin: const EdgeInsets.all(16),
           ),
         );
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-        );
+        return; // Don't proceed with navigation
+      }
+      // ────────────────────────────────────────────────────────────────────────
+
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        final isApproved = await ref
+            .read(authServiceProvider)
+            .checkLawyerApproval(uid);
+        if (!mounted) return;
+
+        if (isApproved) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const LawyerDashboardScreen()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const LawyerVerificationPendingScreen(),
+            ),
+          );
+          return; // Stop execution here so we don't show the success snackbar
+        }
       }
 
       if (!mounted) return;
@@ -122,7 +145,7 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
                       'Welcome back to LegalSync elite services.',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.white.withOpacity(0.8),
+                        color: Colors.white.withValues(alpha: 0.8),
                       ),
                     ),
                   ],
@@ -153,8 +176,15 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark
+        ? const Color(0xFF121212)
+        : const Color(0xFFF7F9FC);
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? Colors.white70 : Colors.grey.shade600;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FC),
+      backgroundColor: scaffoldBg,
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -183,7 +213,10 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
                   width: double.infinity,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [Colors.black.withOpacity(1), Colors.transparent],
+                      colors: [
+                        Colors.black.withValues(alpha: 1),
+                        Colors.transparent,
+                      ],
                       begin: Alignment.bottomCenter,
                       end: Alignment.topCenter,
                     ),
@@ -194,13 +227,20 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
                   right: 0,
                   bottom: 30,
                   child: Center(
-                    child: Text(
-                      'Lawyer Login',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        BrandLogo(fontSize: 32, showImage: true, imageSize: 60),
+                        SizedBox(height: 8),
+                        Text(
+                          'Lawyer Portal',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -215,36 +255,44 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Email Field
-                    const Text(
-                      'Email *',
+                    Text(
+                      'Email',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+                        color: textColor,
                       ),
                     ),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
-                      style: const TextStyle(color: Colors.black87),
+                      style: TextStyle(color: textColor),
                       decoration: InputDecoration(
                         hintText: 'Enter your email',
-                        hintStyle: TextStyle(color: Colors.grey.shade400),
+                        hintStyle: TextStyle(
+                          color: subtitleColor.withValues(alpha: 0.5),
+                        ),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: isDark
+                            ? Colors.white.withValues(alpha: 0.05)
+                            : Colors.white,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 14,
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
+                          borderSide: BorderSide(
+                            color: isDark
+                                ? Colors.white12
+                                : Colors.grey.shade200,
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: const BorderSide(
-                            color: Color(0xFFFF6B00),
+                            color: Color(0xFFDC2626),
                           ),
                         ),
                         errorBorder: OutlineInputBorder(
@@ -271,24 +319,28 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
                     const SizedBox(height: 20),
 
                     // Password Field
-                    const Text(
-                      'Password *',
+                    Text(
+                      'Password',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+                        color: textColor,
                       ),
                     ),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
-                      style: const TextStyle(color: Colors.black87),
+                      style: TextStyle(color: textColor),
                       decoration: InputDecoration(
                         hintText: 'Enter your password',
-                        hintStyle: TextStyle(color: Colors.grey.shade400),
+                        hintStyle: TextStyle(
+                          color: subtitleColor.withValues(alpha: 0.5),
+                        ),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: isDark
+                            ? Colors.white.withValues(alpha: 0.05)
+                            : Colors.white,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 14,
@@ -298,7 +350,7 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
                             _obscurePassword
                                 ? Icons.visibility_off
                                 : Icons.visibility,
-                            color: Colors.grey.shade400,
+                            color: subtitleColor.withValues(alpha: 0.5),
                           ),
                           onPressed: () {
                             setState(() {
@@ -308,12 +360,16 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
+                          borderSide: BorderSide(
+                            color: isDark
+                                ? Colors.white12
+                                : Colors.grey.shade200,
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: const BorderSide(
-                            color: Color(0xFFFF6B00),
+                            color: Color(0xFFDC2626),
                           ),
                         ),
                         errorBorder: OutlineInputBorder(
@@ -351,7 +407,7 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
                         child: const Text(
                           'Forgot Password?',
                           style: TextStyle(
-                            color: Color(0xFFFF6B00),
+                            color: Color(0xFFDC2626),
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
                           ),
@@ -370,7 +426,7 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
                           return ElevatedButton(
                             onPressed: isLoading ? null : _login,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF131D31),
+                              backgroundColor: const Color(0xFFDC2626),
                               foregroundColor: Colors.white,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
@@ -401,7 +457,7 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
                         children: [
                           Text(
                             "Don't have an account? ",
-                            style: TextStyle(color: Colors.grey.shade600),
+                            style: TextStyle(color: subtitleColor),
                           ),
                           GestureDetector(
                             onTap: () {
@@ -416,7 +472,7 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
                             child: const Text(
                               'Register here',
                               style: TextStyle(
-                                color: Color(0xFFFF6B00),
+                                color: Color(0xFFDC2626),
                                 fontWeight: FontWeight.bold,
                               ),
                             ),

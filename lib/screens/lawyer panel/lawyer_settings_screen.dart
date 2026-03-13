@@ -21,18 +21,18 @@ class _LawyerSettingsScreenState extends ConsumerState<LawyerSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeModeVal = ref.watch(themeModeProvider);
-    final isDark = themeModeVal == ThemeMode.dark;
-    final bgColor = isDark ? const Color(0xFF121212) : const Color(0xFFF7F9FC);
-    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
-    final textColor = isDark ? Colors.white : Colors.black87;
-    final subtitleColor = isDark ? Colors.grey.shade400 : Colors.grey.shade500;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = Theme.of(context).scaffoldBackgroundColor;
+    final cardColor = Theme.of(context).cardColor;
+    final textColor =
+        Theme.of(context).textTheme.bodyLarge?.color ??
+        (isDark ? Colors.white : Colors.black87);
+    final subtitleColor =
+        Theme.of(context).textTheme.bodySmall?.color ??
+        (isDark ? Colors.grey.shade400 : Colors.grey.shade500);
 
-    final user = ref.watch(authStateProvider).value;
-    final lawyerAsync = user != null
-        ? ref.watch(getLawyerByIdProvider(user.uid))
-        : null;
-    final lawyer = lawyerAsync?.valueOrNull;
+    final lawyerAsync = ref.watch(currentLawyerProvider);
+    final lawyer = lawyerAsync.valueOrNull;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -280,17 +280,19 @@ class _LawyerSettingsScreenState extends ConsumerState<LawyerSettingsScreen> {
                     MaterialPageRoute(builder: (_) => const AllClientScreen()),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey.shade100,
+                    backgroundColor: Theme.of(
+                      context,
+                    ).dividerColor.withValues(alpha: 0.1),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                     elevation: 0,
                   ),
-                  child: const Text(
+                  child: Text(
                     'View All Clients',
                     style: TextStyle(
-                      color: Colors.black87,
+                      color: textColor,
                       fontWeight: FontWeight.bold,
                     ),
                   ),

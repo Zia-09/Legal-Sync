@@ -9,6 +9,8 @@ import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/provider/chat_provider.dart';
 import 'package:legal_sync/provider/chat_thread_provider.dart';
 import 'package:legal_sync/services/supabase_service.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:legal_sync/widgets/full_screen_image_viewer.dart';
 
 class ChatDetailScreen extends ConsumerStatefulWidget {
   final String receiverId;
@@ -308,7 +310,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                                         fontSize: 11,
                                       ),
                                     ),
-                                    error: (_, __) => Text(
+                                    error: (_, _) => Text(
                                       widget.lawyer.isOnline
                                           ? 'Online'
                                           : 'Offline',
@@ -327,8 +329,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                     ),
                     actions: [
                       IconButton(
-                        onPressed: () {},
-                        icon: Icon(Icons.call_outlined, color: textColor),
+                        onPressed: null, // Disabled as requested
+                        icon: Icon(Icons.call_outlined, color: subtitleColor),
                       ),
                       PopupMenuButton<String>(
                         color: cardColor,
@@ -415,86 +417,125 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                                         padding: const EdgeInsets.only(
                                           bottom: 8.0,
                                         ),
-                                        child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                          child: Image.network(
-                                            msg.fileUrl!,
-                                            fit: BoxFit.cover,
-                                            loadingBuilder:
-                                                (
-                                                  context,
-                                                  child,
-                                                  loadingProgress,
-                                                ) {
-                                                  if (loadingProgress == null) {
-                                                    return child;
-                                                  }
-                                                  return Container(
-                                                    height: 150,
-                                                    width: 200,
-                                                    color: Colors.grey[800],
-                                                    child: const Center(
-                                                      child:
-                                                          CircularProgressIndicator(
-                                                            strokeWidth: 2,
-                                                            color: Color(
-                                                              0xFFFF6B00,
-                                                            ),
-                                                          ),
-                                                    ),
-                                                  );
-                                                },
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            showDialog(
+                                              context: context,
+                                              builder: (_) => FullScreenImageViewer(
+                                                imageUrl: msg.fileUrl!,
+                                                heroTag:
+                                                    'chat_img_${msg.sentAt.millisecondsSinceEpoch}',
+                                              ),
+                                            );
+                                          },
+                                          child: Hero(
+                                            tag:
+                                                'chat_img_${msg.sentAt.millisecondsSinceEpoch}',
+                                            child: ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              child: Image.network(
+                                                msg.fileUrl!,
+                                                fit: BoxFit.cover,
+                                                loadingBuilder:
+                                                    (
+                                                      context,
+                                                      child,
+                                                      loadingProgress,
+                                                    ) {
+                                                      if (loadingProgress ==
+                                                          null) {
+                                                        return child;
+                                                      }
+                                                      return Container(
+                                                        height: 150,
+                                                        width: 200,
+                                                        color: Colors.grey[800],
+                                                        child: const Center(
+                                                          child:
+                                                              CircularProgressIndicator(
+                                                                strokeWidth: 2,
+                                                                color: Color(
+                                                                  0xFFFF6B00,
+                                                                ),
+                                                              ),
+                                                        ),
+                                                      );
+                                                    },
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ),
                                     if (msg.messageType == 'file' &&
                                         msg.fileUrl != null)
-                                      Container(
-                                        margin: const EdgeInsets.only(
-                                          bottom: 8,
-                                        ),
-                                        padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          color: isMine
-                                              ? Colors.white.withOpacity(0.1)
-                                              : (isDark
-                                                    ? Colors.grey[850]
-                                                    : Colors.white),
-                                          borderRadius: BorderRadius.circular(
-                                            8,
+                                      GestureDetector(
+                                        onTap: () async {
+                                          final url = Uri.parse(msg.fileUrl!);
+                                          if (await canLaunchUrl(url)) {
+                                            await launchUrl(
+                                              url,
+                                              mode: LaunchMode
+                                                  .externalApplication,
+                                            );
+                                          }
+                                        },
+                                        child: Container(
+                                          margin: const EdgeInsets.only(
+                                            bottom: 8,
                                           ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.insert_drive_file,
-                                              color: isMine
-                                                  ? Colors.white
-                                                  : const Color(0xFFFF6B00),
-                                              size: 30,
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: isMine
+                                                ? Colors.white.withValues(
+                                                    alpha: 0.1,
+                                                  )
+                                                : (isDark
+                                                      ? Colors.grey[850]
+                                                      : Colors.white),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
                                             ),
-                                            const SizedBox(width: 10),
-                                            Flexible(
-                                              child: Text(
-                                                msg.message.replaceFirst(
-                                                  'Shared a file: ',
-                                                  '',
-                                                ),
-                                                style: TextStyle(
-                                                  color: isMine
-                                                      ? msgTextColorMine
-                                                      : msgTextColorTheirs,
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.insert_drive_file,
+                                                color: isMine
+                                                    ? Colors.white
+                                                    : const Color(0xFFFF6B00),
+                                                size: 30,
                                               ),
-                                            ),
-                                          ],
+                                              const SizedBox(width: 10),
+                                              Flexible(
+                                                child: Text(
+                                                  msg.message.replaceFirst(
+                                                    'Shared a file: ',
+                                                    '',
+                                                  ),
+                                                  style: TextStyle(
+                                                    color: isMine
+                                                        ? msgTextColorMine
+                                                        : msgTextColorTheirs,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Icon(
+                                                Icons.open_in_new,
+                                                size: 16,
+                                                color: isMine
+                                                    ? Colors.white70
+                                                    : subtitleColor,
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     if (msg.message.isNotEmpty &&
@@ -508,6 +549,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                                           fontSize: 13,
                                           height: 1.4,
                                         ),
+                                        maxLines: null,
+                                        overflow: TextOverflow.visible,
                                       ),
                                     const SizedBox(height: 4),
                                     Row(
@@ -519,8 +562,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                                           ).format(msg.sentAt),
                                           style: TextStyle(
                                             color: isMine
-                                                ? msgTextColorMine.withOpacity(
-                                                    0.6,
+                                                ? msgTextColorMine.withValues(
+                                                    alpha: 0.6,
                                                   )
                                                 : subtitleColor,
                                             fontSize: 10,

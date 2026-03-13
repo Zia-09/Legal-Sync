@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/model/lawyer_Model.dart';
 import 'package:legal_sync/model/review_Model.dart';
@@ -72,7 +72,7 @@ class LawyerProfileScreen extends ConsumerWidget {
               Container(
                 margin: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
+                  color: Colors.black.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: IconButton(
@@ -190,38 +190,84 @@ class LawyerProfileScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 10),
 
-                  // Experience Badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFF6B00).withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: const Color(0xFFFF6B00).withOpacity(0.3),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.workspace_premium_outlined,
-                          color: Color(0xFFFF6B00),
-                          size: 14,
+                  // Experience & Fee Badges
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          '$_experience of Distinguished Experience',
-                          style: const TextStyle(
-                            color: Color(0xFFFF6B00),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                        decoration: BoxDecoration(
+                          color: const Color(
+                            0xFFFF6B00,
+                          ).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: const Color(
+                              0xFFFF6B00,
+                            ).withValues(alpha: 0.3),
                           ),
                         ),
-                      ],
-                    ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.workspace_premium_outlined,
+                              color: Color(0xFFFF6B00),
+                              size: 14,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '$_experience EXP',
+                              style: const TextStyle(
+                                color: Color(0xFFFF6B00),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(
+                            0xFF059669,
+                          ).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: const Color(
+                              0xFF059669,
+                            ).withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.payments_outlined,
+                              color: Color(0xFF059669),
+                              size: 14,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Fee: \$${lawyer?.consultationFee.toStringAsFixed(0) ?? "0"}',
+                              style: const TextStyle(
+                                color: Color(0xFF059669),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 20),
 
@@ -328,9 +374,11 @@ class LawyerProfileScreen extends ConsumerWidget {
                             );
 
                             if (confirmed != true) return;
+                            if (!context.mounted) return;
+                            final messenger = ScaffoldMessenger.of(context);
 
                             try {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              messenger.showSnackBar(
                                 const SnackBar(
                                   content: Text('Requesting consultation...'),
                                   backgroundColor: Color(0xFFFF6B00),
@@ -376,27 +424,23 @@ class LawyerProfileScreen extends ConsumerWidget {
                                 },
                               );
 
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Consultation requested! Lawyer notified. ✅',
-                                    ),
-                                    backgroundColor: Color(0xFF059669),
+                              messenger.showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Consultation requested! Lawyer notified. ✅',
                                   ),
-                                );
-                              }
+                                  backgroundColor: Color(0xFF059669),
+                                ),
+                              );
                             } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Failed to book: ${e.toString()}',
-                                    ),
-                                    backgroundColor: Colors.redAccent,
+                              messenger.showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Failed to book: ${e.toString()}',
                                   ),
-                                );
-                              }
+                                  backgroundColor: Colors.redAccent,
+                                ),
+                              );
                             }
                           },
                           style: ElevatedButton.styleFrom(
@@ -503,7 +547,9 @@ class LawyerProfileScreen extends ConsumerWidget {
                         _VerticalDivider(),
                         _StatItem(
                           value: _rating.toStringAsFixed(1),
-                          label: 'Rating',
+                          label: lawyer != null
+                              ? '${lawyer!.totalReviews} Reviews'
+                              : 'Rating',
                           icon: Icons.star,
                           color: const Color(0xFFFFB800),
                         ),

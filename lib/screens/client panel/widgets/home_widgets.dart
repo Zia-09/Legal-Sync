@@ -28,9 +28,9 @@ class LawyerCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF252525)),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         child: Row(
           children: [
@@ -46,7 +46,7 @@ class LawyerCard extends StatelessWidget {
                         lawyer.profileImage!,
                         fit: BoxFit.cover,
                         errorBuilder: (_, _, _) => Container(
-                          color: const Color(0xFF2A2A2A),
+                          color: Theme.of(context).dividerColor,
                           child: const Icon(
                             Icons.person,
                             color: Color(0xFFFF6B00),
@@ -79,8 +79,8 @@ class LawyerCard extends StatelessWidget {
                 children: [
                   Text(
                     lawyer.name,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
@@ -105,9 +105,24 @@ class LawyerCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        '${lawyer.rating}',
+                        '${lawyer.rating} (${lawyer.totalReviews} reviews)',
+                        style: TextStyle(
+                          color: Theme.of(context).textTheme.bodySmall?.color,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.payments_outlined,
+                        color: Color(0xFF6B6B6B),
+                        size: 14,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '\$${lawyer.consultationFee.toStringAsFixed(0)}',
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: Color(0xFFFF6B00),
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
@@ -150,15 +165,16 @@ class HomeDrawer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Drawer(
-      backgroundColor: const Color(0xFF0F0F0F),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       child: Column(
         children: [
-          _buildDrawerHeader(ref),
+          _buildDrawerHeader(context, ref),
           Expanded(
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
                 _buildDrawerItem(
+                  context,
                   icon: Icons.notifications_outlined,
                   label: 'Notifications',
                   onTap: () {
@@ -172,27 +188,32 @@ class HomeDrawer extends ConsumerWidget {
                   },
                 ),
                 _buildDrawerItem(
+                  context,
                   icon: Icons.bookmark_border,
                   label: 'Saved Lawyers',
                   onTap: () {},
                 ),
                 _buildDrawerItem(
+                  context,
                   icon: Icons.history,
                   label: 'Past Consultations',
                   onTap: () {},
                 ),
                 _buildDrawerItem(
+                  context,
                   icon: Icons.wallet_outlined,
                   label: 'Wallet & Payments',
                   onTap: () {},
                 ),
                 _buildDrawerItem(
+                  context,
                   icon: Icons.help_outline,
                   label: 'Help & Support',
                   onTap: () {},
                 ),
-                const Divider(color: Color(0xFF1E1E1E), height: 32),
+                const Divider(height: 32),
                 _buildDrawerItem(
+                  context,
                   icon: Icons.logout,
                   label: 'Logout',
                   color: Colors.redAccent,
@@ -215,12 +236,12 @@ class HomeDrawer extends ConsumerWidget {
     );
   }
 
-  Widget _buildDrawerHeader(WidgetRef ref) {
+  Widget _buildDrawerHeader(BuildContext context, WidgetRef ref) {
     final clientAsync = ref.watch(currentClientProvider);
     return clientAsync.when(
       data: (client) => Container(
         padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
-        color: const Color(0xFF141414),
+        color: Theme.of(context).cardColor,
         child: Row(
           children: [
             CircleAvatar(
@@ -239,8 +260,8 @@ class HomeDrawer extends ConsumerWidget {
                 children: [
                   Text(
                     client?.name ?? 'Client Name',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
@@ -266,12 +287,15 @@ class HomeDrawer extends ConsumerWidget {
     );
   }
 
-  Widget _buildDrawerItem({
+  Widget _buildDrawerItem(
+    BuildContext context, {
     required IconData icon,
     required String label,
     required VoidCallback onTap,
-    Color color = Colors.white,
+    Color? color,
   }) {
+    final effectiveColor =
+        color ?? Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black87;
     return ListTile(
       leading: Icon(
         icon,
@@ -281,7 +305,7 @@ class HomeDrawer extends ConsumerWidget {
       title: Text(
         label,
         style: TextStyle(
-          color: color,
+          color: effectiveColor,
           fontSize: 15,
           fontWeight: FontWeight.w500,
         ),

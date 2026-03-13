@@ -20,21 +20,29 @@ class _LawyerNotificationsScreenState
     final user = ref.watch(authStateProvider).value;
     if (user == null) return const Center(child: CircularProgressIndicator());
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark
+        ? const Color(0xFF121212)
+        : const Color(0xFFF7F9FC);
+    final appBarBg = isDark ? const Color(0xFF1A1A1A) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? const Color(0xFF9E9E9E) : Colors.grey.shade600;
+
     final notificationsAsync = ref.watch(userNotificationsProvider(user.uid));
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FC),
+      backgroundColor: scaffoldBg,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: appBarBg,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          icon: Icon(Icons.arrow_back, color: textColor),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Notifications',
           style: TextStyle(
-            color: Colors.black87,
+            color: textColor,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
@@ -42,7 +50,7 @@ class _LawyerNotificationsScreenState
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.done_all, color: Color(0xFFFF6B00)),
+            icon: const Icon(Icons.done_all, color: Color(0xFFDC2626)),
             onPressed: () {
               ref
                   .read(notificationStateNotifierProvider.notifier)
@@ -92,17 +100,17 @@ class _LawyerNotificationsScreenState
             children: [
               if (today.isNotEmpty) ...[
                 _buildSectionHeader('TODAY'),
-                ...today.map((n) => _buildNotificationCard(n)),
+                ...today.map((n) => _buildNotificationCard(n, textColor, subtitleColor, isDark)),
               ],
               if (earlier.isNotEmpty) ...[
                 _buildSectionHeader('EARLIER'),
-                ...earlier.map((n) => _buildNotificationCard(n)),
+                ...earlier.map((n) => _buildNotificationCard(n, textColor, subtitleColor, isDark)),
               ],
               const SizedBox(height: 40),
             ],
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => Center(child: CircularProgressIndicator(color: Color(0xFFDC2626))),
         error: (e, st) => Center(child: Text('Error: $e')),
       ),
     );
@@ -123,7 +131,7 @@ class _LawyerNotificationsScreenState
     );
   }
 
-  Widget _buildNotificationCard(NotificationModel n) {
+  Widget _buildNotificationCard(NotificationModel n, Color textColor, Color subtitleColor, bool isDark) {
     bool isUrgent = n.type == 'urgent' || n.type == 'URGENT';
     IconData icon;
     Color color;
@@ -154,7 +162,7 @@ class _LawyerNotificationsScreenState
         break;
       default:
         icon = Icons.notifications_none;
-        color = const Color(0xFFFF6B00);
+        color = const Color(0xFFDC2626);
     }
 
     return GestureDetector(
@@ -169,7 +177,7 @@ class _LawyerNotificationsScreenState
         margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
@@ -200,9 +208,9 @@ class _LawyerNotificationsScreenState
                       width: 10,
                       height: 10,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFF6B00),
+                        color: const Color(0xFFDC2626),
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+                        border: Border.all(color: isDark ? const Color(0xFF1A1A1A) : Colors.white, width: 2),
                       ),
                     ),
                   ),
@@ -222,7 +230,7 @@ class _LawyerNotificationsScreenState
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
-                            color: n.isRead ? Colors.black87 : Colors.black,
+                            color: n.isRead ? subtitleColor.withValues(alpha: 0.7) : textColor,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -232,7 +240,7 @@ class _LawyerNotificationsScreenState
                         DateFormat('HH:mm').format(n.createdAt),
                         style: TextStyle(
                           fontSize: 11,
-                          color: Colors.grey.shade500,
+                          color: subtitleColor.withValues(alpha: 0.5),
                         ),
                       ),
                     ],
@@ -242,7 +250,7 @@ class _LawyerNotificationsScreenState
                     n.message,
                     style: TextStyle(
                       fontSize: 13,
-                      color: Colors.grey.shade600,
+                      color: subtitleColor,
                       height: 1.4,
                     ),
                   ),
@@ -276,13 +284,13 @@ class _LawyerNotificationsScreenState
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
+                          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           n.type.toUpperCase(),
                           style: TextStyle(
-                            color: Colors.grey.shade700,
+                            color: subtitleColor,
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                           ),

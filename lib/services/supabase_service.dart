@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SupabaseService {
   final _supabase = Supabase.instance.client;
-  static const String _bucketName = 'chat_attachments';
+  static const String _bucketName = 'legal-sync';
 
   /// 🔹 Upload a file to Supabase Storage
   /// Returns the public URL of the uploaded file

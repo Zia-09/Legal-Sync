@@ -17,15 +17,20 @@ final allLawyersProvider = StreamProvider<List<LawyerModel>>((ref) {
 });
 
 // ===============================
-// Get Lawyer by ID Provider
+// Get Lawyer by ID Provider (Stream)
 // ===============================
-final getLawyerByIdProvider = FutureProvider.family<LawyerModel?, String>((
+final getLawyerByIdProvider = StreamProvider.family<LawyerModel?, String>((
   ref,
   lawyerId,
-) async {
+) {
   final service = ref.watch(lawyerServiceProvider);
-  return service.getLawyerById(lawyerId);
+  return service.getLawyerStream(lawyerId);
 });
+
+// ===============================
+// Lawyer Stream Provider (Alias for family)
+// ===============================
+final lawyerStreamProvider = getLawyerByIdProvider;
 
 // ===============================
 // Verified Lawyers Provider
@@ -185,14 +190,19 @@ final lawyerStateNotifierProvider =
     });
 
 // ===============================
-// Current Lawyer Provider
+// Current Lawyer Provider (Stream)
 // ===============================
-final currentLawyerProvider = FutureProvider<LawyerModel?>((ref) async {
-  final authState = await ref.watch(authStateProvider.future);
-  if (authState == null) return null;
-
-  final service = ref.read(lawyerServiceProvider);
-  return service.getLawyerById(authState.uid);
+final currentLawyerProvider = StreamProvider<LawyerModel?>((ref) {
+  final authStateAsync = ref.watch(authStateProvider);
+  return authStateAsync.when(
+    data: (user) {
+      if (user == null) return Stream.value(null);
+      final service = ref.read(lawyerServiceProvider);
+      return service.getLawyerStream(user.uid);
+    },
+    loading: () => const Stream.empty(),
+    error: (e, st) => Stream.error(e, st),
+  );
 });
 
 // ===============================
@@ -229,9 +239,9 @@ final filteredLawyersProvider = StreamProvider<List<LawyerModel>>((ref) {
       // Filter by category
       if (selectedCategory != null && selectedCategory != 'All') {
         filtered = filtered.where(
-          (l) =>
-              l.specialization.toLowerCase().trim() ==
-              selectedCategory.toLowerCase().trim(),
+          (l) => l.specialization.toLowerCase().contains(
+            selectedCategory.toLowerCase().trim(),
+          ),
         );
       }
 

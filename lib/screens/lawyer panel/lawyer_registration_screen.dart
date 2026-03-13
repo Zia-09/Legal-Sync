@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'dart:io';
+import 'package:legal_sync/screens/lawyer panel/lawyer_verification_pending_screen.dart';
 import 'package:legal_sync/services/supabase_service.dart';
 import 'package:legal_sync/provider/auth_provider.dart';
 import 'package:legal_sync/screens/lawyer panel/lawyer_login_screen.dart';
-import 'dart:io';
+import 'package:legal_sync/services/verification_service.dart';
+import 'package:legal_sync/services/email_service.dart';
 
 class LawyerRegistrationScreen extends ConsumerStatefulWidget {
   const LawyerRegistrationScreen({super.key});
@@ -55,6 +58,9 @@ class _LawyerRegistrationScreenState
     'Real Estate',
     'Other',
   ];
+
+  final TextEditingController _consultationFeeController =
+      TextEditingController();
 
   // State Variables - Step 3
   bool _isFileUploaded = false;
@@ -109,7 +115,11 @@ class _LawyerRegistrationScreenState
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['pdf', 'jpg', 'png', 'jpeg'],
+        allowedExtensions: [
+          'jpg',
+          'png',
+          'jpeg',
+        ], // Removed PDF for OCR simplicity
       );
 
       if (result == null || result.files.isEmpty) return;
@@ -120,6 +130,34 @@ class _LawyerRegistrationScreenState
       });
 
       final file = File(result.files.first.path!);
+
+      // 🔹 Step 1: Verify the Card using OCR
+      final isValid = await verificationService.verifyLawyerCard(file);
+
+      if (!isValid) {
+        setState(() => _isUploading = false);
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Invalid Document'),
+              content: const Text(
+                'The uploaded image does not appear to be a valid Lawyer Identity Card. '
+                'Please ensure you upload a clear photo of your Bar Council membership card.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Try Again'),
+                ),
+              ],
+            ),
+          );
+        }
+        return;
+      }
+
+      // 🔹 Step 2: Upload if valid
       final downloadUrl = await supabaseService.uploadFile(
         file: file,
         path: 'lawyer_documents',
@@ -133,7 +171,9 @@ class _LawyerRegistrationScreenState
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('File uploaded successfully!')),
+          const SnackBar(
+            content: Text('Verification card verified & uploaded!'),
+          ),
         );
       }
     } catch (e) {
@@ -141,7 +181,7 @@ class _LawyerRegistrationScreenState
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+        ).showSnackBar(SnackBar(content: Text('Process failed: $e')));
       }
     }
   }
@@ -174,61 +214,39 @@ class _LawyerRegistrationScreenState
 
   void _completeRegistration() async {
     try {
-      final name =
-          '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}';
+      final firstName = _firstNameController.text.trim();
+      final lastName = _lastNameController.text.trim();
+      final name = '$firstName $lastName';
+      final email = _emailController.text.trim();
 
       await ref
           .read(authNotifierProvider.notifier)
           .registerLawyer(
             name: name,
             phone: _phoneController.text.trim(),
-            email: _emailController.text.trim(),
+            email: email,
             password: _passwordController.text,
             specialization: _selectedSpecialization!,
             experience: _selectedExperience!,
+            consultationFee:
+                double.tryParse(_consultationFeeController.text) ?? 0.0,
             idCardDocument: _uploadedFileUrl,
           );
 
+      // ✅ Send welcome email via Resend
+      await emailService.sendWelcomeEmail(
+        email: email,
+        name: name,
+        role: 'lawyer',
+      );
+
       if (!mounted) return;
 
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.green),
-              SizedBox(width: 8),
-              Text('Registration Submitted'),
-            ],
-          ),
-          content: const Text(
-            'Your registration has been submitted successfully. Our admin team will verify your details within 24-48 hours. You will be notified once your account is active.',
-            style: TextStyle(height: 1.5),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context); // Close dialog
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const LawyerLoginScreen()),
-                  (route) => false,
-                );
-              },
-              child: const Text(
-                'OK',
-                style: TextStyle(
-                  color: Color(0xFFFF6B00),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => const LawyerVerificationPendingScreen(),
         ),
+        (route) => false,
       );
     } catch (e) {
       if (!mounted) return;
@@ -252,22 +270,29 @@ class _LawyerRegistrationScreenState
         ? 'Lawyer Portal'
         : 'Lawyer Registration';
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark
+        ? const Color(0xFF121212)
+        : const Color(0xFFF7F9FC);
+    final appBarBg = isDark ? const Color(0xFF1A1A1A) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FC), // Light background as in Figma
+      backgroundColor: scaffoldBg, // Light background as in Figma
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(Icons.arrow_back, color: textColor),
           onPressed: isRegistering ? null : _previousStep,
         ),
         title: Text(
           appBarTitle,
-          style: const TextStyle(
-            color: Colors.black,
+          style: TextStyle(
+            color: textColor,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: appBarBg,
         elevation: 0,
         centerTitle: true,
       ),
@@ -1113,15 +1138,13 @@ class _LawyerRegistrationScreenState
                       ),
                       elevation: 0,
                     ),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        'Complete Registration',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    child: Text(
+                      'Complete',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),

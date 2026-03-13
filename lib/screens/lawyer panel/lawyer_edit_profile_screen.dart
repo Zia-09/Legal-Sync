@@ -127,213 +127,227 @@ class _LawyerEditProfileScreenState
   }
 
   Widget _buildScaffold(dynamic lawyer) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Edit Profile',
-          style: TextStyle(
-            color: Colors.black87,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
-        ),
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Profile Photo
-            Center(
-              child: Stack(
-                children: [
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundColor: Colors.grey.shade200,
-                    backgroundImage:
-                        (lawyer != null && lawyer.profileImageUrl.isNotEmpty)
-                        ? NetworkImage(lawyer.profileImageUrl)
-                        : const NetworkImage('https://i.pravatar.cc/150?img=12')
-                              as ImageProvider,
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: GestureDetector(
-                      onTap: _isUploading
-                          ? null
-                          : () => _pickAndUploadImage(lawyer!.lawyerId),
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFF6B00),
-                          shape: BoxShape.circle,
-                        ),
-                        child: _isUploading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(
-                                Icons.camera_alt,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 30),
+    return Consumer(
+      builder: (context, ref, child) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final scaffoldBg = isDark ? const Color(0xFF121212) : Colors.white;
+        final appBarBg = isDark ? const Color(0xFF1A1A1A) : Colors.white;
+        final textColor = isDark ? Colors.white : Colors.black87;
 
-            _buildInputField(
-              label: 'FULL NAME',
-              hint: 'e.g. Jonathan Sterling',
-              controller: _nameController,
+        return Scaffold(
+          backgroundColor: scaffoldBg,
+          appBar: AppBar(
+            backgroundColor: appBarBg,
+            elevation: 0,
+            leading: IconButton(
+              icon: Icon(Icons.arrow_back, color: textColor),
+              onPressed: () => Navigator.pop(context),
             ),
-            const SizedBox(height: 20),
-
-            _buildInputField(
-              label: 'EMAIL ADDRESS',
-              hint: 'e.g. j.sterling@lawfirm.com',
-              controller: _emailController,
-            ),
-            const SizedBox(height: 20),
-
-            _buildInputField(
-              label: 'STATE BAR NUMBER',
-              hint: 'CA-983241',
-              controller: TextEditingController(
-                text: 'CA-983241',
-              ), // Assuming static for now or from other field
-              suffixIcon: const Icon(
-                Icons.check_circle,
-                color: Colors.green,
-                size: 20,
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            const Text(
-              'AREA OF SPECIALIZATION',
+            title: Text(
+              'Edit Profile',
               style: TextStyle(
-                fontSize: 12,
+                color: textColor,
                 fontWeight: FontWeight.bold,
-                color: Colors.grey,
-                letterSpacing: 1.2,
+                fontSize: 18,
               ),
             ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            centerTitle: true,
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ..._specializations.map((spec) => _buildSpecChip(spec)),
-                _buildAddSpecChip(),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            _buildInputField(
-              label: 'MOBILE NUMBER',
-              hint: '+1 (555) 012-3456',
-              controller: _phoneController,
-            ),
-            const SizedBox(height: 20),
-
-            _buildInputField(
-              label: 'OFFICE ADDRESS',
-              hint: 'Enter your office address',
-              controller: _locationController,
-              maxLines: 3,
-            ),
-            const SizedBox(height: 40),
-
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () async {
-                  if (lawyer == null) return;
-                  try {
-                    setState(() => _isUploading = true);
-                    await ref
-                        .read(lawyerServiceProvider)
-                        .updateLawyer(
-                          lawyerId: lawyer.lawyerId,
-                          data: {
-                            'name': _nameController.text.trim(),
-                            'email': _emailController.text.trim(),
-                            'phone': _phoneController.text.trim(),
-                            'location': _locationController.text.trim(),
-                            'specialization': _selectedSpecializations.join(
-                              ', ',
-                            ),
-                          },
-                        );
-
-                    // Refresh lawyer data
-                    ref.invalidate(currentLawyerProvider);
-
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Profile updated successfully!'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to update: $e')),
-                      );
-                    }
-                  } finally {
-                    if (mounted) setState(() => _isUploading = false);
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF6B00),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 0,
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.save_outlined, color: Colors.white),
-                    SizedBox(width: 8),
-                    Text(
-                      'Save Professional Profile',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                // Profile Photo
+                Center(
+                  child: Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 50,
+                        backgroundColor: Colors.grey.shade200,
+                        backgroundImage:
+                            (lawyer != null &&
+                                lawyer.profileImageUrl.isNotEmpty)
+                            ? NetworkImage(lawyer.profileImageUrl)
+                            : const NetworkImage(
+                                    'https://i.pravatar.cc/150?img=12',
+                                  )
+                                  as ImageProvider,
                       ),
-                    ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: GestureDetector(
+                          onTap: _isUploading
+                              ? null
+                              : () => _pickAndUploadImage(lawyer!.lawyerId),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFFF6B00),
+                              shape: BoxShape.circle,
+                            ),
+                            child: _isUploading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.camera_alt,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 30),
+
+                _buildInputField(
+                  label: 'FULL NAME',
+                  hint: 'e.g. Jonathan Sterling',
+                  controller: _nameController,
+                ),
+                const SizedBox(height: 20),
+
+                _buildInputField(
+                  label: 'EMAIL ADDRESS',
+                  hint: 'e.g. j.sterling@lawfirm.com',
+                  controller: _emailController,
+                ),
+                const SizedBox(height: 20),
+
+                _buildInputField(
+                  label: 'STATE BAR NUMBER',
+                  hint: 'CA-983241',
+                  controller: TextEditingController(
+                    text: 'CA-983241',
+                  ), // Assuming static for now or from other field
+                  suffixIcon: const Icon(
+                    Icons.check_circle,
+                    color: Colors.green,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                const Text(
+                  'AREA OF SPECIALIZATION',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ..._specializations.map((spec) => _buildSpecChip(spec)),
+                    _buildAddSpecChip(),
                   ],
                 ),
-              ),
+                const SizedBox(height: 20),
+
+                _buildInputField(
+                  label: 'MOBILE NUMBER',
+                  hint: '+1 (555) 012-3456',
+                  controller: _phoneController,
+                ),
+                const SizedBox(height: 20),
+
+                _buildInputField(
+                  label: 'OFFICE ADDRESS',
+                  hint: 'Enter your office address',
+                  controller: _locationController,
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 40),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      if (lawyer == null) return;
+                      try {
+                        setState(() => _isUploading = true);
+                        await ref
+                            .read(lawyerServiceProvider)
+                            .updateLawyer(
+                              lawyerId: lawyer.lawyerId,
+                              data: {
+                                'name': _nameController.text.trim(),
+                                'email': _emailController.text.trim(),
+                                'phone': _phoneController.text.trim(),
+                                'location': _locationController.text.trim(),
+                                'specialization': _selectedSpecializations.join(
+                                  ', ',
+                                ),
+                              },
+                            );
+
+                        final messenger = ScaffoldMessenger.of(context);
+                        final navigator = Navigator.of(context);
+
+                        // Refresh lawyer data
+                        ref.invalidate(currentLawyerProvider);
+
+                        if (!mounted) return;
+                        messenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('Profile updated successfully!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                        navigator.pop();
+                      } catch (e) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Failed to update: $e')),
+                        );
+                      } finally {
+                        if (mounted) setState(() => _isUploading = false);
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFF6B00),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.save_outlined, color: Colors.white),
+                        SizedBox(width: 8),
+                        Text(
+                          'Save Professional Profile',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
             ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 

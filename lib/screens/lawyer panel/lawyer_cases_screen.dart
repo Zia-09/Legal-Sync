@@ -34,29 +34,37 @@ class _LawyerCasesScreenState extends ConsumerState<LawyerCasesScreen> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authStateProvider).value;
-    if (user == null)
+    if (user == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark
+        ? const Color(0xFF121212)
+        : const Color(0xFFF7F9FC);
+    final appBarBg = isDark ? const Color(0xFF1A1A1A) : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF1F2937);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: scaffoldBg,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'My Cases',
           style: TextStyle(
-            color: Color(0xFF1F2937),
+            color: textColor,
             fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: appBarBg,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1F2937)),
+          icon: Icon(Icons.arrow_back, color: textColor),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.filter_list, color: Color(0xFF1F2937)),
+            icon: Icon(Icons.filter_list, color: textColor),
             onPressed: () => _showFilterBottomSheet(context),
           ),
         ],
@@ -459,7 +467,7 @@ class _CaseItem extends StatelessWidget {
                   ),
                 ],
               ),
-              const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+              const SizedBox.shrink(),
             ],
           ),
         ],

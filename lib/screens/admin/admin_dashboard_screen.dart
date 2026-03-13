@@ -66,15 +66,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: IndexedStack(index: _currentIndex, children: _screens),
-      bottomNavigationBar: _buildBottomNav(),
+      bottomNavigationBar: _buildBottomNav(context),
     );
   }
 
-  Widget _buildBottomNav() {
+  Widget _buildBottomNav(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -86,12 +87,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       child: BottomNavigationBar(
         currentIndex: _currentIndex,
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF1E3A8A),
+        selectedItemColor: Theme.of(context).primaryColor,
         unselectedItemColor: const Color(0xFF9CA3AF),
         showUnselectedLabels: true,
         selectedFontSize: 10,
         unselectedFontSize: 10,
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).cardColor,
         elevation: 0,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Home'),
@@ -156,7 +157,7 @@ class _AdminHomeTabState extends ConsumerState<_AdminHomeTab>
     final pendingVerifications = ref.watch(pendingLawyerApprovalsProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: _buildAppBar(context),
       body: SafeArea(
         child: FadeTransition(
@@ -273,7 +274,7 @@ class _AdminHomeTabState extends ConsumerState<_AdminHomeTab>
 
   AppBar _buildAppBar(BuildContext context) {
     return AppBar(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).cardColor,
       elevation: 0,
       automaticallyImplyLeading: false,
       title: Row(
@@ -284,16 +285,20 @@ class _AdminHomeTabState extends ConsumerState<_AdminHomeTab>
               color: const Color(0xFF1E3A8A).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.gavel, color: Color(0xFF1E3A8A), size: 20),
+            child: Icon(
+              Icons.gavel,
+              color: Theme.of(context).primaryColor,
+              size: 20,
+            ),
           ),
           const SizedBox(width: 8),
-          const Column(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'LegalSync',
                 style: TextStyle(
-                  color: Color(0xFF1E3A8A),
+                  color: Theme.of(context).primaryColor,
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                 ),
@@ -301,7 +306,11 @@ class _AdminHomeTabState extends ConsumerState<_AdminHomeTab>
               Text(
                 'ADMIN PORTAL',
                 style: TextStyle(
-                  color: Color(0xFF6B7280),
+                  color:
+                      Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.color?.withValues(alpha: 0.6) ??
+                      const Color(0xFF6B7280),
                   fontSize: 10,
                   letterSpacing: 1.2,
                 ),
@@ -321,9 +330,9 @@ class _AdminHomeTabState extends ConsumerState<_AdminHomeTab>
             return IconButton(
               icon: Stack(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.notifications_none,
-                    color: Color(0xFF1F2937),
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
                   ),
                   if (unreadCount > 0)
                     Positioned(
@@ -380,7 +389,7 @@ class _AdminHomeTabState extends ConsumerState<_AdminHomeTab>
   Widget _buildSearchBar(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -438,8 +447,12 @@ class _AdminHomeTabState extends ConsumerState<_AdminHomeTab>
       children: [
         Text(
           title,
-          style: const TextStyle(
-            color: Color(0xFF4B5563),
+          style: TextStyle(
+            color:
+                Theme.of(
+                  context,
+                ).textTheme.bodySmall?.color?.withValues(alpha: 0.7) ??
+                const Color(0xFF4B5563),
             fontSize: 13,
             fontWeight: FontWeight.bold,
             letterSpacing: 1.0,
@@ -666,7 +679,7 @@ class _RegistrationTrendsChart extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(

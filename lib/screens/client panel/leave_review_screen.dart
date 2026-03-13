@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/model/lawyer_Model.dart';
 import 'package:legal_sync/model/review_Model.dart';
@@ -221,7 +221,7 @@ class _LeaveReviewScreenState extends ConsumerState<LeaveReviewScreen> {
                   ),
                   disabledBackgroundColor: const Color(
                     0xFFFF6B00,
-                  ).withOpacity(0.5),
+                  ).withValues(alpha: 0.5),
                 ),
                 child: _isSubmitting
                     ? const CircularProgressIndicator(color: Colors.white)

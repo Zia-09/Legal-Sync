@@ -120,7 +120,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
           htmlContent:
               '''
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-              <h2 style="color: #FF6B00; text-align: center;">Welcome to the Elite League, $name!</h2>
+              <h2 style="color: #DC2626; text-align: center;">Welcome to the Elite League, $name!</h2>
               <p style="font-size: 16px; color: #333;">Your <strong>Client</strong> account has been created successfully.</p>
               <p style="color: #666;">You can now browse elite lawyers, book consultations, and manage your cases with professional ease.</p>
               <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
@@ -148,6 +148,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
     required String password,
     required String specialization,
     required String experience,
+    required double consultationFee,
     required String? idCardDocument,
   }) async {
     state = const AsyncValue.loading();
@@ -160,6 +161,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
         role: 'lawyer',
         specialization: specialization,
         experience: experience,
+        consultationFee: consultationFee,
         idCardDocument: idCardDocument,
       );
       if (result != 'success') {
@@ -184,7 +186,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
           htmlContent:
               '''
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-              <h2 style="color: #131D31; text-align: center;">Registration Received, Counselor $name!</h2>
+              <h2 style="color: #DC2626; text-align: center;">Registration Received, Counselor $name!</h2>
               <p style="font-size: 16px; color: #333;">Thank you for joining <strong>LegalSync Professional</strong>.</p>
               <p style="color: #666;">Our administration team is currently verifying your credentials. You will receive a notification once your account is fully approved.</p>
               <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
@@ -215,6 +217,38 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
         state = const AsyncValue.data(null);
         throw result;
       }
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
+  /// Update password.
+  /// Throws a String error message on failure.
+  Future<void> updatePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    state = const AsyncValue.loading();
+    try {
+      final email = FirebaseAuth.instance.currentUser?.email;
+      if (email == null) throw 'No user email found.';
+
+      // First reauthenticate
+      final reauthResult = await _service.reauthenticate(email, currentPassword);
+      if (reauthResult != 'success') {
+        state = const AsyncValue.data(null);
+        throw reauthResult;
+      }
+
+      // Then update password
+      final result = await _service.updatePassword(newPassword);
+      if (result != 'success') {
+        state = const AsyncValue.data(null);
+        throw result;
+      }
+
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);

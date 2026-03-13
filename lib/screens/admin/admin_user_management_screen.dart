@@ -473,6 +473,7 @@ class _UserRowItem extends StatelessWidget {
   });
 
   void _updateStatus(BuildContext context, String newStatus) async {
+    final messenger = ScaffoldMessenger.of(context);
     try {
       if (isLawyer) {
         await LawyerService().updateLawyer(
@@ -485,14 +486,14 @@ class _UserRowItem extends StatelessWidget {
           data: {'status': newStatus},
         );
       }
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: Text('$name status updated to $newStatus'),
           backgroundColor: const Color(0xFF059669),
         ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: Text('Failed to update status: $e'),
           backgroundColor: const Color(0xFFDC2626),
@@ -594,6 +595,7 @@ class _UserRowItem extends StatelessWidget {
                     ) ??
                     false;
                 if (confirm && context.mounted) {
+                  final messenger = ScaffoldMessenger.of(context);
                   try {
                     if (isLawyer) {
                       await LawyerService().deleteLawyer(id);
@@ -601,7 +603,7 @@ class _UserRowItem extends StatelessWidget {
                       await ClientService().deleteClient(id);
                     }
                   } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    messenger.showSnackBar(
                       SnackBar(content: Text('Delete failed: $e')),
                     );
                   }

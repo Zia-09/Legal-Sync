@@ -33,23 +33,29 @@ class _LawyerMessagesScreenState extends ConsumerState<LawyerMessagesScreen> {
     final user = ref.watch(authStateProvider).value;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FC),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).cardColor,
         elevation: 0,
+
         automaticallyImplyLeading: false,
-        title: const Text(
+        title: Text(
           'Messages',
           style: TextStyle(
-            color: Colors.black87,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
         ),
+
         centerTitle: true,
         actions: [
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: Colors.black87),
+            icon: Icon(
+              Icons.more_vert,
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+            ),
+
             onSelected: (val) {
               if (val == 'mark_all_read') {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -94,10 +100,11 @@ class _LawyerMessagesScreenState extends ConsumerState<LawyerMessagesScreen> {
       margin: const EdgeInsets.fromLTRB(20, 10, 20, 6),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
+
       child: TextField(
         controller: _searchCtrl,
         onChanged: (val) => setState(() => _searchQuery = val.toLowerCase()),
@@ -146,16 +153,23 @@ class _LawyerMessagesScreenState extends ConsumerState<LawyerMessagesScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFFF6B00) : Colors.white,
+          color: isSelected
+              ? const Color(0xFFFF6B00)
+              : Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? const Color(0xFFFF6B00) : Colors.grey.shade300,
+            color: isSelected
+                ? const Color(0xFFFF6B00)
+                : Theme.of(context).dividerColor,
           ),
         ),
+
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.black87,
+            color: isSelected
+                ? Colors.white
+                : Theme.of(context).textTheme.bodyLarge?.color,
             fontWeight: FontWeight.w600,
             fontSize: 13,
           ),
@@ -198,7 +212,7 @@ class _LawyerMessagesScreenState extends ConsumerState<LawyerMessagesScreen> {
         return ListView.separated(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
           itemCount: convList.length,
-          separatorBuilder: (_, __) => const Divider(height: 1),
+          separatorBuilder: (_, _) => const Divider(height: 1),
           itemBuilder: (context, index) {
             final thread = convList[index];
             final partnerId = thread.clientId == lawyerId
@@ -299,7 +313,7 @@ class _LawyerMessagesScreenState extends ConsumerState<LawyerMessagesScreen> {
                   CircleAvatar(
                     radius: 28,
                     backgroundImage: NetworkImage(avatarUrl),
-                    onBackgroundImageError: (_, __) {},
+                    onBackgroundImageError: (_, _) {},
                     child: const Icon(Icons.person),
                   ),
                   if (isUnread)
@@ -333,9 +347,10 @@ class _LawyerMessagesScreenState extends ConsumerState<LawyerMessagesScreen> {
                                 ? FontWeight.bold
                                 : FontWeight.w600,
                             fontSize: 15,
-                            color: Colors.black87,
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
                           ),
                         ),
+
                         Text(
                           timeStr,
                           style: TextStyle(
@@ -359,12 +374,17 @@ class _LawyerMessagesScreenState extends ConsumerState<LawyerMessagesScreen> {
                             style: TextStyle(
                               fontSize: 13,
                               color: isUnread
-                                  ? Colors.black87
-                                  : Colors.grey.shade600,
+                                  ? Theme.of(context).textTheme.bodyLarge?.color
+                                  : Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.color
+                                        ?.withValues(alpha: 0.7),
                               fontWeight: isUnread
                                   ? FontWeight.w500
                                   : FontWeight.normal,
                             ),
+
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),

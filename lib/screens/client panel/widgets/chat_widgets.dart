@@ -1,11 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:legal_sync/model/chat_Model.dart';
 import 'package:legal_sync/model/chat_thread_model.dart';
 import 'package:legal_sync/model/lawyer_Model.dart';
 import 'package:legal_sync/provider/chat_provider.dart';
-import 'package:legal_sync/provider/chat_thread_provider.dart';
 import 'package:legal_sync/provider/lawyer_provider.dart';
 import 'package:legal_sync/provider/case_provider.dart';
 import 'package:legal_sync/screens/client panel/chat_detail_screen.dart';
@@ -132,7 +130,7 @@ class ChatTile extends ConsumerWidget {
               ? null
               : [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
+                    color: Colors.black.withValues(alpha: 0.03),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -306,7 +304,7 @@ class ChatTile extends ConsumerWidget {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(
-          color: Colors.redAccent.withOpacity(0.8),
+          color: Colors.redAccent.withValues(alpha: 0.8),
           borderRadius: BorderRadius.circular(14),
         ),
         child: const Icon(Icons.delete_outline, color: Colors.white),

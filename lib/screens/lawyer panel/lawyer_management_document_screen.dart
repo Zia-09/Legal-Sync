@@ -1,10 +1,12 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/provider/auth_provider.dart';
 import 'package:legal_sync/provider/document_provider.dart';
 import 'package:legal_sync/provider/case_provider.dart';
 import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/model/document_Model.dart';
+import 'package:legal_sync/model/case_Model.dart';
+import 'package:legal_sync/model/client_Model.dart';
 import 'package:intl/intl.dart';
 
 class LawyerManagementDocumentScreen extends ConsumerStatefulWidget {
@@ -36,22 +38,29 @@ class _LawyerManagementDocumentScreenState
     final user = ref.watch(authStateProvider).value;
     if (user == null) return const Center(child: CircularProgressIndicator());
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark
+        ? const Color(0xFF121212)
+        : const Color(0xFFF7F9FC);
+    final appBarBg = isDark ? const Color(0xFF1A1A1A) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
     final documentsAsync = ref.watch(documentsByLawyerProvider(user.uid));
     final casesAsync = ref.watch(casesByLawyerProvider(user.uid));
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FC),
+      backgroundColor: scaffoldBg,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: appBarBg,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          icon: Icon(Icons.arrow_back, color: textColor),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Manage Document',
           style: TextStyle(
-            color: Colors.black87,
+            color: textColor,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
@@ -152,7 +161,7 @@ class _LawyerManagementDocumentScreenState
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.white.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.white24),
             ),
@@ -335,7 +344,7 @@ class _LawyerManagementDocumentScreenState
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
@@ -509,12 +518,14 @@ class _LawyerManagementDocumentScreenState
             )
           else
             ...docs.map((doc) {
-              final caseObj = cases.firstWhere(
-                (c) => c.caseId == doc.caseId,
+              // Fix: type 'Null' is not a subtype of type 'CaseModel' or 'ClientModel'
+              // Using iterable equality check or where + firstOrNull would be safer
+              final caseObj = cases.cast<CaseModel?>().firstWhere(
+                (c) => c?.caseId == doc.caseId,
                 orElse: () => null,
               );
-              final clientObj = clients.firstWhere(
-                (c) => c.clientId == doc.uploadedBy,
+              final clientObj = clients.cast<ClientModel?>().firstWhere(
+                (c) => c?.clientId == doc.uploadedBy,
                 orElse: () => null,
               );
 
@@ -572,7 +583,7 @@ class _LawyerManagementDocumentScreenState
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -586,7 +597,7 @@ class _LawyerManagementDocumentScreenState
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.1),
+                  color: iconColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(iconType, color: iconColor, size: 28),
@@ -628,7 +639,7 @@ class _LawyerManagementDocumentScreenState
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
+                  color: statusColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(

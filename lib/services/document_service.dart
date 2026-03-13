@@ -2,14 +2,20 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:legal_sync/model/document_Model.dart';
 import 'package:legal_sync/services/supabase_service.dart';
+import 'package:legal_sync/services/activity_service.dart';
 
 class DocumentService {
-  DocumentService({FirebaseFirestore? firestore, SupabaseService? supabase})
-    : _firestore = firestore ?? FirebaseFirestore.instance,
-      _supabase = supabase ?? supabaseService;
+  DocumentService({
+    FirebaseFirestore? firestore,
+    SupabaseService? supabase,
+    ActivityService? activityService,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _supabase = supabase ?? supabaseService,
+       _activityService = activityService ?? ActivityService();
 
   final FirebaseFirestore _firestore;
   final SupabaseService _supabase;
+  final ActivityService _activityService;
   static const String _collection = 'documents';
   static const String _storagePath = 'case_documents';
 
@@ -75,6 +81,20 @@ class DocumentService {
       );
 
       await saveDocumentMetadata(document);
+
+      // Log Activity
+      final String userRole = uploadedBy == lawyerId ? 'lawyer' : 'client';
+      final String roleDisplay = uploadedBy == lawyerId ? 'Lawyer' : 'Client';
+
+      await _activityService.logActivity(
+        caseId: caseId,
+        userId: uploadedBy,
+        userName: roleDisplay,
+        userRole: userRole,
+        actionType: 'document_uploaded',
+        actionDescription: '$roleDisplay uploaded document',
+      );
+
       return document;
     } catch (e) {
       throw Exception('Failed to upload and save document: $e');

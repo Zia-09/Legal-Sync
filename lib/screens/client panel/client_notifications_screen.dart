@@ -15,30 +15,44 @@ class ClientNotificationsScreen extends ConsumerStatefulWidget {
 
 class _ClientNotificationsScreenState
     extends ConsumerState<ClientNotificationsScreen> {
+  String _selectedFilter = 'All';
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark ? const Color(0xFF121212) : const Color(0xFFF7F9FC);
+    final cardColor = isDark ? const Color(0xFF1A1A1A) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? const Color(0xFF9E9E9E) : Colors.grey.shade600;
+
     final user = ref.watch(authStateProvider).value;
     if (user == null) return const Center(child: CircularProgressIndicator());
 
     final notificationsAsync = ref.watch(userNotificationsProvider(user.uid));
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F0F),
+      backgroundColor: scaffoldBg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF141414),
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new,
-            color: Colors.white,
-            size: 20,
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Theme.of(context).dividerColor),
+              ),
+              child: Icon(Icons.arrow_back_ios_new, color: textColor, size: 16),
+            ),
           ),
-          onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Notifications',
           style: TextStyle(
-            color: Colors.white,
+            color: textColor,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
@@ -46,7 +60,7 @@ class _ClientNotificationsScreenState
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.done_all, color: Color(0xFFFF6B00)),
+            icon: const Icon(Icons.done_all, color: Color(0xFFDC2626)),
             onPressed: () {
               ref
                   .read(notificationStateNotifierProvider.notifier)
@@ -55,84 +69,132 @@ class _ClientNotificationsScreenState
           ),
         ],
       ),
-      body: notificationsAsync.when(
-        data: (notifications) {
-          if (notifications.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.notifications_none,
-                    color: Colors.grey.shade800,
-                    size: 64,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No notifications yet',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
-                  ),
-                ],
+      body: Column(
+        children: [
+          _buildFilterTabs(isDark),
+          Expanded(
+            child: notificationsAsync.when(
+              data: (notifications) {
+                final filteredNotifications = notifications.where((n) {
+                  if (_selectedFilter == 'All') return true;
+                  if (_selectedFilter == 'Unread') return !n.isRead;
+                  if (_selectedFilter == 'Archived') return false; // Mocking archived for now
+                  return true;
+                }).toList();
+
+                if (filteredNotifications.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.notifications_none,
+                          color: subtitleColor.withValues(alpha: 0.3),
+                          size: 64,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No notifications found',
+                          style: TextStyle(color: subtitleColor, fontSize: 16),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final today = filteredNotifications.where((n) {
+                  final now = DateTime.now();
+                  return n.createdAt.day == now.day &&
+                      n.createdAt.month == now.month &&
+                      n.createdAt.year == now.year;
+                }).toList();
+
+                final earlier = filteredNotifications.where((n) {
+                  final now = DateTime.now();
+                  return !(n.createdAt.day == now.day &&
+                      n.createdAt.month == now.month &&
+                      n.createdAt.year == now.year);
+                }).toList();
+
+                return ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                  physics: const BouncingScrollPhysics(),
+                  children: [
+                    if (today.isNotEmpty) ...[
+                      _buildSectionHeader('TODAY', subtitleColor),
+                      ...today.map((n) => _buildNotificationCard(n, cardColor, textColor, subtitleColor, isDark)),
+                    ],
+                    if (earlier.isNotEmpty) ...[
+                      _buildSectionHeader('EARLIER', subtitleColor),
+                      ...earlier.map((n) => _buildNotificationCard(n, cardColor, textColor, subtitleColor, isDark)),
+                    ],
+                    const SizedBox(height: 40),
+                  ],
+                );
+              },
+              loading: () => const Center(
+                child: CircularProgressIndicator(color: Color(0xFFDC2626)),
               ),
-            );
-          }
-
-          final today = notifications.where((n) {
-            final now = DateTime.now();
-            return n.createdAt.day == now.day &&
-                n.createdAt.month == now.month &&
-                n.createdAt.year == now.year;
-          }).toList();
-
-          final earlier = notifications.where((n) {
-            final now = DateTime.now();
-            return !(n.createdAt.day == now.day &&
-                n.createdAt.month == now.month &&
-                n.createdAt.year == now.year);
-          }).toList();
-
-          return ListView(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            physics: const BouncingScrollPhysics(),
-            children: [
-              if (today.isNotEmpty) ...[
-                _buildSectionHeader('TODAY'),
-                ...today.map((n) => _buildNotificationCard(n)),
-              ],
-              if (earlier.isNotEmpty) ...[
-                _buildSectionHeader('EARLIER'),
-                ...earlier.map((n) => _buildNotificationCard(n)),
-              ],
-              const SizedBox(height: 40),
-            ],
-          );
-        },
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: Color(0xFFFF6B00)),
-        ),
-        error: (e, st) => Center(
-          child: Text('Error: $e', style: TextStyle(color: Colors.white70)),
-        ),
+              error: (e, st) => Center(
+                child: Text('Error: $e', style: TextStyle(color: textColor.withValues(alpha: 0.7))),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildSectionHeader(String title) {
+  Widget _buildFilterTabs(bool isDark) {
+    final filters = ['All', 'Unread', 'Archived'];
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Row(
+        children: filters.map((filter) {
+          final isSelected = _selectedFilter == filter;
+          return Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: GestureDetector(
+              onTap: () => setState(() => _selectedFilter = filter),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFFDC2626) : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: isSelected ? Colors.transparent : Theme.of(context).dividerColor),
+                ),
+                child: Text(
+                  filter,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, Color subtitleColor) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 20, 0, 10),
       child: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.bold,
-          color: Color(0xFF6B6B6B),
+          color: subtitleColor,
           letterSpacing: 1.2,
         ),
       ),
     );
   }
 
-  Widget _buildNotificationCard(NotificationModel n) {
+  Widget _buildNotificationCard(NotificationModel n, Color cardColor, Color textColor, Color subtitleColor, bool isDark) {
     bool isUrgent = n.type == 'urgent' || n.type == 'URGENT';
     IconData icon;
     Color color;
@@ -163,7 +225,7 @@ class _ClientNotificationsScreenState
         break;
       default:
         icon = Icons.notifications_none;
-        color = const Color(0xFFFF6B00);
+        color = const Color(0xFFDC2626);
     }
 
     return GestureDetector(
@@ -175,14 +237,17 @@ class _ClientNotificationsScreenState
         }
       },
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+        margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
+          color: cardColor,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: n.isRead ? const Color(0xFF252525) : const Color(0xFF333333),
+            color: n.isRead ? Theme.of(context).dividerColor : const Color(0xFFDC2626).withValues(alpha: 0.2),
           ),
+          boxShadow: isDark ? null : [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))
+          ],
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -192,7 +257,7 @@ class _ClientNotificationsScreenState
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
+                    color: color.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(icon, color: color, size: 22),
@@ -205,10 +270,10 @@ class _ClientNotificationsScreenState
                       width: 10,
                       height: 10,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFF6B00),
+                        color: const Color(0xFFDC2626),
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: const Color(0xFF1A1A1A),
+                          color: cardColor,
                           width: 2,
                         ),
                       ),
@@ -231,8 +296,8 @@ class _ClientNotificationsScreenState
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
                             color: n.isRead
-                                ? Colors.grey.shade400
-                                : Colors.white,
+                                ? subtitleColor
+                                : textColor,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -240,9 +305,9 @@ class _ClientNotificationsScreenState
                       ),
                       Text(
                         DateFormat('HH:mm').format(n.createdAt),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
-                          color: Color(0xFF6B6B6B),
+                          color: subtitleColor.withValues(alpha: 0.7),
                         ),
                       ),
                     ],
@@ -253,60 +318,37 @@ class _ClientNotificationsScreenState
                     style: TextStyle(
                       fontSize: 13,
                       color: n.isRead
-                          ? Colors.grey.shade500
-                          : Colors.grey.shade400,
+                          ? subtitleColor.withValues(alpha: 0.7)
+                          : subtitleColor,
                       height: 1.4,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      if (isUrgent) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text(
-                            'URGENT',
-                            style: TextStyle(
-                              color: Colors.redAccent,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2A2A2A),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          n.type.toUpperCase(),
-                          style: const TextStyle(
-                            color: Color(0xFF9E9E9E),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
+                  if (isUrgent) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'URGENT',
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ],
               ),
             ),
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, color: Color(0xFF333333), size: 20),
+            Icon(Icons.chevron_right, color: subtitleColor.withValues(alpha: 0.3), size: 20),
           ],
         ),
       ),

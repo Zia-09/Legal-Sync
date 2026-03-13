@@ -1,8 +1,7 @@
 // lib/screens/splash/splash_screen.dart
 import 'package:flutter/material.dart';
 import 'package:legal_sync/screens/onboarding/onboarding_screen1.dart';
-
-// import '../home/home_screen.dart'; // You can switch later if you want
+import 'package:legal_sync/widgets/brand_logo.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -19,7 +18,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _goNext() async {
-    // ⏳ Just wait 5 seconds
+    // ⏳ Just wait 7 seconds
     await Future.delayed(const Duration(seconds: 7));
 
     if (!mounted) return;
@@ -29,53 +28,18 @@ class _SplashScreenState extends State<SplashScreen> {
       context,
       MaterialPageRoute(builder: (_) => const OnboardingPage1()),
     );
-
-    // 🔁 Later you can change to:
-    // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen()));
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1E1E1E), // Same theme color
+    return const Scaffold(
+      backgroundColor: Color(0xFF1E1E1E), // Same theme color
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // App Logo
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Image.asset("images/logo.png", width: 250),
-                const SizedBox(height: 4),
-                const Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: "Legal",
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontSize: 38,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      TextSpan(
-                        text: "Sync",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 38,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 40),
-
-            const CircularProgressIndicator(color: Colors.white),
-          ],
+        child: BrandLogo(
+          fontSize: 38,
+          showImage: true,
+          imageSize: 150,
+          // alignment: MainAxisAlignment.center,
         ),
       ),
     );

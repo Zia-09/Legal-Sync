@@ -47,54 +47,61 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authNotifierProvider);
     final isLoading = authState is AsyncLoading;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark ? const Color(0xFF0F0F0F) : const Color(0xFFF7F9FC);
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? const Color(0xFF9E9E9E) : Colors.grey.shade600;
+    final labelColor = isDark ? const Color(0xFFCCCCCC) : Colors.grey.shade700;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F0F),
+      backgroundColor: scaffoldBg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F0F0F),
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: scaffoldBg,
+        iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black),
         elevation: 0,
-        title: const Text(
+        title: Text(
           'Forgot Password',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
         ),
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-        child: _emailSent ? _buildSuccessView() : _buildFormView(isLoading),
+        child: _emailSent
+            ? _buildSuccessView(textColor, subtitleColor)
+            : _buildFormView(isLoading, textColor, subtitleColor, labelColor, isDark),
       ),
     );
   }
 
-  Widget _buildFormView(bool isLoading) {
+  Widget _buildFormView(bool isLoading, Color textColor, Color subtitleColor, Color labelColor, bool isDark) {
     return Form(
       key: _formKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Reset Your Password',
             style: TextStyle(
-              color: Colors.white,
+              color: textColor,
               fontSize: 26,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Enter your registered email and we\'ll send you a password reset link.',
             style: TextStyle(
-              color: Color(0xFF9E9E9E),
+              color: subtitleColor,
               fontSize: 14,
               height: 1.5,
             ),
           ),
           const SizedBox(height: 32),
 
-          const Text(
+          Text(
             'Email Address',
             style: TextStyle(
-              color: Color(0xFFCCCCCC),
+              color: labelColor,
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
@@ -103,7 +110,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           TextFormField(
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: textColor),
             validator: (v) {
               if (v == null || v.trim().isEmpty) {
                 return 'Please enter your email';
@@ -115,7 +122,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               }
               return null;
             },
-            decoration: _inputDecoration(),
+            decoration: _inputDecoration(isDark),
           ),
           const SizedBox(height: 28),
 
@@ -171,7 +178,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     );
   }
 
-  Widget _buildSuccessView() {
+  Widget _buildSuccessView(Color textColor, Color subtitleColor) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -190,10 +197,10 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          const Text(
+          Text(
             'Email Sent!',
             style: TextStyle(
-              color: Colors.white,
+              color: textColor,
               fontSize: 26,
               fontWeight: FontWeight.bold,
             ),
@@ -202,17 +209,17 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           Text(
             'A password reset link has been sent to\n${_emailController.text.trim()}',
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF9E9E9E),
+            style: TextStyle(
+              color: subtitleColor,
               fontSize: 14,
               height: 1.6,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Please check your inbox (and spam folder).',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 13),
+            style: TextStyle(color: subtitleColor, fontSize: 13),
           ),
           const SizedBox(height: 36),
           SizedBox(
@@ -239,19 +246,19 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     );
   }
 
-  InputDecoration _inputDecoration() {
-    const borderSide = BorderSide(color: Color(0xFF2A2A2A));
+  InputDecoration _inputDecoration(bool isDark) {
+    final borderSide = BorderSide(color: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade300);
     final radius = BorderRadius.circular(12);
     return InputDecoration(
       hintText: 'Enter your registered email',
-      hintStyle: const TextStyle(color: Color(0xFF5A5A5A)),
-      prefixIcon: const Icon(
+      hintStyle: TextStyle(color: isDark ? const Color(0xFF5A5A5A) : Colors.grey.shade400),
+      prefixIcon: Icon(
         Icons.email_outlined,
-        color: Color(0xFF9E9E9E),
+        color: isDark ? const Color(0xFF9E9E9E) : Colors.grey.shade500,
         size: 20,
       ),
       filled: true,
-      fillColor: const Color(0xFF1E1E1E),
+      fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
       border: OutlineInputBorder(borderRadius: radius, borderSide: borderSide),
       enabledBorder: OutlineInputBorder(
         borderRadius: radius,

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:legal_sync/model/hearing_Model.dart';
@@ -6,6 +6,7 @@ import 'package:legal_sync/model/case_Model.dart';
 import 'package:legal_sync/provider/auth_provider.dart';
 import 'package:legal_sync/provider/case_provider.dart';
 import 'package:legal_sync/provider/hearing_provider.dart';
+import 'package:legal_sync/services/email_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AddHearingScreen extends ConsumerStatefulWidget {
@@ -94,25 +95,29 @@ class _AddHearingScreenState extends ConsumerState<AddHearingScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark
+        ? const Color(0xFF121212)
+        : const Color(0xFFF7F9FC);
+    final appBarBg = isDark ? const Color(0xFF1A1A1A) : Colors.white;
+    final containerBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF131D31);
+
     final casesAsync = ref.watch(casesByLawyerProvider(user.uid));
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FC),
+      backgroundColor: scaffoldBg,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: appBarBg,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new,
-            color: Colors.black87,
-            size: 20,
-          ),
+          icon: Icon(Icons.arrow_back_ios_new, color: textColor, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Schedule Hearing',
           style: TextStyle(
-            color: Color(0xFF131D31),
+            color: textColor,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
@@ -127,8 +132,8 @@ class _AddHearingScreenState extends ConsumerState<AddHearingScreen> {
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
+                decoration: BoxDecoration(
+                  color: containerBg,
                   borderRadius: BorderRadius.only(
                     bottomLeft: Radius.circular(30),
                     bottomRight: Radius.circular(30),
@@ -281,6 +286,81 @@ class _AddHearingScreenState extends ConsumerState<AddHearingScreen> {
         await ref
             .read(hearingStateNotifierProvider.notifier)
             .addHearing(hearing);
+      }
+
+      // ✅ Send hearing notification emails
+      try {
+        final firestore = FirebaseFirestore.instance;
+
+        // Get lawyer details
+        final lawyerDoc = await firestore
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        final lawyerName = lawyerDoc.data()?['name'] ?? 'Lawyer';
+        final lawyerEmail = lawyerDoc.data()?['email'] ?? '';
+
+        // Get client details if clientId exists
+        String clientEmail = '';
+        String clientName = 'Client';
+        if (_selectedClientId != null && _selectedClientId!.isNotEmpty) {
+          final clientDoc = await firestore
+              .collection('users')
+              .doc(_selectedClientId)
+              .get();
+          clientName = clientDoc.data()?['name'] ?? 'Client';
+          clientEmail = clientDoc.data()?['email'] ?? '';
+        }
+
+        // Get case details
+        final caseDoc = await firestore
+            .collection('cases')
+            .doc(_selectedCaseId)
+            .get();
+        final caseTitle = caseDoc.data()?['title'] ?? 'Your Case';
+
+        final formattedDate = DateFormat('MMM dd, yyyy').format(hearingDate);
+        final formattedTime =
+            '${hearingDate.hour.toString().padLeft(2, '0')}:${hearingDate.minute.toString().padLeft(2, '0')}';
+
+        // Send email to lawyer
+        if (lawyerEmail.isNotEmpty) {
+          await emailService.sendHearingScheduledEmail(
+            toEmail: lawyerEmail,
+            recipientName: lawyerName,
+            caseTitle: caseTitle,
+            hearingDate: formattedDate,
+            hearingTime: formattedTime,
+            hearingType: _hearingType,
+            location: _courtRoomCtrl.text.isEmpty
+                ? 'To be announced'
+                : _courtRoomCtrl.text,
+            lawyerName: lawyerName,
+            clientName: clientName,
+            isForLawyer: true,
+          );
+        }
+
+        // Send email to client if exists
+        if (clientEmail.isNotEmpty) {
+          await emailService.sendHearingScheduledEmail(
+            toEmail: clientEmail,
+            recipientName: clientName,
+            caseTitle: caseTitle,
+            hearingDate: formattedDate,
+            hearingTime: formattedTime,
+            hearingType: _hearingType,
+            location: _courtRoomCtrl.text.isEmpty
+                ? 'To be announced'
+                : _courtRoomCtrl.text,
+            lawyerName: lawyerName,
+            clientName: clientName,
+            isForLawyer: false,
+          );
+        }
+      } catch (emailError) {
+        print('⚠️ Warning: Email sending failed: $emailError');
+        // Continue even if email fails
       }
 
       if (mounted) {
@@ -487,7 +567,7 @@ class _AddHearingScreenState extends ConsumerState<AddHearingScreen> {
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: const Color(0xFFFF6B00).withOpacity(0.3),
+                      color: const Color(0xFFFF6B00).withValues(alpha: 0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -536,7 +616,7 @@ class _AddHearingScreenState extends ConsumerState<AddHearingScreen> {
           style: TextStyle(fontSize: 12, color: Colors.grey),
         ),
         value: _sendReminder,
-        activeColor: const Color(0xFFFF6B00),
+        activeThumbColor: const Color(0xFFFF6B00),
         onChanged: (val) => setState(() => _sendReminder = val),
         contentPadding: EdgeInsets.zero,
       ),
@@ -597,7 +677,7 @@ class _AddHearingScreenState extends ConsumerState<AddHearingScreen> {
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFFF6B00).withOpacity(0.3),
+            color: const Color(0xFFFF6B00).withValues(alpha: 0.3),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),

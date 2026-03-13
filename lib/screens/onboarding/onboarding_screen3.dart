@@ -75,7 +75,7 @@ class OnboardingPage3 extends StatelessWidget {
                 ),
                 child: const CircleAvatar(
                   radius: 135,
-                  backgroundImage: AssetImage('images/zia.jpeg'),
+                  backgroundImage: AssetImage('images/onbaording2.png'),
                 ),
               ),
 

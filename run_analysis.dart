@@ -8,5 +8,5 @@ void main() async {
   ]);
   await File(
     'analysis.json',
-  ).writeAsString(result.stdout + '\n' + result.stderr);
+  ).writeAsString('${result.stdout}\n${result.stderr}');
 }

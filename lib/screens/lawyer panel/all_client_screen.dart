@@ -1,83 +1,47 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:legal_sync/provider/client_provider.dart';
+import 'package:legal_sync/model/client_Model.dart';
 import 'package:legal_sync/screens/lawyer%20panel/lawyer_chat_screen.dart';
 
-class AllClientScreen extends StatefulWidget {
+class AllClientScreen extends ConsumerStatefulWidget {
   const AllClientScreen({super.key});
 
   @override
-  State<AllClientScreen> createState() => _AllClientScreenState();
+  ConsumerState<AllClientScreen> createState() => _AllClientScreenState();
 }
 
-class _AllClientScreenState extends State<AllClientScreen> {
-  // Mock data representing the messages list
-  final List<Map<String, dynamic>> _contacts = [
-    {
-      'name': 'Luisa bibi',
-      'id': '#CS-2025-081',
-      'clientId': 'client_1',
-      'caseType': 'Divorce case',
-      'date': 'Submitted: 14 Aug 2025',
-      'status': 'PENDING',
-      'avatar': 'https://i.pravatar.cc/150?img=1',
-      'color': Colors.green, // active status indicator
-    },
-    {
-      'name': 'Silverio',
-      'id': '#CS-2025-082',
-      'clientId': 'client_2',
-      'caseType': 'Civil case',
-      'date': 'Submitted: 14 Aug 2025',
-      'status': 'COMPLETED',
-      'avatar': 'https://i.pravatar.cc/150?img=11',
-      'color': Colors.transparent,
-    },
-    {
-      'name': 'Berlin',
-      'id': '#CY-2025-081',
-      'clientId': 'client_3',
-      'caseType': 'Cyber crime',
-      'date': 'Submitted: 14 Aug 2025',
-      'status': 'PENDING',
-      'avatar': 'https://i.pravatar.cc/150?img=12',
-      'color': Colors.green,
-    },
-    {
-      'name': 'Jack Reacher',
-      'id': '#CS-2025-081',
-      'clientId': 'client_4',
-      'caseType': 'Divorce case',
-      'date': 'Submitted: 14 Aug 2025',
-      'status': 'COMPLETED',
-      'avatar': 'https://i.pravatar.cc/150?img=13',
-      'color': Colors.transparent,
-    },
-    {
-      'name': 'Waqas abid',
-      'id': '#CS-2025-085',
-      'clientId': 'client_5',
-      'caseType': 'Property dispute',
-      'date': 'Submitted: 14 Aug 2025',
-      'status': 'PENDING',
-      'avatar': 'https://i.pravatar.cc/150?img=14',
-      'color': Colors.green,
-    },
-  ];
+class _AllClientScreenState extends ConsumerState<AllClientScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = "";
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final clientsAsync = ref.watch(myClientsProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FC),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).cardColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          icon: Icon(
+            Icons.arrow_back,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'All Clients',
           style: TextStyle(
-            color: Colors.black87,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
@@ -86,64 +50,127 @@ class _AllClientScreenState extends State<AllClientScreen> {
       ),
       body: Column(
         children: [
-          _buildSearchBar(),
+          _buildSearchBar(context, isDark),
           Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              itemCount: _contacts.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final contact = _contacts[index];
-                return _buildContactCard(contact);
+            child: clientsAsync.when(
+              data: (clients) {
+                final filteredClients = clients.where((c) {
+                  final query = _searchQuery.toLowerCase();
+                  return c.name.toLowerCase().contains(query) ||
+                      c.clientId.toLowerCase().contains(query);
+                }).toList();
+
+                if (filteredClients.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.people_outline,
+                          size: 60,
+                          color: Theme.of(
+                            context,
+                          ).hintColor.withValues(alpha: 0.5),
+                        ),
+
+                        const SizedBox(height: 16),
+                        Text(
+                          _searchQuery.isEmpty
+                              ? 'No clients found'
+                              : 'No clients matching "$_searchQuery"',
+                          style: TextStyle(color: Theme.of(context).hintColor),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.separated(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
+                  itemCount: filteredClients.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final client = filteredClients[index];
+                    return _buildContactCard(context, client);
+                  },
+                );
               },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Error: $e')),
             ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Action for new message
+          // Action for adding new client logic if any
         },
         backgroundColor: const Color(0xFFFF6B00),
-        child: const Icon(Icons.add, color: Colors.white),
+        child: const Icon(Icons.person_add, color: Colors.white),
       ),
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(BuildContext context, bool isDark) {
     return Container(
       margin: const EdgeInsets.all(20),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: Theme.of(context).dividerColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: TextField(
-        style: const TextStyle(color: Colors.black87, fontSize: 14),
+        controller: _searchController,
+        style: TextStyle(
+          color: Theme.of(context).textTheme.bodyLarge?.color,
+          fontSize: 14,
+        ),
+        onChanged: (val) => setState(() => _searchQuery = val),
         decoration: InputDecoration(
           icon: Icon(Icons.search, color: Colors.grey.shade500),
-          hintText: 'Search cases or client',
-          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+          hintText: 'Search clients by name or ID',
+          hintStyle: TextStyle(
+            color: Theme.of(context).hintColor.withValues(alpha: 0.5),
+            fontSize: 14,
+          ),
+
           border: InputBorder.none,
-          suffixIcon: Icon(Icons.mic_none, color: Colors.grey.shade500),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear, size: 18),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => _searchQuery = "");
+                  },
+                )
+              : null,
         ),
       ),
     );
   }
 
-  Widget _buildContactCard(Map<String, dynamic> contact) {
-    bool isCompleted = contact['status'] == 'COMPLETED';
-
+  Widget _buildContactCard(BuildContext context, ClientModel client) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => LawyerChatScreen(
-              clientName: contact['name'],
-              avatarUrl: contact['avatar'],
-              receiverId: contact['clientId'],
+              clientName: client.name,
+              avatarUrl: client.profileImage ?? '',
+              receiverId: client.clientId,
             ),
           ),
         );
@@ -151,9 +178,9 @@ class _AllClientScreenState extends State<AllClientScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade200),
+          border: Border.all(color: Theme.of(context).dividerColor),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.02),
@@ -162,132 +189,80 @@ class _AllClientScreenState extends State<AllClientScreen> {
             ),
           ],
         ),
-        child: Column(
+        child: Row(
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 24,
-                      backgroundImage: NetworkImage(contact['avatar']),
+            CircleAvatar(
+              radius: 28,
+              backgroundColor: const Color(0xFFFF6B00).withValues(alpha: 0.1),
+              backgroundImage:
+                  (client.profileImage != null &&
+                      client.profileImage!.isNotEmpty)
+                  ? NetworkImage(client.profileImage!)
+                  : null,
+              child:
+                  (client.profileImage == null || client.profileImage!.isEmpty)
+                  ? Text(
+                      client.name.isNotEmpty
+                          ? client.name[0].toUpperCase()
+                          : '?',
+                      style: const TextStyle(
+                        color: Color(0xFFFF6B00),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    client.name,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
                     ),
-                    if (contact['color'] != Colors.transparent)
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: contact['color'],
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'ID: ${client.clientId.substring(0, client.clientId.length > 8 ? 8 : client.clientId.length).toUpperCase()}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            contact['name'],
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isCompleted
-                                  ? Colors.green.shade50
-                                  : Colors.orange.shade50,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              contact['status'],
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: isCompleted
-                                    ? Colors.green.shade700
-                                    : const Color(0xFFFF6B00),
-                              ),
-                            ),
-                          ),
-                        ],
+                      Icon(
+                        Icons.mail_outline,
+                        size: 12,
+                        color: Colors.grey.shade500,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'ID: ${contact['id']}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          client.email,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          const Text(
-                            'Case type: ',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.blueAccent,
-                            ),
-                          ),
-                          Text(
-                            contact['caseType'],
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.blue.shade700,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            const Divider(height: 1, thickness: 1),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.calendar_today_outlined,
-                      size: 14,
-                      color: const Color(0xFFFF6B00),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      contact['date'],
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFFFF6B00),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-                Icon(Icons.chevron_right, color: Colors.grey.shade400),
-              ],
+            Icon(
+              Icons.chat_bubble_outline,
+              color: const Color(0xFFFF6B00),
+              size: 20,
             ),
           ],
         ),

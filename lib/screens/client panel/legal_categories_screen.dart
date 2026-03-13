@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/provider/lawyer_provider.dart';
+import 'package:legal_sync/screens/client%20panel/case_status_view.dart';
 import 'category_lawyers_screen.dart';
 import 'home_screen.dart';
 import 'messages_screen.dart';
-import 'case_status_screen.dart';
+
 import 'app_setting_screen.dart';
 
 class LegalCategoriesScreen extends ConsumerStatefulWidget {
@@ -465,7 +466,7 @@ class _CategoryCard extends ConsumerWidget {
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: (category['color'] as Color).withOpacity(0.05),
+                  color: (category['color'] as Color).withValues(alpha: 0.05),
                   shape: BoxShape.circle,
                 ),
               ),
@@ -483,7 +484,7 @@ class _CategoryCard extends ConsumerWidget {
                       color: category['bgColor'] as Color,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: (category['color'] as Color).withOpacity(0.2),
+                        color: (category['color'] as Color).withValues(alpha: 0.2),
                       ),
                     ),
                     child: Icon(

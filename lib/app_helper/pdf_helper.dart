@@ -50,7 +50,7 @@ class PDFHelper {
                   pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.end,
                     children: [
-                      pw.Text('Legal Sync Services'),
+                      pw.Text('LegalSync Services'),
                       pw.Text('Professional Legal Services'),
                     ],
                   ),

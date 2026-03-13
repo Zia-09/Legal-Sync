@@ -72,7 +72,12 @@ Est. Revenue: \$$revenue
   }
 
   void _shareReport() {
-    Share.share(_generateReportText(), subject: 'LegalSync Analytics Report');
+    SharePlus.instance.share(
+      ShareParams(
+        text: _generateReportText(),
+        subject: 'LegalSync Analytics Report',
+      ),
+    );
   }
 
   void _downloadCsv() {
@@ -83,7 +88,9 @@ Est. Revenue: \$$revenue
         backgroundColor: Color(0xFF1E3A8A),
       ),
     );
-    Share.share(_generateReportText(), subject: 'LegalSync CSV Export');
+    SharePlus.instance.share(
+      ShareParams(text: _generateReportText(), subject: 'LegalSync CSV Export'),
+    );
   }
 
   @override

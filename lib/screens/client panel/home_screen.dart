@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/provider/lawyer_provider.dart';
+import 'package:legal_sync/screens/client%20panel/case_status_view.dart';
 import 'legal_categories_screen.dart';
 import 'messages_screen.dart';
-import 'case_status_screen.dart';
+
 import 'search_filter_screen.dart';
 import 'app_setting_screen.dart';
 import 'client_notifications_screen.dart';
 import 'widgets/home_widgets.dart';
+import 'package:legal_sync/widgets/brand_logo.dart';
 import 'package:legal_sync/provider/notification_provider.dart';
 import 'package:legal_sync/provider/auth_provider.dart';
 
@@ -84,7 +86,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: const Color(0xFF0F0F0F),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       drawer: const HomeDrawer(),
       body: SafeArea(
         child: Column(
@@ -101,25 +103,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E1E1E),
+                        color: Theme.of(context).cardColor,
                         borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Theme.of(context).dividerColor,
+                        ),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.menu,
-                        color: Colors.white,
+                        color: Theme.of(context).iconTheme.color,
                         size: 20,
                       ),
                     ),
                   ),
-                  const Text(
-                    'LegalSync',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
+                  const BrandLogo(fontSize: 20),
                   Row(
                     children: [
                       _buildNotificationBell(context, ref),
@@ -141,7 +138,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 width: 40,
                                 height: 40,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF1E1E1E),
+                                  color: Theme.of(context).cardColor,
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
                                     color: const Color(
@@ -176,7 +173,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               width: 40,
                               height: 40,
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1E1E1E),
+                                color: Theme.of(context).cardColor,
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: const Center(
@@ -190,9 +187,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 ),
                               ),
                             ),
-                            error: (_, _) => const Icon(
+                            error: (_, _) => Icon(
                               Icons.account_circle,
-                              color: Colors.white,
+                              color: Theme.of(context).iconTheme.color,
                               size: 40,
                             ),
                           );
@@ -220,10 +217,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             child: Container(
                               height: 48,
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1E1E1E),
+                                color: Theme.of(context).cardColor,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: const Color(0xFF2A2A2A),
+                                  color: Theme.of(context).dividerColor,
                                 ),
                               ),
                               child: Row(
@@ -240,8 +237,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       builder: (context, ref, child) {
                                         return TextField(
                                           controller: _searchCtrl,
-                                          style: const TextStyle(
-                                            color: Colors.white,
+                                          style: TextStyle(
+                                            color: Theme.of(
+                                              context,
+                                            ).textTheme.bodyLarge?.color,
                                             fontSize: 14,
                                           ),
                                           onChanged: (val) {
@@ -309,19 +308,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   decoration: BoxDecoration(
                                     color: _activeFilters != null
                                         ? const Color(0xFFFF6B00)
-                                        : const Color(0xFF1E1E1E),
+                                        : Theme.of(context).cardColor,
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
                                       color: _activeFilters != null
                                           ? const Color(0xFFFF6B00)
-                                          : const Color(0xFF2A2A2A),
+                                          : Theme.of(context).dividerColor,
                                     ),
                                   ),
                                   child: Icon(
                                     Icons.tune,
                                     color: _activeFilters != null
                                         ? Colors.white
-                                        : const Color(0xFF9E9E9E),
+                                        : Theme.of(context).iconTheme.color,
                                     size: 20,
                                   ),
                                 ),
@@ -392,7 +391,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           const Text(
                             'Categories',
                             style: TextStyle(
-                              color: Colors.white,
                               fontSize: 17,
                               fontWeight: FontWeight.bold,
                             ),
@@ -457,12 +455,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                         ? const Color(
                                             0xFFFF6B00,
                                           ).withValues(alpha: 0.1)
-                                        : const Color(0xFF1A1A1A),
+                                        : Theme.of(context).cardColor,
                                     borderRadius: BorderRadius.circular(14),
                                     border: Border.all(
                                       color: isSelected
                                           ? const Color(0xFFFF6B00)
-                                          : const Color(0xFF252525),
+                                          : Theme.of(context).dividerColor,
                                     ),
                                   ),
                                   child: Column(
@@ -490,12 +488,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                         style: TextStyle(
                                           color: isSelected
                                               ? const Color(0xFFFF6B00)
-                                              : const Color(0xFFCCCCCC),
+                                              : Theme.of(
+                                                  context,
+                                                ).textTheme.bodySmall?.color,
                                           fontSize: 11,
                                           fontWeight: isSelected
                                               ? FontWeight.bold
                                               : FontWeight.w500,
                                         ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.center,
                                       ),
                                     ],
                                   ),
@@ -517,7 +520,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           const Text(
                             'Featured Lawyers',
                             style: TextStyle(
-                              color: Colors.white,
                               fontSize: 17,
                               fontWeight: FontWeight.bold,
                             ),
@@ -648,9 +650,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Container(
       height: 70,
-      decoration: const BoxDecoration(
-        color: Color(0xFF141414),
-        border: Border(top: BorderSide(color: Color(0xFF1E1E1E), width: 1)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        border: Border(
+          top: BorderSide(color: Theme.of(context).dividerColor, width: 1),
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -737,15 +741,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: const Color(0xFF1E1E1E),
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         child: Stack(
           alignment: Alignment.center,
           children: [
-            const Icon(
+            Icon(
               Icons.notifications_none_rounded,
-              color: Colors.white,
+              color: Theme.of(context).iconTheme.color,
               size: 22,
             ),
             unreadCountAsync.when(
@@ -776,7 +781,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     )
                   : const SizedBox.shrink(),
               loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
+              error: (_, _) => const SizedBox.shrink(),
             ),
           ],
         ),

@@ -6,6 +6,7 @@ import 'package:legal_sync/model/case_Model.dart';
 import 'package:legal_sync/model/notification_model.dart';
 import 'package:legal_sync/services/case_status_history_service.dart';
 import 'package:legal_sync/services/notification_services.dart';
+import 'package:legal_sync/services/activity_service.dart';
 
 /// 🔹 CaseService handles all Firestore operations for case management
 class CaseService {
@@ -13,14 +14,17 @@ class CaseService {
     FirebaseFirestore? firestore,
     CaseStatusHistoryService? statusHistoryService,
     NotificationService? notificationService,
+    ActivityService? activityService,
   }) : _firestore = firestore ?? FirebaseFirestore.instance,
        _statusHistoryService =
            statusHistoryService ?? CaseStatusHistoryService(),
-       _notificationService = notificationService ?? NotificationService();
+       _notificationService = notificationService ?? NotificationService(),
+       _activityService = activityService ?? ActivityService();
 
   final FirebaseFirestore _firestore;
   final CaseStatusHistoryService _statusHistoryService;
   final NotificationService _notificationService;
+  final ActivityService _activityService;
   static const String _collection = 'cases';
 
   // =========================
@@ -33,6 +37,16 @@ class CaseService {
           .collection('cases')
           .doc(caseModel.caseId)
           .set(caseModel.toJson());
+
+      // Log Activity
+      await _activityService.logActivity(
+        caseId: caseModel.caseId,
+        userId: caseModel.lawyerId,
+        userName: 'Lawyer',
+        userRole: 'lawyer',
+        actionType: 'case_created',
+        actionDescription: 'Lawyer created case',
+      );
     } catch (e) {
       throw Exception('❌ Failed to create case: $e');
     }
@@ -45,6 +59,16 @@ class CaseService {
       'caseId': docRef.id,
       'createdAt': Timestamp.now(),
     });
+
+    // Log Activity
+    await _activityService.logActivity(
+      caseId: docRef.id,
+      userId: caseModel.lawyerId,
+      userName: 'Lawyer',
+      userRole: 'lawyer',
+      actionType: 'case_created',
+      actionDescription: 'Lawyer created case',
+    );
     return docRef.id;
   }
 

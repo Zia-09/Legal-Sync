@@ -3,17 +3,22 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:legal_sync/model/hearing_Model.dart';
 import 'package:legal_sync/services/notification_services.dart';
+import 'package:legal_sync/services/activity_service.dart';
+import 'package:legal_sync/services/email_service.dart';
 import 'package:intl/intl.dart';
 
 class HearingService {
   HearingService({
     FirebaseFirestore? firestore,
     NotificationService? notificationService,
+    ActivityService? activityService,
   }) : _firestore = firestore ?? FirebaseFirestore.instance,
-       _notificationService = notificationService ?? NotificationService();
+       _notificationService = notificationService ?? NotificationService(),
+       _activityService = activityService ?? ActivityService();
 
   final FirebaseFirestore _firestore;
   final NotificationService _notificationService;
+  final ActivityService _activityService;
   static const String _collection = 'hearings';
 
   /// 🔹 Create hearing
@@ -23,6 +28,135 @@ class HearingService {
           .collection(_collection)
           .doc(hearing.hearingId)
           .set(hearing.toJson());
+
+      // Log Activity
+      final String uId = hearing.createdBy ?? hearing.clientId ?? '';
+      final String uRole =
+          (hearing.createdBy != null && hearing.createdBy!.contains('lawyer'))
+          ? 'lawyer'
+          : 'client';
+      final String roleDisplay = uRole == 'lawyer' ? 'Lawyer' : 'Client';
+
+      await _activityService.logActivity(
+        caseId: hearing.caseId,
+        userId: uId,
+        userName: roleDisplay,
+        userRole: uRole,
+        actionType: 'hearing_added',
+        actionDescription: '$roleDisplay scheduled hearing',
+      );
+
+      try {
+        final usersCollection = _firestore.collection('users');
+        final List<Map<String, String>> recipients = [];
+
+        if (hearing.clientId != null && hearing.clientId!.isNotEmpty) {
+          final clientDoc = await usersCollection.doc(hearing.clientId).get();
+          final clientData = clientDoc.data() as Map<String, dynamic>?;
+          if (clientData != null) {
+            final email = (clientData['email'] ?? '').toString();
+            if (email.isNotEmpty) {
+              recipients.add({
+                'email': email,
+                'name': (clientData['name'] ?? 'Client').toString(),
+                'role': 'client',
+              });
+            }
+          }
+        }
+
+        if (hearing.createdBy != null && hearing.createdBy!.isNotEmpty) {
+          final lawyerDoc = await usersCollection.doc(hearing.createdBy).get();
+          final lawyerData = lawyerDoc.data() as Map<String, dynamic>?;
+          if (lawyerData != null) {
+            final email = (lawyerData['email'] ?? '').toString();
+            if (email.isNotEmpty) {
+              recipients.add({
+                'email': email,
+                'name': (lawyerData['name'] ?? 'Lawyer').toString(),
+                'role': 'lawyer',
+              });
+            }
+          }
+        }
+
+        if (recipients.isNotEmpty) {
+          final hearingDateStr = DateFormat(
+            'dd MMM yyyy, h:mm a',
+          ).format(hearing.hearingDate);
+
+          for (final recipient in recipients) {
+            final String email = recipient['email']!;
+            final String name = recipient['name']!;
+            final String role = recipient['role']!;
+            final bool isClient = role == 'client';
+
+            await emailService.sendProfessionalEmail(
+              to: email,
+              subject: isClient
+                  ? 'New Hearing Scheduled for Your Case'
+                  : 'Hearing Scheduled for Assigned Case',
+              htmlContent:
+                  '''
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                <h2 style="color: #131D31; text-align: center;">New Hearing Scheduled</h2>
+                <p style="font-size: 16px; color: #333;">Dear $name,</p>
+                <p style="font-size: 15px; color: #444;">
+                  A new ${hearing.hearingType ?? 'hearing'} has been scheduled for case
+                  <strong>${hearing.caseId}</strong>.
+                </p>
+                <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                  <p style="margin: 0; color: #666;"><strong>Date & Time:</strong> $hearingDateStr</p>
+                  <p style="margin: 5px 0 0 0; color: #666;"><strong>Court:</strong> ${hearing.courtName ?? 'Assigned court'}</p>
+                  <p style="margin: 5px 0 0 0; color: #666;"><strong>Mode:</strong> ${hearing.modeOfConduct ?? 'In-person / As per court'}</p>
+                </div>
+                <p style="font-size: 14px; color: #777;">
+                  Please log in to your LegalSync account for full details and any further updates.
+                </p>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />
+                <p style="text-align: center; font-size: 12px; color: #aaa;">&copy; 2026 LegalSync Elite. Secure case & hearing management.</p>
+              </div>
+              ''',
+            );
+
+            // Schedule 12-hour reminder
+            final reminderDate = hearing.hearingDate.subtract(
+              const Duration(hours: 12),
+            );
+            if (reminderDate.isAfter(DateTime.now())) {
+              await emailService.sendScheduledProfessionalEmail(
+                to: email,
+                subject: isClient
+                    ? 'Reminder: Upcoming Hearing in 12 Hours'
+                    : 'Reminder: Scheduled Hearing in 12 Hours',
+                htmlContent:
+                    '''
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                  <h2 style="color: #FF6B00; text-align: center;">Hearing Reminder</h2>
+                  <p style="font-size: 16px; color: #333;">Dear $name,</p>
+                  <p style="font-size: 15px; color: #444;">
+                    This is a reminder that you have a ${hearing.hearingType ?? 'hearing'} approaching in approximately 12 hours.
+                  </p>
+                  <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                    <p style="margin: 0; color: #666;"><strong>Date & Time:</strong> $hearingDateStr</p>
+                    <p style="margin: 5px 0 0 0; color: #666;"><strong>Court:</strong> ${hearing.courtName ?? 'Assigned court'}</p>
+                    <p style="margin: 5px 0 0 0; color: #666;"><strong>Mode:</strong> ${hearing.modeOfConduct ?? 'In-person / As per court'}</p>
+                  </div>
+                  <p style="font-size: 14px; color: #777;">
+                    Please ensure you are prepared and log in to your LegalSync account for any last-minute updates.
+                  </p>
+                  <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />
+                  <p style="text-align: center; font-size: 12px; color: #aaa;">&copy; 2026 LegalSync Elite. Secure case & hearing management.</p>
+                </div>
+                ''',
+                scheduledAt: reminderDate,
+              );
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore email errors so hearing creation is not blocked
+      }
     } catch (e) {
       throw Exception('Failed to create hearing: $e');
     }

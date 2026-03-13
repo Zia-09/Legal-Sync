@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:legal_sync/model/lawyer_Model.dart';
-import 'package:legal_sync/model/review_Model.dart';
+import 'package:legal_sync/services/email_service.dart';
 
 class LawyerService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -45,6 +45,19 @@ class LawyerService {
     }
   }
 
+  /// 🔹 Stream: Get lawyer by ID in real-time
+  Stream<LawyerModel?> getLawyerStream(String lawyerId) {
+    return _firestore.collection('lawyers').doc(lawyerId).snapshots().map((
+      doc,
+    ) {
+      if (!doc.exists) return null;
+      return LawyerModel.fromJson({
+        ...doc.data() as Map<String, dynamic>,
+        'lawyerId': doc.id,
+      });
+    });
+  }
+
   /// 🔹 Update specific lawyer fields
   Future<void> updateLawyer({
     required String lawyerId,
@@ -52,6 +65,50 @@ class LawyerService {
   }) async {
     try {
       await _firestore.collection('lawyers').doc(lawyerId).update(data);
+
+      final bool isApprovedFlag = data['isApproved'] == true;
+      final String? approvalStatus = data['approvalStatus'] as String?;
+      final String? status = data['status'] as String?;
+
+      final bool shouldSendApprovalEmail =
+          isApprovedFlag ||
+          approvalStatus == 'approved' ||
+          approvalStatus == 'verified' ||
+          status == 'active';
+
+      if (shouldSendApprovalEmail) {
+        final snapshot = await _firestore
+            .collection('lawyers')
+            .doc(lawyerId)
+            .get();
+        final lawyerData = snapshot.data() as Map<String, dynamic>?;
+        if (lawyerData != null) {
+          final String email = (lawyerData['email'] ?? '').toString();
+          if (email.isNotEmpty) {
+            final String name = (lawyerData['name'] ?? 'Counselor')
+                .toString()
+                .trim();
+            await emailService.sendProfessionalEmail(
+              to: email,
+              subject: 'Your LegalSync Lawyer Account is Approved',
+              htmlContent:
+                  '''
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                <h2 style="color: #131D31; text-align: center;">Congratulations, $name!</h2>
+                <p style="font-size: 16px; color: #333;">Your <strong>LegalSync</strong> lawyer profile has been <strong>approved</strong> and is now live for clients.</p>
+                <p style="color: #666;">You can start managing cases, scheduling hearings, and chatting with your clients in real-time.</p>
+                <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                  <p style="margin: 0; color: #666;"><strong>Account Status:</strong> Approved & Active</p>
+                </div>
+                <p style="font-size: 14px; color: #777;">If you did not request this approval or believe this is a mistake, please contact LegalSync support immediately.</p>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />
+                <p style="text-align: center; font-size: 12px; color: #aaa;">&copy; 2026 LegalSync Elite. Empowering legal professionals worldwide.</p>
+              </div>
+              ''',
+            );
+          }
+        }
+      }
     } catch (e) {
       throw Exception('Failed to update lawyer: $e');
     }
@@ -63,70 +120,6 @@ class LawyerService {
       await _firestore.collection('lawyers').doc(lawyerId).delete();
     } catch (e) {
       throw Exception('Failed to delete lawyer: $e');
-    }
-  }
-
-  /// 🔹 Add review and update lawyer rating
-  Future<void> addReview(ReviewModel review) async {
-    try {
-      final reviewRef = _firestore.collection('reviews').doc(review.reviewId);
-      await reviewRef.set(review.toJson());
-
-      await _updateLawyerRating(review.lawyerId);
-    } catch (e) {
-      throw Exception('Failed to add review: $e');
-    }
-  }
-
-  /// 🔹 Stream: Get all reviews for a specific lawyer
-  Stream<List<ReviewModel>> getReviewsForLawyer(String lawyerId) {
-    return _firestore
-        .collection('reviews')
-        .where('lawyerId', isEqualTo: lawyerId)
-        .snapshots()
-        .map((snapshot) {
-          final docs = snapshot.docs
-              .map(
-                (doc) => ReviewModel.fromJson({
-                  ...doc.data() as Map<String, dynamic>,
-                  'reviewId': doc.id,
-                }),
-              )
-              .toList();
-          docs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-          return docs;
-        });
-  }
-
-  /// 🔹 Helper: Recalculate average rating
-  Future<void> _updateLawyerRating(String lawyerId) async {
-    try {
-      final snapshot = await _firestore
-          .collection('reviews')
-          .where('lawyerId', isEqualTo: lawyerId)
-          .get();
-
-      if (snapshot.docs.isEmpty) {
-        await _firestore.collection('lawyers').doc(lawyerId).update({
-          'rating': 0.0,
-          'totalReviews': 0,
-        });
-        return;
-      }
-
-      double total = 0.0;
-      for (var doc in snapshot.docs) {
-        total += (doc['rating'] ?? 0).toDouble();
-      }
-
-      final avgRating = total / snapshot.docs.length;
-
-      await _firestore.collection('lawyers').doc(lawyerId).update({
-        'rating': avgRating,
-        'totalReviews': snapshot.docs.length,
-      });
-    } catch (e) {
-      throw Exception('Failed to update lawyer rating: $e');
     }
   }
 

@@ -205,10 +205,5 @@ final myClientsProvider = StreamProvider<List<ClientModel>>((ref) {
   if (user == null) return Stream.value([]);
 
   final service = ref.watch(clientServiceProvider);
-  return service.getAllClients().map((clients) {
-    if (user.uid.isEmpty) return [];
-    return clients
-        .where((client) => client.bookedLawyers.contains(user.uid))
-        .toList();
-  });
+  return service.getClientsByLawyer(user.uid);
 });

@@ -3,14 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/provider/auth_provider.dart';
 import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/provider/theme_provider.dart';
+import 'package:legal_sync/screens/client%20panel/case_status_view.dart';
 import 'home_screen.dart';
-import 'case_status_screen.dart';
+
 import 'messages_screen.dart';
 import 'legal_categories_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:legal_sync/services/supabase_service.dart';
 import 'dart:io';
 import 'login_screen.dart';
+import 'update_password_screen.dart';
+import 'client_edit_profile_screen.dart';
+import 'payment_methods_screen.dart';
+import 'billing_history_screen.dart';
+import 'recent_activity_screen.dart';
 
 class AppSettingScreen extends StatefulWidget {
   const AppSettingScreen({super.key});
@@ -98,9 +104,7 @@ class _AppSettingScreenState extends State<AppSettingScreen> {
                             color: cardColor,
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
-                              color: isDark
-                                  ? const Color(0xFF252525)
-                                  : Colors.grey.shade200,
+                              color: Theme.of(context).dividerColor,
                             ),
                           ),
                           child: Icon(
@@ -249,12 +253,10 @@ class _AppSettingScreenState extends State<AppSettingScreen> {
                           height: 44,
                           child: ElevatedButton(
                             onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Edit Profile functionality coming soon!',
-                                  ),
-                                  backgroundColor: Color(0xFFFF6B00),
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const ClientEditProfileScreen(),
                                 ),
                               );
                             },
@@ -302,11 +304,11 @@ class _AppSettingScreenState extends State<AppSettingScreen> {
                             activeThumbColor: const Color(0xFFFF6B00),
                             activeTrackColor: const Color(
                               0xFFFF6B00,
-                            ).withOpacity(0.3),
+                            ).withValues(alpha: 0.3),
                             inactiveThumbColor: const Color(0xFF9E9E9E),
-                            inactiveTrackColor: isDark
-                                ? const Color(0xFF2A2A2A)
-                                : Colors.grey.shade200,
+                            inactiveTrackColor: Theme.of(
+                              context,
+                            ).dividerColor.withValues(alpha: 0.5),
                           ),
                         ),
                         const SizedBox(height: 24),
@@ -329,11 +331,11 @@ class _AppSettingScreenState extends State<AppSettingScreen> {
                             activeThumbColor: const Color(0xFFFF6B00),
                             activeTrackColor: const Color(
                               0xFFFF6B00,
-                            ).withOpacity(0.3),
+                            ).withValues(alpha: 0.3),
                             inactiveThumbColor: const Color(0xFF9E9E9E),
-                            inactiveTrackColor: isDark
-                                ? const Color(0xFF2A2A2A)
-                                : Colors.grey.shade200,
+                            inactiveTrackColor: Theme.of(
+                              context,
+                            ).dividerColor.withValues(alpha: 0.5),
                           ),
                         ),
                         _SettingRow(
@@ -345,10 +347,9 @@ class _AppSettingScreenState extends State<AppSettingScreen> {
                           textColor: textColor,
                           subtitleColor: subtitleColor,
                           onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Opening Legal Documents...'),
-                              ),
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const RecentActivityScreen()),
                             );
                           },
                         ),
@@ -369,10 +370,9 @@ class _AppSettingScreenState extends State<AppSettingScreen> {
                           textColor: textColor,
                           subtitleColor: subtitleColor,
                           onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Opening Payment Methods...'),
-                              ),
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const PaymentMethodsScreen()),
                             );
                           },
                         ),
@@ -385,10 +385,9 @@ class _AppSettingScreenState extends State<AppSettingScreen> {
                           textColor: textColor,
                           subtitleColor: subtitleColor,
                           onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Opening Billing History...'),
-                              ),
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const BillingHistoryScreen()),
                             );
                           },
                         ),
@@ -406,10 +405,9 @@ class _AppSettingScreenState extends State<AppSettingScreen> {
                           textColor: textColor,
                           subtitleColor: subtitleColor,
                           onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Opening Change Password...'),
-                              ),
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const UpdatePasswordScreen()),
                             );
                           },
                         ),
@@ -428,16 +426,16 @@ class _AppSettingScreenState extends State<AppSettingScreen> {
                             activeThumbColor: const Color(0xFFFF6B00),
                             activeTrackColor: const Color(
                               0xFFFF6B00,
-                            ).withOpacity(0.3),
+                            ).withValues(alpha: 0.3),
                             inactiveThumbColor: const Color(0xFF9E9E9E),
-                            inactiveTrackColor: isDark
-                                ? const Color(0xFF2A2A2A)
-                                : Colors.grey.shade200,
+                            inactiveTrackColor: Theme.of(
+                              context,
+                            ).dividerColor.withValues(alpha: 0.5),
                           ),
                         ),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 40),
 
-                        // Log Out Button
+                        // LOG OUT
                         GestureDetector(
                           onTap: () async {
                             await ref
@@ -455,10 +453,14 @@ class _AppSettingScreenState extends State<AppSettingScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFF6B00).withOpacity(0.1),
+                              color: const Color(
+                                0xFFFF6B00,
+                              ).withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: const Color(0xFFFF6B00).withOpacity(0.3),
+                                color: const Color(
+                                  0xFFFF6B00,
+                                ).withValues(alpha: 0.3),
                               ),
                             ),
                             child: const Row(
@@ -512,9 +514,8 @@ class _AppSettingScreenState extends State<AppSettingScreen> {
   }
 
   Widget _buildBottomNav(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final navBg = isDark ? const Color(0xFF141414) : Colors.white;
-    final borderColor = isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade200;
+    final navBg = Theme.of(context).cardColor;
+    final borderColor = Theme.of(context).dividerColor;
 
     const items = ['Home', 'Lawyer', 'Cases', 'Chat', 'Setting'];
     const icons = [
@@ -640,14 +641,12 @@ class _SettingRow extends StatelessWidget {
         decoration: BoxDecoration(
           color: cardColor,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isDark ? const Color(0xFF252525) : Colors.grey.shade200,
-          ),
+          border: Border.all(color: Theme.of(context).dividerColor),
           boxShadow: isDark
               ? null
               : [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
+                    color: Colors.black.withValues(alpha: 0.03),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -659,7 +658,7 @@ class _SettingRow extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: iconBgColor.withOpacity(0.15),
+                color: iconBgColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: iconBgColor, size: 22),
@@ -688,7 +687,7 @@ class _SettingRow extends StatelessWidget {
             trailing ??
                 Icon(
                   Icons.arrow_forward_ios,
-                  color: subtitleColor.withOpacity(0.5),
+                  color: subtitleColor.withValues(alpha: 0.5),
                   size: 16,
                 ),
           ],

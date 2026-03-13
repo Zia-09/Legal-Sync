@@ -99,8 +99,12 @@ class ReviewModel {
 
   /// ✅ CopyWith for easy updates
   ReviewModel copyWith({
+    String? reviewId,
+    String? lawyerId,
+    String? clientId,
     double? rating,
     String? comment,
+    DateTime? createdAt,
     DateTime? updatedAt,
     bool? isEdited,
     List<String>? likes,
@@ -112,12 +116,12 @@ class ReviewModel {
     String? aiPrediction,
   }) {
     return ReviewModel(
-      reviewId: reviewId,
-      lawyerId: lawyerId,
-      clientId: clientId,
+      reviewId: reviewId ?? this.reviewId,
+      lawyerId: lawyerId ?? this.lawyerId,
+      clientId: clientId ?? this.clientId,
       rating: rating ?? this.rating,
       comment: comment ?? this.comment,
-      createdAt: createdAt,
+      createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isEdited: isEdited ?? this.isEdited,
       likes: likes ?? this.likes,

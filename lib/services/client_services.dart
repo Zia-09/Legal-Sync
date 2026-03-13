@@ -57,6 +57,24 @@ class ClientService {
     });
   }
 
+  /// Get clients for a specific lawyer
+  Stream<List<ClientModel>> getClientsByLawyer(String lawyerId) {
+    return _firestore
+        .collection(_collection)
+        .where('bookedLawyers', arrayContains: lawyerId)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs
+              .map(
+                (doc) => ClientModel.fromJson({
+                  ...doc.data() as Map<String, dynamic>,
+                  'clientId': doc.id,
+                }),
+              )
+              .toList();
+        });
+  }
+
   /// Update client profile
   Future<String> updateClient({
     required String clientId,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:legal_sync/model/lawyer_Model.dart';
 import 'package:legal_sync/services/lawyer_services.dart';
+import 'package:legal_sync/services/email_service.dart';
 
 class AdminVerificationDetailScreen extends StatefulWidget {
   final LawyerModel lawyer;
@@ -25,6 +26,31 @@ class _AdminVerificationDetailScreenState
         lawyerId: widget.lawyer.lawyerId,
         data: {'isApproved': isApproved, 'approvalStatus': newStatus},
       );
+
+      if (isApproved) {
+        // Send email message
+        try {
+          await EmailService().sendProfessionalEmail(
+            to: widget.lawyer.email,
+            subject: 'Congratulations! Your LegalSync Account is Verified',
+            htmlContent:
+                '''
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                <h2 style="color: #16A34A; text-align: center;">Welcome to LegalSync Elite, Counselor ${widget.lawyer.name}!</h2>
+                <p style="font-size: 16px; color: #333;">Great news! Our administration team has verified your advocate identity card and credentials.</p>
+                <p style="color: #666;">Your account is now <strong>Active and Approved</strong>. You can log in to the Lawyer Portal to start accepting clients and managing your cases.</p>
+                <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                  <p style="margin: 0; color: #16A34A;"><strong>Status:</strong> Verified Professional</p>
+                </div>
+                <p style="text-align: center; font-size: 12px; color: #aaa;">&copy; 2026 LegalSync Elite. Excellence in legal management.</p>
+              </div>
+            ''',
+          );
+        } catch (e) {
+          debugPrint('Failed to send verification email: $e');
+        }
+      }
+
       if (!context.mounted) return;
       if (isApproved) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -36,6 +62,7 @@ class _AdminVerificationDetailScreenState
       }
       Navigator.pop(context);
     } catch (e) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Update failed: $e'),

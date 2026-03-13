@@ -65,19 +65,25 @@ class ChatService {
     // 2. Update/Create the thread metadata
     final threadDoc = await threadRef.get();
     if (!threadDoc.exists) {
+      // Get roles to properly set lawyerId and clientId
+      final senderDoc = await _db.collection('users').doc(senderId).get();
+      final senderRole = senderDoc.data()?['role'] ?? 'client';
+
+      final isLawyerSender = senderRole == 'lawyer';
+
       // Create new thread doc
       batch.set(threadRef, {
         'threadId': chatId,
-        'lawyerId': senderId.contains('lawyer') ? senderId : receiverId,
-        'clientId': senderId.contains('lawyer') ? receiverId : senderId,
+        'lawyerId': isLawyerSender ? senderId : receiverId,
+        'clientId': isLawyerSender ? receiverId : senderId,
         'caseId': caseId,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
         'lastMessage': message,
         'lastMessageSenderId': senderId,
         'lastMessageAt': FieldValue.serverTimestamp(),
-        'unreadByLawyer': senderId.contains('lawyer') ? 0 : 1,
-        'unreadByClient': senderId.contains('lawyer') ? 1 : 0,
+        'unreadByLawyer': isLawyerSender ? 0 : 1,
+        'unreadByClient': isLawyerSender ? 1 : 0,
         'isArchived': false,
         'isBlocked': false,
       });
@@ -87,27 +93,23 @@ class ChatService {
       int unreadByLawyer = data['unreadByLawyer'] ?? 0;
       int unreadByClient = data['unreadByClient'] ?? 0;
 
-      // Increment unread count for the receiver
-      if (senderId == (data['clientId'] ?? '') ||
-          (data['clientId'] == null && !senderId.contains('lawyer'))) {
-        unreadByLawyer++;
-      } else {
-        unreadByClient++;
-      }
-
       batch.update(threadRef, {
         'lastMessage': message,
         'lastMessageSenderId': senderId,
         'lastMessageAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-        'unreadByLawyer': unreadByLawyer,
-        'unreadByClient': unreadByClient,
+        'unreadByLawyer': senderId == data['lawyerId']
+            ? unreadByLawyer
+            : unreadByLawyer + 1,
+        'unreadByClient': senderId == data['clientId']
+            ? unreadByClient
+            : unreadByClient + 1,
       });
     }
 
     await batch.commit();
 
-    // 3. Send a notification to the receiver
+    // Send a notification to the receiver
     await _notificationService.createNotification(
       userId: receiverId,
       title: 'New Message',
@@ -156,29 +158,28 @@ class ChatService {
     final chatId = _getChatId(userId, partnerId);
     final threadRef = _db.collection(_collection).doc(chatId);
 
-    // 1. Get all unread messages for this user
+    // 1. Get thread doc to check roles
+    final threadDoc = await threadRef.get();
+    if (!threadDoc.exists) return;
+
+    final data = threadDoc.data()!;
+    final isLawyer = userId == data['lawyerId'];
+
+    // 2. Get all unread messages for this user
     final unreadMsgs = await _messagesRef(chatId)
         .where('receiverId', isEqualTo: userId)
         .where('isRead', isEqualTo: false)
         .get();
 
-    if (unreadMsgs.docs.isEmpty) {
-      // Still reset thread count just in case of desync
-      await threadRef.update({
-        userId.contains('lawyer') ? 'unreadByLawyer' : 'unreadByClient': 0,
-      });
-      return;
-    }
-
-    // 2. Mark them as read in a batch
+    // 3. Mark them as read in a batch
     final batch = _db.batch();
     for (final doc in unreadMsgs.docs) {
       batch.update(doc.reference, {'isRead': true});
     }
 
-    // 3. Reset thread unread count
+    // 4. Reset thread unread count
     batch.update(threadRef, {
-      userId.contains('lawyer') ? 'unreadByLawyer' : 'unreadByClient': 0,
+      isLawyer ? 'unreadByLawyer' : 'unreadByClient': 0,
     });
 
     await batch.commit();

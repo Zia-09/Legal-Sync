@@ -7,8 +7,10 @@ import 'package:legal_sync/provider/case_provider.dart';
 import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/provider/hearing_provider.dart';
 import 'package:legal_sync/provider/lawyer_provider.dart';
+import 'package:legal_sync/provider/theme_provider.dart';
 import 'package:legal_sync/services/case_service.dart';
 import 'package:legal_sync/services/document_service.dart';
+import 'package:legal_sync/provider/document_provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'package:url_launcher/url_launcher.dart';
@@ -114,8 +116,9 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
       final path = result.files.single.path;
       if (path == null) return;
       final file = File(path);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.showSnackBar(
         const SnackBar(
           content: Text('Uploading document…'),
           backgroundColor: Color(0xFFFF6B00),
@@ -142,16 +145,15 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
       );
       await CaseService().addDocument(currentCase.caseId, docUrl);
 
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Document uploaded successfully!'),
-            backgroundColor: Color(0xFF059669),
-          ),
-        );
-      }
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Document uploaded successfully!'),
+          backgroundColor: Color(0xFF059669),
+        ),
+      );
     } catch (e) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Upload failed: $e'),
@@ -255,8 +257,31 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
                 final timeline = _buildTimeline(currentCase);
                 final progress = _calculateProgress(currentCase.status);
 
+                final themeMode = ref.watch(themeModeProvider);
+                final isDark =
+                    themeMode.value == ThemeMode.dark ||
+                    (themeMode.value == ThemeMode.system &&
+                        MediaQuery.of(context).platformBrightness ==
+                            Brightness.dark);
+
+                final bgColor = isDark
+                    ? const Color(0xFF0F0F0F)
+                    : const Color(0xFFF8F9FA);
+                final cardColor = isDark
+                    ? const Color(0xFF1E1E1E)
+                    : const Color(0xFFFFFFFF);
+                final textColor = isDark
+                    ? Colors.white
+                    : const Color(0xFF1A1A1A);
+                final subTextColor = isDark
+                    ? const Color(0xFF9E9E9E)
+                    : const Color(0xFF6C757D);
+                final borderColor = isDark
+                    ? const Color(0xFF2A2A2A)
+                    : const Color(0xFFE9ECEF);
+
                 return Scaffold(
-                  backgroundColor: const Color(0xFF0F0F0F),
+                  backgroundColor: bgColor,
                   body: SafeArea(
                     child: Column(
                       children: [
@@ -265,15 +290,14 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
                           padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                           child: Row(
                             children: [
-                              const SizedBox(
-                                width: 40,
-                              ), // Placeholder to balance the right popup menu
+                              const SizedBox(width: 40),
                               const Expanded(
                                 child: Center(
                                   child: Text(
                                     'Case Status',
                                     style: TextStyle(
-                                      color: Colors.white,
+                                      color: Colors
+                                          .white, // Explicitly white for premium look
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -281,28 +305,28 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
                                 ),
                               ),
                               PopupMenuButton<String>(
-                                icon: const Icon(
+                                icon: Icon(
                                   Icons.more_vert,
-                                  color: Colors.white,
+                                  color: textColor,
                                   size: 20,
                                 ),
-                                color: const Color(0xFF1E1E1E),
+                                color: cardColor,
                                 onSelected: (v) {
                                   if (v == 'refresh') setState(() {});
                                 },
-                                itemBuilder: (_) => const [
+                                itemBuilder: (_) => [
                                   PopupMenuItem(
                                     value: 'refresh',
                                     child: Text(
                                       'Refresh',
-                                      style: TextStyle(color: Colors.white),
+                                      style: TextStyle(color: textColor),
                                     ),
                                   ),
                                   PopupMenuItem(
                                     value: 'help',
                                     child: Text(
                                       'Get Help',
-                                      style: TextStyle(color: Colors.white),
+                                      style: TextStyle(color: textColor),
                                     ),
                                   ),
                                 ],
@@ -323,25 +347,24 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Case Summary Card (original gradient style)
+                                // ── Case Summary Card ───────────────────────
                                 Container(
                                   width: double.infinity,
-                                  padding: const EdgeInsets.all(18),
+                                  padding: const EdgeInsets.all(20),
                                   decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: [
-                                        Color(0xFF1E1A10),
-                                        Color(0xFF1A1200),
-                                      ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(18),
-                                    border: Border.all(
-                                      color: const Color(
-                                        0xFFFF6B00,
-                                      ).withValues(alpha: 0.25),
-                                    ),
+                                    color: cardColor,
+                                    borderRadius: BorderRadius.circular(24),
+                                    border: Border.all(color: borderColor),
+                                    boxShadow: [
+                                      if (!isDark)
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.03,
+                                          ),
+                                          blurRadius: 15,
+                                          offset: const Offset(0, 8),
+                                        ),
+                                    ],
                                   ),
                                   child: Column(
                                     crossAxisAlignment:
@@ -350,189 +373,145 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
                                       Row(
                                         children: [
                                           Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 5,
-                                            ),
+                                            width: 50,
+                                            height: 50,
                                             decoration: BoxDecoration(
                                               color: const Color(
                                                 0xFFFF6B00,
-                                              ).withValues(alpha: 0.2),
+                                              ).withValues(alpha: 0.1),
                                               borderRadius:
-                                                  BorderRadius.circular(20),
-                                              border: Border.all(
-                                                color: const Color(
-                                                  0xFFFF6B00,
-                                                ).withValues(alpha: 0.5),
-                                              ),
+                                                  BorderRadius.circular(16),
                                             ),
-                                            child: Text(
-                                              currentCase.caseNumber != null
-                                                  ? 'Case # ${currentCase.caseNumber}'
-                                                  : 'Case # ${currentCase.caseId.substring(0, 8).toUpperCase()}',
-                                              style: const TextStyle(
-                                                color: Color(0xFFFF6B00),
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w600,
-                                              ),
+                                            child: const Icon(
+                                              Icons.gavel_rounded,
+                                              color: Color(0xFFFF6B00),
+                                              size: 24,
                                             ),
                                           ),
-                                          const Spacer(),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: const Color(
-                                                0xFF059669,
-                                              ).withValues(alpha: 0.15),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            child: Text(
-                                              currentCase.status,
-                                              style: const TextStyle(
-                                                color: Color(0xFF059669),
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600,
-                                              ),
+                                          const SizedBox(width: 16),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  currentCase.caseNumber != null
+                                                      ? 'Case # ${currentCase.caseNumber}'
+                                                      : 'Case # ${currentCase.caseId.substring(0, 8).toUpperCase()}',
+                                                  style: const TextStyle(
+                                                    color: Color(0xFFFF6B00),
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  currentCase.title,
+                                                  style: TextStyle(
+                                                    color: textColor,
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 14),
-                                      _CaseDetailRow(
-                                        label: 'Title',
-                                        value: currentCase.title,
-                                      ),
-                                      const SizedBox(height: 6),
-                                      _CaseDetailRow(
-                                        label: 'Court',
-                                        value:
-                                            currentCase.courtName ??
-                                            'To be assigned',
-                                      ),
-                                      const SizedBox(height: 6),
-                                      _CaseDetailRow(
-                                        label: 'Filed',
-                                        value: DateFormat(
-                                          'MMMM dd, yyyy',
-                                        ).format(currentCase.createdAt),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      _CaseDetailRow(
-                                        label: 'Type',
-                                        value:
+                                      const SizedBox(height: 24),
+                                      Divider(color: borderColor, height: 1),
+                                      const SizedBox(height: 20),
+                                      Row(
+                                        children: [
+                                          _buildInfoColumn(
+                                            'Court',
+                                            currentCase.courtName ?? 'Pending',
+                                            subTextColor,
+                                            textColor,
+                                          ),
+                                          _buildInfoColumn(
+                                            'Filed',
+                                            DateFormat(
+                                              'MMM dd, yyyy',
+                                            ).format(currentCase.createdAt),
+                                            subTextColor,
+                                            textColor,
+                                          ),
+                                          _buildInfoColumn(
+                                            'Type',
                                             currentCase.caseType ?? 'General',
+                                            subTextColor,
+                                            textColor,
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
                                 ),
                                 const SizedBox(height: 20),
 
-                                // ── Case Progress ──────────────────────────
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF1A1A1A),
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: const Color(0xFF252525),
-                                    ),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          const Text(
-                                            'Case Progress',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w600,
-                                            ),
+                                // ── Case Progress ────────────────────────────
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Case progress',
+                                          style: TextStyle(
+                                            color: textColor,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
                                           ),
-                                          Text(
-                                            '${(progress * 100).toInt()}%',
-                                            style: const TextStyle(
-                                              color: Color(0xFFFF6B00),
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 10),
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(10),
-                                        child: LinearProgressIndicator(
-                                          value: progress,
-                                          backgroundColor: const Color(
-                                            0xFF2A2A2A,
-                                          ),
-                                          valueColor:
-                                              const AlwaysStoppedAnimation<
-                                                Color
-                                              >(Color(0xFFFF6B00)),
-                                          minHeight: 8,
                                         ),
+                                        Text(
+                                          '${(progress * 100).toInt()} %',
+                                          style: const TextStyle(
+                                            color: Color(0xFFFF6B00),
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 14),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(100),
+                                      child: LinearProgressIndicator(
+                                        value: progress,
+                                        backgroundColor: borderColor,
+                                        valueColor:
+                                            const AlwaysStoppedAnimation<Color>(
+                                              Color(0xFFFF6B00),
+                                            ),
+                                        minHeight: 12,
                                       ),
-                                      const SizedBox(height: 8),
-                                      const Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            'Filed',
-                                            style: TextStyle(
-                                              color: Color(0xFF6B6B6B),
-                                              fontSize: 10,
-                                            ),
-                                          ),
-                                          Text(
-                                            'Hearing',
-                                            style: TextStyle(
-                                              color: Color(0xFF6B6B6B),
-                                              fontSize: 10,
-                                            ),
-                                          ),
-                                          Text(
-                                            'Verdict',
-                                            style: TextStyle(
-                                              color: Color(0xFF6B6B6B),
-                                              fontSize: 10,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 20),
+                                const SizedBox(height: 24),
 
                                 // ── Timeline ───────────────────────────────
-                                const Text(
+                                Text(
                                   'Case Timeline',
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: textColor,
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                                 const SizedBox(height: 14),
                                 Container(
-                                  padding: const EdgeInsets.all(16),
+                                  padding: const EdgeInsets.all(20),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF1A1A1A),
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: const Color(0xFF252525),
-                                    ),
+                                    color: cardColor,
+                                    borderRadius: BorderRadius.circular(24),
+                                    border: Border.all(color: borderColor),
                                   ),
                                   child: Column(
                                     children: List.generate(
@@ -540,17 +519,18 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
                                       (i) => _TimelineTile(
                                         step: timeline[i],
                                         isLast: i == timeline.length - 1,
+                                        isDark: isDark,
                                       ),
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: 20),
+                                const SizedBox(height: 24),
 
                                 // ── Case Consultant ────────────────────────
-                                const Text(
+                                Text(
                                   'Case Consultant',
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: textColor,
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -567,201 +547,160 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
                                       data: (lawyer) {
                                         if (lawyer == null) {
                                           return Container(
-                                            padding: const EdgeInsets.all(16),
+                                            padding: const EdgeInsets.all(20),
                                             decoration: BoxDecoration(
-                                              color: const Color(0xFF1A1A1A),
+                                              color: cardColor,
                                               borderRadius:
-                                                  BorderRadius.circular(16),
+                                                  BorderRadius.circular(24),
                                               border: Border.all(
-                                                color: const Color(0xFF252525),
+                                                color: borderColor,
                                               ),
                                             ),
-                                            child: const Text(
+                                            child: Text(
                                               'Lawyer not yet assigned',
                                               style: TextStyle(
-                                                color: Color(0xFF9E9E9E),
+                                                color: subTextColor,
                                               ),
                                             ),
                                           );
                                         }
                                         return Container(
-                                          padding: const EdgeInsets.all(16),
+                                          padding: const EdgeInsets.all(24),
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFF1A1A1A),
+                                            color: cardColor,
                                             borderRadius: BorderRadius.circular(
-                                              16,
+                                              30,
                                             ),
                                             border: Border.all(
-                                              color: const Color(0xFF252525),
+                                              color: borderColor,
                                             ),
+                                            boxShadow: [
+                                              if (!isDark)
+                                                BoxShadow(
+                                                  color: Colors.black
+                                                      .withValues(alpha: 0.02),
+                                                  blurRadius: 15,
+                                                  offset: const Offset(0, 5),
+                                                ),
+                                            ],
                                           ),
                                           child: Column(
                                             children: [
-                                              Row(
-                                                children: [
-                                                  // Avatar
-                                                  Container(
-                                                    width: 56,
-                                                    height: 56,
-                                                    decoration: BoxDecoration(
-                                                      color: const Color(
-                                                        0xFF2A2A2A,
-                                                      ),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            28,
+                                              Center(
+                                                child: Stack(
+                                                  children: [
+                                                    Container(
+                                                      width: 80,
+                                                      height: 80,
+                                                      decoration: BoxDecoration(
+                                                        shape: BoxShape.circle,
+                                                        border: Border.all(
+                                                          color: const Color(
+                                                            0xFFFF6B00,
                                                           ),
-                                                      border: Border.all(
-                                                        color:
-                                                            const Color(
-                                                              0xFFFF6B00,
-                                                            ).withValues(
-                                                              alpha: 0.4,
+                                                          width: 2.5,
+                                                        ),
+                                                      ),
+                                                      child: Padding(
+                                                        padding:
+                                                            const EdgeInsets.all(
+                                                              3.0,
                                                             ),
-                                                        width: 2,
+                                                        child: CircleAvatar(
+                                                          radius: 36,
+                                                          backgroundColor:
+                                                              borderColor,
+                                                          backgroundImage:
+                                                              (lawyer.profileImage !=
+                                                                      null &&
+                                                                  lawyer
+                                                                      .profileImage!
+                                                                      .isNotEmpty)
+                                                              ? NetworkImage(
+                                                                  lawyer
+                                                                      .profileImage!,
+                                                                )
+                                                              : null,
+                                                          child:
+                                                              (lawyer.profileImage ==
+                                                                      null ||
+                                                                  lawyer
+                                                                      .profileImage!
+                                                                      .isEmpty)
+                                                              ? _lawyerInitials(
+                                                                  lawyer.name,
+                                                                )
+                                                              : null,
+                                                        ),
                                                       ),
                                                     ),
-                                                    child: ClipRRect(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            28,
-                                                          ),
-                                                      child:
-                                                          (lawyer.profileImage !=
-                                                                  null &&
-                                                              lawyer
-                                                                  .profileImage!
-                                                                  .isNotEmpty)
-                                                          ? Image.network(
-                                                              lawyer
-                                                                  .profileImage!,
-                                                              fit: BoxFit.cover,
-                                                              errorBuilder:
-                                                                  (
-                                                                    _,
-                                                                    __,
-                                                                    ___,
-                                                                  ) => _lawyerInitials(
-                                                                    lawyer.name,
+                                                    Positioned(
+                                                      right: 4,
+                                                      bottom: 4,
+                                                      child: Container(
+                                                        width: 14,
+                                                        height: 14,
+                                                        decoration:
+                                                            BoxDecoration(
+                                                              color:
+                                                                  const Color(
+                                                                    0xFF059669,
                                                                   ),
-                                                            )
-                                                          : _lawyerInitials(
-                                                              lawyer.name,
+                                                              shape: BoxShape
+                                                                  .circle,
+                                                              border: Border.all(
+                                                                color:
+                                                                    cardColor,
+                                                                width: 2,
+                                                              ),
                                                             ),
+                                                      ),
                                                     ),
-                                                  ),
-                                                  const SizedBox(width: 14),
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Text(
-                                                          lawyer.name,
-                                                          style:
-                                                              const TextStyle(
-                                                                color: Colors
-                                                                    .white,
-                                                                fontSize: 16,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                              ),
-                                                        ),
-                                                        const SizedBox(
-                                                          height: 3,
-                                                        ),
-                                                        Text(
-                                                          lawyer.specialization,
-                                                          style:
-                                                              const TextStyle(
-                                                                color: Color(
-                                                                  0xFF9E9E9E,
-                                                                ),
-                                                                fontSize: 12,
-                                                              ),
-                                                        ),
-                                                        const SizedBox(
-                                                          height: 4,
-                                                        ),
-                                                        Row(
-                                                          children: [
-                                                            const Icon(
-                                                              Icons.star,
-                                                              color: Color(
-                                                                0xFFFFB800,
-                                                              ),
-                                                              size: 12,
-                                                            ),
-                                                            const SizedBox(
-                                                              width: 3,
-                                                            ),
-                                                            Text(
-                                                              '${lawyer.rating} (${lawyer.totalReviews} reviews)',
-                                                              style:
-                                                                  const TextStyle(
-                                                                    color: Color(
-                                                                      0xFF9E9E9E,
-                                                                    ),
-                                                                    fontSize:
-                                                                        11,
-                                                                  ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ],
+                                                  ],
+                                                ),
                                               ),
                                               const SizedBox(height: 16),
+                                              Text(
+                                                lawyer.name,
+                                                style: TextStyle(
+                                                  color: textColor,
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                lawyer.specialization,
+                                                style: TextStyle(
+                                                  color: subTextColor,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 24),
                                               Row(
                                                 children: [
                                                   Expanded(
-                                                    child: OutlinedButton.icon(
-                                                      onPressed: () {},
-                                                      icon: const Icon(
-                                                        Icons.call_outlined,
-                                                        size: 16,
-                                                        color: Color(
-                                                          0xFF2563EB,
-                                                        ),
-                                                      ),
-                                                      label: const Text(
-                                                        'Call now',
-                                                        style: TextStyle(
-                                                          color: Color(
-                                                            0xFF2563EB,
+                                                    child:
+                                                        _buildConsultantAction(
+                                                          label: 'Call now',
+                                                          icon: Icons
+                                                              .phone_outlined,
+                                                          color: const Color(
+                                                            0xFF7C3AED,
                                                           ),
-                                                          fontSize: 13,
-                                                          fontWeight:
-                                                              FontWeight.w600,
+                                                          onTap: () {},
                                                         ),
-                                                      ),
-                                                      style: OutlinedButton.styleFrom(
-                                                        side: const BorderSide(
-                                                          color: Color(
-                                                            0xFF2563EB,
-                                                          ),
-                                                        ),
-                                                        padding:
-                                                            const EdgeInsets.symmetric(
-                                                              vertical: 10,
-                                                            ),
-                                                        shape: RoundedRectangleBorder(
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                10,
-                                                              ),
-                                                        ),
-                                                      ),
-                                                    ),
                                                   ),
                                                   const SizedBox(width: 12),
                                                   Expanded(
-                                                    child: ElevatedButton.icon(
-                                                      onPressed: () => Navigator.push(
+                                                    child: _buildConsultantAction(
+                                                      label: 'Chat',
+                                                      icon: Icons
+                                                          .chat_bubble_outline,
+                                                      color: const Color(
+                                                        0xFF059669,
+                                                      ),
+                                                      onTap: () => Navigator.push(
                                                         context,
                                                         MaterialPageRoute(
                                                           builder: (_) =>
@@ -769,38 +708,6 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
                                                                 receiverId: lawyer
                                                                     .lawyerId,
                                                                 lawyer: lawyer,
-                                                              ),
-                                                        ),
-                                                      ),
-                                                      icon: const Icon(
-                                                        Icons
-                                                            .chat_bubble_outline,
-                                                        size: 16,
-                                                        color: Colors.white,
-                                                      ),
-                                                      label: const Text(
-                                                        'Chat',
-                                                        style: TextStyle(
-                                                          color: Colors.white,
-                                                          fontSize: 13,
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                        ),
-                                                      ),
-                                                      style: ElevatedButton.styleFrom(
-                                                        backgroundColor:
-                                                            const Color(
-                                                              0xFF059669,
-                                                            ),
-                                                        elevation: 0,
-                                                        padding:
-                                                            const EdgeInsets.symmetric(
-                                                              vertical: 10,
-                                                            ),
-                                                        shape: RoundedRectangleBorder(
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                10,
                                                               ),
                                                         ),
                                                       ),
@@ -812,135 +719,49 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
                                           ),
                                         );
                                       },
-                                      loading: () => const Center(
-                                        child: CircularProgressIndicator(
-                                          color: Color(0xFFFF6B00),
+                                      loading: () => Container(
+                                        height: 150,
+                                        decoration: BoxDecoration(
+                                          color: cardColor,
+                                          borderRadius: BorderRadius.circular(
+                                            24,
+                                          ),
+                                        ),
+                                        child: const Center(
+                                          child: CircularProgressIndicator(
+                                            color: Color(0xFFFF6B00),
+                                          ),
                                         ),
                                       ),
                                       error: (e, _) => Text(
-                                        'Failed to load lawyer: $e',
-                                        style: const TextStyle(
-                                          color: Color(0xFF9E9E9E),
-                                        ),
+                                        'Error: $e',
+                                        style: TextStyle(color: subTextColor),
                                       ),
                                     );
                                   },
                                 ),
-                                const SizedBox(height: 20),
+                                const SizedBox(height: 24),
 
-                                // ── Hearing Updates (REAL DATA) ────────────
+                                // ── Hearing Updates ──────────────────────────
                                 _HearingUpdatesSection(
                                   caseIds: cases.map((c) => c.caseId).toList(),
                                 ),
-                                const SizedBox(height: 20),
+                                const SizedBox(height: 24),
 
-                                // ── Key Documents ──────────────────────────
-                                const Text(
-                                  'Key Documents',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                // ── Case Documents ───────────────────────────
+                                _CaseDocumentsSection(
+                                  caseId: currentCase.caseId,
+                                  clientId: client.clientId,
+                                  onUploadTap: () =>
+                                      _uploadFile(currentCase, client.clientId),
                                 ),
-                                const SizedBox(height: 14),
-                                SizedBox(
-                                  height: 90,
-                                  child: currentCase.documentUrls.isEmpty
-                                      ? ListView(
-                                          scrollDirection: Axis.horizontal,
-                                          physics:
-                                              const BouncingScrollPhysics(),
-                                          children: [
-                                            GestureDetector(
-                                              onTap: () => _uploadFile(
-                                                currentCase,
-                                                client.clientId,
-                                              ),
-                                              child: const _DocumentChip(
-                                                name: 'Add Doc',
-                                                icon: Icons.add_circle_outline,
-                                                color: Color(0xFFFF6B00),
-                                              ),
-                                            ),
-                                          ],
-                                        )
-                                      : ListView.builder(
-                                          scrollDirection: Axis.horizontal,
-                                          physics:
-                                              const BouncingScrollPhysics(),
-                                          itemCount:
-                                              currentCase.documentUrls.length +
-                                              1,
-                                          itemBuilder: (_, i) {
-                                            if (i ==
-                                                currentCase
-                                                    .documentUrls
-                                                    .length) {
-                                              return GestureDetector(
-                                                onTap: () => _uploadFile(
-                                                  currentCase,
-                                                  client.clientId,
-                                                ),
-                                                child: const _DocumentChip(
-                                                  name: 'Add Doc',
-                                                  icon:
-                                                      Icons.add_circle_outline,
-                                                  color: Color(0xFFFF6B00),
-                                                ),
-                                              );
-                                            }
-                                            final url =
-                                                currentCase.documentUrls[i];
-                                            String name = url
-                                                .split('/')
-                                                .last
-                                                .split('?')
-                                                .first;
-                                            name = Uri.decodeComponent(name);
-                                            return Padding(
-                                              padding: const EdgeInsets.only(
-                                                right: 10,
-                                              ),
-                                              child: _DocumentChip(
-                                                name: name,
-                                                icon:
-                                                    name.toLowerCase().endsWith(
-                                                      '.pdf',
-                                                    )
-                                                    ? Icons.picture_as_pdf
-                                                    : Icons.image_outlined,
-                                                color: const Color(0xFF2563EB),
-                                                onTap: () async {
-                                                  final uri = Uri.parse(url);
-                                                  if (await canLaunchUrl(uri)) {
-                                                    await launchUrl(uri);
-                                                  } else {
-                                                    if (context.mounted) {
-                                                      ScaffoldMessenger.of(
-                                                        context,
-                                                      ).showSnackBar(
-                                                        const SnackBar(
-                                                          content: Text(
-                                                            'Could not open document',
-                                                          ),
-                                                        ),
-                                                      );
-                                                    }
-                                                  }
-                                                },
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                ),
-                                const SizedBox(height: 20),
+                                const SizedBox(height: 24),
 
-                                // ── Quick Actions ──────────────────────────
-                                const Text(
+                                // ── Quick Actions ────────────────────────────
+                                Text(
                                   'Quick Actions',
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: textColor,
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -967,18 +788,7 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
                                       label: 'Schedule',
                                       icon: Icons.calendar_month_outlined,
                                       color: const Color(0xFF2563EB),
-                                      onTap: () {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Opening meeting scheduler…',
-                                            ),
-                                            backgroundColor: Color(0xFF2563EB),
-                                          ),
-                                        );
-                                      },
+                                      onTap: () {},
                                     ),
                                     _QuickActionButton(
                                       label: 'Add Notes',
@@ -989,21 +799,10 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
                                       ),
                                     ),
                                     _QuickActionButton(
-                                      label: 'Contact Support',
+                                      label: 'Support',
                                       icon: Icons.support_agent,
                                       color: const Color(0xFF059669),
-                                      onTap: () {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Connecting to legal support…',
-                                            ),
-                                            backgroundColor: Color(0xFF059669),
-                                          ),
-                                        );
-                                      },
+                                      onTap: () {},
                                     ),
                                   ],
                                 ),
@@ -1024,8 +823,9 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
                   child: CircularProgressIndicator(color: Color(0xFFFF6B00)),
                 ),
               ),
-              error: (e, _) => _scaffoldWithContent(
-                Center(
+              error: (e, _) => Scaffold(
+                backgroundColor: const Color(0xFF0F0F0F),
+                body: Center(
                   child: Text(
                     'Error: $e',
                     style: const TextStyle(color: Colors.white),
@@ -1067,8 +867,74 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
   Widget _scaffoldWithContent(Widget content) => Scaffold(
     backgroundColor: const Color(0xFF0F0F0F),
     body: SafeArea(child: content),
-    bottomNavigationBar: _buildBottomNav(context),
   );
+
+  Widget _buildInfoColumn(
+    String label,
+    String value,
+    Color labelColor,
+    Color valueColor,
+  ) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: labelColor,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              color: valueColor,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConsultantAction({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildEmptyState() => _scaffoldWithContent(
     Center(
@@ -1318,42 +1184,6 @@ class _HearingUpdatesSection extends ConsumerWidget {
 
 // ─── Supporting widgets (retained from original UI) ──────────────────────────
 
-class _CaseDetailRow extends StatelessWidget {
-  final String label;
-  final String value;
-  const _CaseDetailRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 52,
-          child: Text(
-            label,
-            style: const TextStyle(color: Color(0xFF6B6B6B), fontSize: 12),
-          ),
-        ),
-        const Text(
-          ':  ',
-          style: TextStyle(color: Color(0xFF6B6B6B), fontSize: 12),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: const TextStyle(
-              color: Color(0xFFDDDDDD),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 enum TimelineStatus { done, active, pending }
 
 class _TimelineStep {
@@ -1372,26 +1202,29 @@ class _TimelineStep {
 class _TimelineTile extends StatelessWidget {
   final _TimelineStep step;
   final bool isLast;
-  const _TimelineTile({required this.step, required this.isLast});
+  final bool isDark;
+  const _TimelineTile({
+    required this.step,
+    required this.isLast,
+    required this.isDark,
+  });
 
   @override
   Widget build(BuildContext context) {
-    Color dotColor;
-    IconData dotIcon;
-    switch (step.status) {
-      case TimelineStatus.done:
-        dotColor = const Color(0xFF059669);
-        dotIcon = Icons.check_circle;
-        break;
-      case TimelineStatus.active:
-        dotColor = const Color(0xFFFFB800);
-        dotIcon = Icons.radio_button_checked;
-        break;
-      case TimelineStatus.pending:
-        dotColor = const Color(0xFF3A3A3A);
-        dotIcon = Icons.radio_button_unchecked;
-        break;
-    }
+    final subTextColor = isDark
+        ? const Color(0xFF6B6B6B)
+        : const Color(0xFF8E8E8E);
+    final dotColor = step.status == TimelineStatus.done
+        ? const Color(0xFF059669)
+        : (step.status == TimelineStatus.active
+              ? const Color(0xFFFF6B00)
+              : subTextColor);
+
+    final dotIcon = step.status == TimelineStatus.done
+        ? Icons.check_circle
+        : (step.status == TimelineStatus.active
+              ? Icons.radio_button_checked
+              : Icons.radio_button_unchecked);
 
     return IntrinsicHeight(
       child: Row(
@@ -1428,8 +1261,8 @@ class _TimelineTile extends StatelessWidget {
                     step.title,
                     style: TextStyle(
                       color: step.status == TimelineStatus.pending
-                          ? const Color(0xFF6B6B6B)
-                          : Colors.white,
+                          ? subTextColor
+                          : (isDark ? Colors.white : const Color(0xFF1A1A1A)),
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1441,6 +1274,8 @@ class _TimelineTile extends StatelessWidget {
                       color: Color(0xFF6B6B6B),
                       fontSize: 11,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -1560,61 +1395,6 @@ class _HearingUpdateCard extends StatelessWidget {
   }
 }
 
-class _DocumentChip extends StatelessWidget {
-  final String name;
-  final IconData icon;
-  final Color color;
-  final VoidCallback? onTap;
-  const _DocumentChip({
-    required this.name,
-    required this.icon,
-    required this.color,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap ?? () {},
-      child: Container(
-        width: 85,
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFF252525)),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: color, size: 18),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              name,
-              style: const TextStyle(
-                color: Color(0xFFCCCCCC),
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _QuickActionButton extends StatelessWidget {
   final String label;
   final IconData icon;
@@ -1651,6 +1431,373 @@ class _QuickActionButton extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// --- Case Documents Section -------------------------------------------------
+class _CaseDocumentsSection extends ConsumerWidget {
+  final String caseId;
+  final String clientId;
+  final VoidCallback onUploadTap;
+
+  const _CaseDocumentsSection({
+    required this.caseId,
+    required this.clientId,
+    required this.onUploadTap,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final docsAsync = ref.watch(documentsByCaseProvider(caseId));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Case Documents',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            GestureDetector(
+              onTap: onUploadTap,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF6B00).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: const Color(0xFFFF6B00).withValues(alpha: 0.4),
+                  ),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.upload_file, color: Color(0xFFFF6B00), size: 16),
+                    SizedBox(width: 4),
+                    Text(
+                      'Upload',
+                      style: TextStyle(
+                        color: Color(0xFFFF6B00),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        docsAsync.when(
+          data: (docs) {
+            final visible = docs
+                .where(
+                  (d) =>
+                      (d.isApprovedForClient || d.uploadedBy == clientId) &&
+                      !d.isRejected,
+                )
+                .toList();
+            if (visible.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A1A1A),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFF252525)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.folder_open, color: Color(0xFF6B6B6B)),
+                    SizedBox(width: 12),
+                    Text(
+                      'No documents available yet',
+                      style: TextStyle(color: Color(0xFF6B6B6B)),
+                    ),
+                  ],
+                ),
+              );
+            }
+            return Column(
+              children: visible
+                  .map(
+                    (doc) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _DocumentRow(
+                        doc: doc,
+                        uploadedByClient: doc.uploadedBy == clientId,
+                      ),
+                    ),
+                  )
+                  .toList(),
+            );
+          },
+          loading: () => const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: CircularProgressIndicator(color: Color(0xFFFF6B00)),
+            ),
+          ),
+          error: (e, _) => Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                'Error loading documents: $e',
+                style: const TextStyle(color: Color(0xFF9E9E9E)),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// --- Single document row with eye icon --------------------------------------
+class _DocumentRow extends StatelessWidget {
+  final dynamic doc;
+  final bool uploadedByClient;
+  const _DocumentRow({required this.doc, this.uploadedByClient = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isPdf = doc.isPDF as bool;
+    final bool isImage = doc.isImage as bool;
+    final String name = (doc.fileName as String?) ?? 'Document';
+    final String url = (doc.fileUrl as String?) ?? '';
+    final String fileType = (doc.fileType as String?) ?? '';
+    final IconData icon = isPdf
+        ? Icons.picture_as_pdf
+        : (isImage ? Icons.image : Icons.insert_drive_file);
+    final Color iconColor = isPdf
+        ? Colors.redAccent
+        : (isImage ? Colors.purpleAccent : Colors.blueAccent);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF252525)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: iconColor, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 3),
+                Row(
+                  children: [
+                    Text(
+                      fileType.toUpperCase(),
+                      style: TextStyle(
+                        color: iconColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (uploadedByClient) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF6B00).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'Uploaded by you',
+                          style: TextStyle(
+                            color: Color(0xFFFF6B00),
+                            fontSize: 9,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // Eye icon - view button
+          GestureDetector(
+            onTap: () => _openDocument(context, url, isImage, name),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFF252525),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.remove_red_eye_outlined,
+                color: Color(0xFFFF6B00),
+                size: 20,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openDocument(
+    BuildContext context,
+    String url,
+    bool isImage,
+    String name,
+  ) {
+    if (url.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Document URL not available')),
+      );
+      return;
+    }
+    if (isImage) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => _InAppImageViewer(imageUrl: url, title: name),
+        ),
+      );
+    } else {
+      _launchInBrowser(context, url);
+    }
+  }
+
+  Future<void> _launchInBrowser(BuildContext context, String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Could not open document')));
+    }
+  }
+}
+
+// --- Full-screen in-app image viewer with pinch-to-zoom ---------------------
+class _InAppImageViewer extends StatefulWidget {
+  final String imageUrl;
+  final String title;
+  const _InAppImageViewer({required this.imageUrl, required this.title});
+
+  @override
+  State<_InAppImageViewer> createState() => _InAppImageViewerState();
+}
+
+class _InAppImageViewerState extends State<_InAppImageViewer> {
+  final TransformationController _ctrl = TransformationController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          widget.title,
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+          overflow: TextOverflow.ellipsis,
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.zoom_out_map, color: Colors.white),
+            onPressed: () => _ctrl.value = Matrix4.identity(),
+            tooltip: 'Reset zoom',
+          ),
+          IconButton(
+            icon: const Icon(Icons.open_in_browser, color: Colors.white),
+            tooltip: 'Open in browser / download',
+            onPressed: () async {
+              final uri = Uri.parse(widget.imageUrl);
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+            },
+          ),
+        ],
+      ),
+      body: InteractiveViewer(
+        transformationController: _ctrl,
+        panEnabled: true,
+        minScale: 0.5,
+        maxScale: 5.0,
+        child: Center(
+          child: Image.network(
+            widget.imageUrl,
+            fit: BoxFit.contain,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Center(
+                child: CircularProgressIndicator(
+                  value: loadingProgress.expectedTotalBytes != null
+                      ? loadingProgress.cumulativeBytesLoaded /
+                            loadingProgress.expectedTotalBytes!
+                      : null,
+                  color: const Color(0xFFFF6B00),
+                ),
+              );
+            },
+            errorBuilder: (_, _, _) => const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.broken_image, color: Colors.white54, size: 64),
+                  SizedBox(height: 12),
+                  Text(
+                    'Could not load image',
+                    style: TextStyle(color: Colors.white54),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );

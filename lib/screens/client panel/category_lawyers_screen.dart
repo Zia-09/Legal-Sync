@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/model/lawyer_Model.dart';
 import 'package:legal_sync/provider/lawyer_provider.dart';
@@ -91,7 +91,7 @@ class _CategoryLawyersScreenState extends ConsumerState<CategoryLawyersScreen> {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: widget.categoryColor.withOpacity(0.15),
+                      color: widget.categoryColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
@@ -342,10 +342,10 @@ class _LawyerCard extends StatelessWidget {
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: accentColor.withOpacity(0.12),
+                color: accentColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: accentColor.withOpacity(0.3),
+                  color: accentColor.withValues(alpha: 0.3),
                   width: 1.5,
                 ),
               ),
@@ -426,7 +426,22 @@ class _LawyerCard extends StatelessWidget {
                           fontSize: 11,
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.payments_outlined,
+                        color: Color(0xFF6B6B6B),
+                        size: 13,
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        '\$${lawyer.consultationFee.toStringAsFixed(0)}',
+                        style: TextStyle(
+                          color: accentColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       const Icon(
                         Icons.location_on_outlined,
                         color: Color(0xFF6B6B6B),
@@ -501,9 +516,9 @@ class _MiniStat extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Column(
         children: [

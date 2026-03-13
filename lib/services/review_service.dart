@@ -8,10 +8,19 @@ class ReviewService {
   /// 🔹 Create or update a review (Client)
   Future<void> createOrUpdateReview(ReviewModel review) async {
     try {
-      await _firestore
-          .collection(_collection)
-          .doc(review.reviewId)
-          .set(review.toJson(), SetOptions(merge: true));
+      final docRef = review.reviewId.isEmpty
+          ? _firestore.collection(_collection).doc()
+          : _firestore.collection(_collection).doc(review.reviewId);
+
+      await docRef.set(
+        review.reviewId.isEmpty
+            ? review.copyWith(reviewId: docRef.id).toJson()
+            : review.toJson(),
+        SetOptions(merge: true),
+      );
+
+      // Update lawyer aggregate data
+      await _updateLawyerAggregateData(review.lawyerId);
     } catch (e) {
       throw Exception('Failed to create or update review: $e');
     }
@@ -153,7 +162,14 @@ class ReviewService {
   /// 🔹 Delete a review (Admin only)
   Future<void> deleteReview(String reviewId) async {
     try {
-      await _firestore.collection(_collection).doc(reviewId).delete();
+      final doc = await _firestore.collection(_collection).doc(reviewId).get();
+      if (doc.exists) {
+        final lawyerId = doc.data()?['lawyerId'];
+        await _firestore.collection(_collection).doc(reviewId).delete();
+        if (lawyerId != null) {
+          await _updateLawyerAggregateData(lawyerId);
+        }
+      }
     } catch (e) {
       throw Exception('Failed to delete review: $e');
     }
@@ -166,5 +182,39 @@ class ReviewService {
           .where((r) => r.isVisible == true && r.status == 'approved')
           .toList();
     });
+  }
+
+  /// 🔹 Helper: Recalculate average rating and total reviews for a lawyer
+  Future<void> _updateLawyerAggregateData(String lawyerId) async {
+    try {
+      final snapshot = await _firestore
+          .collection(_collection)
+          .where('lawyerId', isEqualTo: lawyerId)
+          .where('status', isEqualTo: 'approved')
+          .where('isVisible', isEqualTo: true)
+          .get();
+
+      double totalRating = 0.0;
+      int reviewCount = snapshot.docs.length;
+
+      if (reviewCount > 0) {
+        for (var doc in snapshot.docs) {
+          totalRating += (doc.data()['rating'] ?? 0).toDouble();
+        }
+        final averageRating = totalRating / reviewCount;
+
+        await _firestore.collection('lawyers').doc(lawyerId).update({
+          'rating': double.parse(averageRating.toStringAsFixed(1)),
+          'totalReviews': reviewCount,
+        });
+      } else {
+        await _firestore.collection('lawyers').doc(lawyerId).update({
+          'rating': 0.0,
+          'totalReviews': 0,
+        });
+      }
+    } catch (e) {
+      print('Error updating lawyer aggregate data: $e');
+    }
   }
 }

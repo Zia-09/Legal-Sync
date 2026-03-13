@@ -1,18 +1,10 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/provider/auth_provider.dart';
-import 'package:legal_sync/screens/admin/admin_dashboard_screen.dart';
 import 'package:legal_sync/screens/client%20panel/forgot_password_screen.dart';
 import 'package:legal_sync/screens/client%20panel/home_screen.dart';
 import 'package:legal_sync/screens/client%20panel/register_screen.dart';
-import 'package:legal_sync/screens/lawyer%20panel/lawyer_dashboard_screen.dart';
-import 'package:legal_sync/services/email_service.dart';
-
-// ─── Static Admin Credentials ────────────────────────────────────────────────
-// These are checked before any Firebase call. Do NOT expose in UI.
-const String _adminEmail = 'admin@legalsync.com';
-const String _adminPassword = 'Admin@1234';
+import 'package:legal_sync/widgets/brand_logo.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -40,26 +32,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    // ─── Admin shortcut ───────────────────────────────────────────────────────
-    if (email == _adminEmail && password == _adminPassword) {
-      try {
-        await FirebaseAuth.instance.signInAnonymously();
-        // 🔹 Trigger Admin Login Email
-        emailService.sendProfessionalEmail(
-          to: _adminEmail,
-          subject: 'Admin Entry - LegalSync',
-          htmlContent:
-              '<h1>Admin Login Successful</h1><p>The main admin account has just entered the system.</p>',
-        );
-      } catch (_) {}
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
-      );
-      return;
-    }
-    // ─────────────────────────────────────────────────────────────────────────
-
     try {
       final role = await ref
           .read(authNotifierProvider.notifier)
@@ -67,19 +39,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       if (!mounted) return;
 
-      if (role == 'admin') {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
+      // ─── Role Validation: Client Portal Only ────────────────────────────────
+      if (role != 'client') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: role == 'lawyer'
+                ? const Text(
+                    'This account is registered as a lawyer. Please use the lawyer login portal instead.',
+                  )
+                : const Text(
+                    'This account is not registered as a client. Please use the correct login portal.',
+                  ),
+            backgroundColor: const Color(0xFFDC2626),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            margin: const EdgeInsets.all(16),
+          ),
         );
-      } else if (role == 'lawyer') {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const LawyerDashboardScreen()),
-        );
-      } else {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
+        return; // Don't proceed with navigation
       }
+      // ────────────────────────────────────────────────────────────────────────
+
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
 
       if (!mounted) return;
 
@@ -144,9 +129,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authNotifierProvider);
     final isLoading = authState is AsyncLoading;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark ? const Color(0xFF0F0F0F) : const Color(0xFFF7F9FC);
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? const Color(0xFF9E9E9E) : Colors.grey.shade600;
+    final labelColor = isDark ? const Color(0xFFCCCCCC) : Colors.grey.shade700;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F0F),
+      backgroundColor: scaffoldBg,
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -168,11 +158,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   right: 0,
                   child: Container(
                     height: 100,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Color(0xFF0F0F0F)],
+                        colors: [Colors.transparent, scaffoldBg],
                       ),
                     ),
                   ),
@@ -182,7 +172,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   left: 10,
                   child: IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    icon: Icon(Icons.arrow_back, color: isDark ? Colors.white : Colors.black),
                   ),
                 ),
               ],
@@ -197,29 +187,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 8),
-                    const Text(
+                    const BrandLogo(
+                      fontSize: 32,
+                      alignment: MainAxisAlignment.start,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
                       'Welcome Back',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: textColor,
                         fontSize: 30,
                         fontWeight: FontWeight.bold,
                         letterSpacing: -0.5,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
+                    Text(
                       'Sign in to continue your legal journey',
-                      style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
+                      style: TextStyle(color: subtitleColor, fontSize: 14),
                     ),
                     const SizedBox(height: 28),
 
                     // Email
-                    _fieldLabel('Email Address'),
+                    _fieldLabel('Email Address', labelColor),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: textColor),
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) {
                           return 'Please enter your email';
@@ -234,17 +229,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       decoration: _inputDecoration(
                         hint: 'Enter your email',
                         icon: Icons.email_outlined,
+                        isDark: isDark,
                       ),
                     ),
                     const SizedBox(height: 16),
 
                     // Password
-                    _fieldLabel('Password'),
+                    _fieldLabel('Password', labelColor),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: textColor),
                       validator: (v) {
                         if (v == null || v.isEmpty) {
                           return 'Please enter your password';
@@ -257,6 +253,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       decoration: _inputDecoration(
                         hint: 'Enter your password',
                         icon: Icons.lock_outline,
+                        isDark: isDark,
                         suffixIcon: IconButton(
                           onPressed: () => setState(
                             () => _obscurePassword = !_obscurePassword,
@@ -265,7 +262,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             _obscurePassword
                                 ? Icons.visibility_off_outlined
                                 : Icons.visibility_outlined,
-                            color: const Color(0xFF9E9E9E),
+                            color: subtitleColor,
                             size: 20,
                           ),
                         ),
@@ -343,10 +340,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text(
+                          Text(
                             "Don't have an account? ",
                             style: TextStyle(
-                              color: Color(0xFF9E9E9E),
+                              color: subtitleColor,
                               fontSize: 14,
                             ),
                           ),
@@ -380,10 +377,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  Widget _fieldLabel(String label) => Text(
+  Widget _fieldLabel(String label, Color color) => Text(
     label,
-    style: const TextStyle(
-      color: Color(0xFFCCCCCC),
+    style: TextStyle(
+      color: color,
       fontSize: 13,
       fontWeight: FontWeight.w500,
     ),
@@ -392,17 +389,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   InputDecoration _inputDecoration({
     required String hint,
     required IconData icon,
+    required bool isDark,
     Widget? suffixIcon,
   }) {
-    const borderSide = BorderSide(color: Color(0xFF2A2A2A));
+    final borderSide = BorderSide(color: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade300);
     final radius = BorderRadius.circular(12);
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(color: Color(0xFF5A5A5A)),
-      prefixIcon: Icon(icon, color: const Color(0xFF9E9E9E), size: 20),
+      hintStyle: TextStyle(color: isDark ? const Color(0xFF5A5A5A) : Colors.grey.shade400),
+      prefixIcon: Icon(icon, color: isDark ? const Color(0xFF9E9E9E) : Colors.grey.shade500, size: 20),
       suffixIcon: suffixIcon,
       filled: true,
-      fillColor: const Color(0xFF1E1E1E),
+      fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
       border: OutlineInputBorder(borderRadius: radius, borderSide: borderSide),
       enabledBorder: OutlineInputBorder(
         borderRadius: radius,

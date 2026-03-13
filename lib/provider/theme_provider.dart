@@ -2,32 +2,35 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class ThemeNotifier extends Notifier<ThemeMode> {
+class ThemeNotifier extends AsyncNotifier<ThemeMode> {
   static const _themeKey = 'theme_preference';
 
   @override
-  ThemeMode build() {
-    _loadTheme();
-    return ThemeMode.system; // default before load finishes
+  Future<ThemeMode> build() async {
+    return await _loadTheme();
   }
 
-  Future<void> _loadTheme() async {
-    final prefs = await SharedPreferences.getInstance();
-    final isDark = prefs.getBool(_themeKey);
-    if (isDark != null) {
-      state = isDark ? ThemeMode.dark : ThemeMode.light;
-    } else {
-      state = ThemeMode.dark; // Defaulting to dark mode for app vibe
+  Future<ThemeMode> _loadTheme() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final isDark = prefs.getBool(_themeKey) ?? true;
+      return isDark ? ThemeMode.dark : ThemeMode.light;
+    } catch (e) {
+      return ThemeMode.dark;
     }
   }
 
   Future<void> toggleTheme(bool isDark) async {
-    state = isDark ? ThemeMode.dark : ThemeMode.light;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_themeKey, isDark);
+    state = AsyncValue.data(isDark ? ThemeMode.dark : ThemeMode.light);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_themeKey, isDark);
+    } catch (e) {
+      print('Error saving theme: $e');
+    }
   }
 }
 
-final themeModeProvider = NotifierProvider<ThemeNotifier, ThemeMode>(() {
+final themeModeProvider = AsyncNotifierProvider<ThemeNotifier, ThemeMode>(() {
   return ThemeNotifier();
 });
