@@ -19,6 +19,21 @@ class HearingModel {
   final String? hearingType;
   final String? clientId;
 
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // HEARING PARTICIPATION & FEEDBACK FIELDS
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  final Map<String, dynamic>
+  participationStatus; // {clientId: 'accepted'|'declined'|'pending'|'busy', lawyerId: status}
+  final bool? clientAttended; // Did client actually attend the hearing
+  final bool? lawyerAttended; // Did lawyer attend the hearing
+  final String?
+  hearingFeedback; // Post-hearing notes - description of how hearing went
+  final DateTime? feedbackProvidedAt; // When feedback was submitted
+  final String?
+  feedbackProvidedBy; // Who provided feedback (clientId or lawyerId)
+  final int?
+  hearingQualityRating; // 1-5 rating of hearing quality (optional client/lawyer rating)
+
   const HearingModel({
     required this.hearingId,
     required this.caseId,
@@ -36,6 +51,13 @@ class HearingModel {
     this.modeOfConduct,
     this.hearingType,
     this.clientId,
+    this.participationStatus = const {},
+    this.clientAttended,
+    this.lawyerAttended,
+    this.hearingFeedback,
+    this.feedbackProvidedAt,
+    this.feedbackProvidedBy,
+    this.hearingQualityRating,
   });
 
   factory HearingModel.fromJson(Map<String, dynamic> json) {
@@ -66,6 +88,20 @@ class HearingModel {
       modeOfConduct: json['modeOfConduct']?.toString(),
       hearingType: json['hearingType']?.toString(),
       clientId: json['clientId']?.toString(),
+      participationStatus:
+          (json['participationStatus'] as Map<String, dynamic>?) ?? {},
+      clientAttended: json['clientAttended'] as bool?,
+      lawyerAttended: json['lawyerAttended'] as bool?,
+      hearingFeedback: json['hearingFeedback']?.toString(),
+      feedbackProvidedAt: json['feedbackProvidedAt'] is Timestamp
+          ? (json['feedbackProvidedAt'] as Timestamp).toDate()
+          : (json['feedbackProvidedAt'] != null
+                ? DateTime.tryParse(
+                    json['feedbackProvidedAt']?.toString() ?? '',
+                  )
+                : null),
+      feedbackProvidedBy: json['feedbackProvidedBy']?.toString(),
+      hearingQualityRating: json['hearingQualityRating'] as int?,
     );
   }
 
@@ -87,6 +123,15 @@ class HearingModel {
       'modeOfConduct': modeOfConduct,
       'hearingType': hearingType,
       'clientId': clientId,
+      'participationStatus': participationStatus,
+      'clientAttended': clientAttended,
+      'lawyerAttended': lawyerAttended,
+      'hearingFeedback': hearingFeedback,
+      'feedbackProvidedAt': feedbackProvidedAt != null
+          ? Timestamp.fromDate(feedbackProvidedAt!)
+          : null,
+      'feedbackProvidedBy': feedbackProvidedBy,
+      'hearingQualityRating': hearingQualityRating,
     };
   }
 
@@ -103,6 +148,13 @@ class HearingModel {
     String? modeOfConduct,
     String? hearingType,
     String? clientId,
+    Map<String, dynamic>? participationStatus,
+    bool? clientAttended,
+    bool? lawyerAttended,
+    String? hearingFeedback,
+    DateTime? feedbackProvidedAt,
+    String? feedbackProvidedBy,
+    int? hearingQualityRating,
   }) {
     return HearingModel(
       hearingId: hearingId,
@@ -121,6 +173,13 @@ class HearingModel {
       modeOfConduct: modeOfConduct ?? this.modeOfConduct,
       hearingType: hearingType ?? this.hearingType,
       clientId: clientId ?? this.clientId,
+      participationStatus: participationStatus ?? this.participationStatus,
+      clientAttended: clientAttended ?? this.clientAttended,
+      lawyerAttended: lawyerAttended ?? this.lawyerAttended,
+      hearingFeedback: hearingFeedback ?? this.hearingFeedback,
+      feedbackProvidedAt: feedbackProvidedAt ?? this.feedbackProvidedAt,
+      feedbackProvidedBy: feedbackProvidedBy ?? this.feedbackProvidedBy,
+      hearingQualityRating: hearingQualityRating ?? this.hearingQualityRating,
     );
   }
 

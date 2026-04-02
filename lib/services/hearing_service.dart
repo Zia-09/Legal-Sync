@@ -209,7 +209,95 @@ class HearingService {
     }
   }
 
-  /// 🔹 Get hearing by ID
+  /// 🔹 Update hearing date and send reminder email to client
+  Future<void> updateHearingDateWithEmailNotification({
+    required String hearingId,
+    required DateTime oldHearingDate,
+    required DateTime newHearingDate,
+  }) async {
+    try {
+      // Update hearing date
+      await _firestore.collection(_collection).doc(hearingId).update({
+        'hearingDate': Timestamp.fromDate(newHearingDate),
+        'updatedAt': Timestamp.now(),
+      });
+
+      // Get hearing details
+      final hearingDoc = await _firestore
+          .collection(_collection)
+          .doc(hearingId)
+          .get();
+      if (!hearingDoc.exists) return;
+
+      final hearingData = hearingDoc.data() as Map<String, dynamic>;
+      final clientId = hearingData['clientId'] as String?;
+      final lawyerId = hearingData['createdBy'] as String?;
+      final caseId = hearingData['caseId'] as String?;
+      final location = (hearingData['courtName'] as String?) ?? 'Court';
+      final hearingTime = DateFormat('h:mm a').format(newHearingDate);
+      final usersCollection = _firestore.collection('users');
+
+      // Get case title
+      String caseTitle = 'Your Case';
+      if (caseId != null) {
+        final caseDoc = await _firestore.collection('cases').doc(caseId).get();
+        if (caseDoc.exists) {
+          caseTitle =
+              (caseDoc.data() as Map<String, dynamic>?)?['title'] ?? caseTitle;
+        }
+      }
+
+      // Get old and new dates formatted
+      final oldDateStr = DateFormat(
+        'dd MMM yyyy, h:mm a',
+      ).format(oldHearingDate);
+      final newDateStr = DateFormat('dd MMM yyyy').format(newHearingDate);
+
+      // Send email to client
+      if (clientId != null && clientId.isNotEmpty) {
+        try {
+          final clientDoc = await usersCollection.doc(clientId).get();
+          if (clientDoc.exists) {
+            final clientData = clientDoc.data() as Map<String, dynamic>;
+            final clientEmail = clientData['email'] as String?;
+            final clientName = clientData['name'] as String? ?? 'Client';
+
+            if (clientEmail != null && clientEmail.isNotEmpty) {
+              // Get lawyer name
+              String lawyerName = 'Your Lawyer';
+              if (lawyerId != null) {
+                final lawyerDoc = await usersCollection.doc(lawyerId).get();
+                if (lawyerDoc.exists) {
+                  lawyerName =
+                      (lawyerDoc.data() as Map<String, dynamic>?)?['name'] ??
+                      lawyerName;
+                }
+              }
+
+              unawaited(
+                EmailService().sendHearingReminderEmail(
+                  toEmail: clientEmail,
+                  recipientName: clientName,
+                  caseTitle: caseTitle,
+                  oldHearingDate: oldDateStr,
+                  newHearingDate: newDateStr,
+                  hearingTime: hearingTime,
+                  location: location,
+                  lawyerName: lawyerName,
+                ),
+              );
+            }
+          }
+        } catch (e) {
+          print('⚠️ Failed to send hearing update email to client: $e');
+        }
+      }
+    } catch (e) {
+      print('⚠️ Hearing date updated but email notification failed: $e');
+    }
+  }
+
+  // =========================
   Future<HearingModel?> getHearingById(String hearingId) async {
     try {
       final doc = await _firestore.collection(_collection).doc(hearingId).get();
@@ -511,6 +599,163 @@ class HearingService {
       });
     } catch (e) {
       throw Exception('Failed to complete hearing: $e');
+    }
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // HEARING PARTICIPATION TRACKING
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  /// 🔹 Client/Lawyer confirms attendance status for hearing
+  /// status: 'accepted', 'declined', 'busy', 'pending'
+  Future<void> updateParticipationStatus({
+    required String hearingId,
+    required String userId,
+    required String status, // 'accepted', 'declined', 'busy'
+  }) async {
+    try {
+      await _firestore.collection(_collection).doc(hearingId).update({
+        'participationStatus.$userId': status,
+        'updatedAt': Timestamp.now(),
+      });
+
+      // Create notification for lawyer/client
+      final hearing = await getHearingById(hearingId);
+      if (hearing != null) {
+        final userDoc = await _firestore.collection('users').doc(userId).get();
+        final userData = userDoc.data() as Map<String, dynamic>?;
+        final userName = (userData?['name'] ?? 'User').toString();
+
+        // Notify lawyer
+        if (hearing.createdBy != null && hearing.createdBy!.isNotEmpty) {
+          final statusText = status == 'accepted'
+              ? 'confirmed attendance'
+              : status == 'declined'
+              ? 'declined'
+              : 'marked as busy';
+          await _notificationService.createNotification(
+            userId: hearing.createdBy!,
+            title: 'Hearing Participation Update',
+            message:
+                '$userName has $statusText for hearing on ${DateFormat('dd MMM').format(hearing.hearingDate)}',
+            type: 'hearing_response',
+            metadata: {'hearingId': hearingId, 'caseId': hearing.caseId},
+          );
+        }
+      }
+    } catch (e) {
+      throw Exception('Failed to update participation status: $e');
+    }
+  }
+
+  /// 🔹 Mark participant attendance on hearing day
+  /// Called after hearing time arrives to confirm who attended
+  Future<void> markAttendance({
+    required String hearingId,
+    required String userId,
+    required bool attended,
+  }) async {
+    try {
+      final hearing = await getHearingById(hearingId);
+      if (hearing == null) throw Exception('Hearing not found');
+
+      final isClient = userId == hearing.clientId;
+
+      await _firestore.collection(_collection).doc(hearingId).update({
+        'clientAttended': isClient ? attended : hearing.clientAttended,
+        'lawyerAttended': isClient ? hearing.lawyerAttended : attended,
+        'updatedAt': Timestamp.now(),
+      });
+
+      // Notify the other party
+      final otherUserId = isClient ? hearing.createdBy : hearing.clientId;
+      if (otherUserId != null && otherUserId.isNotEmpty) {
+        final userDoc = await _firestore.collection('users').doc(userId).get();
+        final userData = userDoc.data() as Map<String, dynamic>?;
+        final userName = (userData?['name'] ?? 'Participant').toString();
+        final attendanceText = attended ? 'joined' : 'did not join';
+
+        await _notificationService.createNotification(
+          userId: otherUserId,
+          title: 'Hearing Attendance Confirmed',
+          message: '$userName $attendanceText the hearing',
+          type: 'hearing_attendance',
+          metadata: {'hearingId': hearingId, 'caseId': hearing.caseId},
+        );
+      }
+    } catch (e) {
+      throw Exception('Failed to mark attendance: $e');
+    }
+  }
+
+  /// 🔹 Submit post-hearing feedback/notes
+  /// Called after hearing concludes - both lawyer and client can provide feedback
+  Future<void> submitHearingFeedback({
+    required String hearingId,
+    required String userId,
+    required String feedback, // Description of hearing outcome/notes
+    int? qualityRating, // Optional 1-5 rating
+  }) async {
+    try {
+      final hearing = await getHearingById(hearingId);
+      if (hearing == null) throw Exception('Hearing not found');
+
+      await _firestore.collection(_collection).doc(hearingId).update({
+        'hearingFeedback': feedback,
+        'feedbackProvidedAt': Timestamp.now(),
+        'feedbackProvidedBy': userId,
+        if (qualityRating != null) 'hearingQualityRating': qualityRating,
+        'status': 'completed',
+        'updatedAt': Timestamp.now(),
+      });
+
+      // Log activity
+      await _activityService.logActivity(
+        caseId: hearing.caseId,
+        userId: userId,
+        userName: 'User',
+        userRole: 'user',
+        actionType: 'hearing_feedback_submitted',
+        actionDescription: 'Submitted post-hearing feedback',
+      );
+
+      // Notify case participants
+      if (hearing.clientId != null && hearing.clientId != userId) {
+        await _notificationService.createNotification(
+          userId: hearing.clientId!,
+          title: 'Hearing Feedback Received',
+          message:
+              'Feedback has been submitted for hearing on ${DateFormat('dd MMM').format(hearing.hearingDate)}',
+          type: 'hearing_feedback',
+          metadata: {'hearingId': hearingId, 'caseId': hearing.caseId},
+        );
+      }
+
+      if (hearing.createdBy != null && hearing.createdBy != userId) {
+        await _notificationService.createNotification(
+          userId: hearing.createdBy!,
+          title: 'Hearing Feedback Received',
+          message:
+              'Feedback has been submitted for hearing on ${DateFormat('dd MMM').format(hearing.hearingDate)}',
+          type: 'hearing_feedback',
+          metadata: {'hearingId': hearingId, 'caseId': hearing.caseId},
+        );
+      }
+    } catch (e) {
+      throw Exception('Failed to submit hearing feedback: $e');
+    }
+  }
+
+  /// 🔹 Get hearing participation summary
+  /// Shows who accepted/declined/is busy
+  Future<Map<String, dynamic>> getParticipationSummary(String hearingId) async {
+    try {
+      final hearing = await getHearingById(hearingId);
+      if (hearing == null) throw Exception('Hearing not found');
+
+      return hearing.participationStatus;
+    } catch (e) {
+      throw Exception('Failed to get participation summary: $e');
     }
   }
 }

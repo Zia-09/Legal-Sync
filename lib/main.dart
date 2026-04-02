@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'firebase_options.dart';
 import 'screens/splash_screen.dart';
 import 'provider/theme_provider.dart';
+import 'provider/auth_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,15 +33,24 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeModeAsync = ref.watch(themeModeProvider);
+    final authStateAsync = ref.watch(authStateProvider);
+
+    // Check if user is authenticated
+    final isAuthenticated =
+        authStateAsync.whenData((user) => user != null).value ?? false;
 
     return themeModeAsync.when(
-      data: (themeMode) => _buildMaterialApp(themeMode),
+      data: (themeMode) {
+        // Use light theme for auth screens, user-selected theme after auth
+        final effectiveTheme = isAuthenticated ? themeMode : ThemeMode.light;
+        return _buildMaterialApp(effectiveTheme);
+      },
       loading: () => MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'LegalSync',
         theme: _buildThemeData(Brightness.light),
         darkTheme: _buildThemeData(Brightness.dark),
-        themeMode: ThemeMode.dark,
+        themeMode: ThemeMode.light,
         home: const Scaffold(body: Center(child: CircularProgressIndicator())),
       ),
       error: (_, _) => MaterialApp(
@@ -48,7 +58,7 @@ class MyApp extends ConsumerWidget {
         title: 'LegalSync',
         theme: _buildThemeData(Brightness.light),
         darkTheme: _buildThemeData(Brightness.dark),
-        themeMode: ThemeMode.dark,
+        themeMode: ThemeMode.light,
         home: const SplashScreen(),
       ),
     );
@@ -66,48 +76,65 @@ class MyApp extends ConsumerWidget {
   }
 
   static ThemeData _buildThemeData(Brightness brightness) {
+    final isDark = brightness == Brightness.dark;
+
     return ThemeData(
       colorScheme: ColorScheme.fromSeed(
         seedColor: const Color(0xFFFF6B00),
         brightness: brightness,
       ),
       useMaterial3: true,
-      scaffoldBackgroundColor: brightness == Brightness.light
-          ? const Color(0xFFF7F9FC)
-          : const Color(0xFF121212),
-      cardColor: brightness == Brightness.light
-          ? Colors.white
-          : const Color(0xFF1E1E1E),
+      scaffoldBackgroundColor: isDark
+          ? const Color(0xFF121212)
+          : const Color(0xFFF7F9FC),
+      cardColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
       appBarTheme: AppBarTheme(
-        backgroundColor: brightness == Brightness.light
-            ? Colors.white
-            : const Color(0xFF1A1A1A),
-        foregroundColor: brightness == Brightness.light
-            ? Colors.black87
-            : Colors.white,
+        backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+        foregroundColor: isDark ? Colors.white : Colors.black87,
         elevation: 0,
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: brightness == Brightness.light
-            ? Colors.white
-            : const Color(0xFF141414),
+        backgroundColor: isDark ? const Color(0xFF141414) : Colors.white,
         selectedItemColor: const Color(0xFFFF6B00),
-        unselectedItemColor: brightness == Brightness.light
-            ? Colors.grey
-            : const Color(0xFF5A5A5A),
+        unselectedItemColor: isDark ? const Color(0xFF5A5A5A) : Colors.grey,
         elevation: 8,
       ),
-      dividerColor: brightness == Brightness.light
-          ? const Color(0xFFE9ECEF)
-          : const Color(0xFF2A2A2A),
+      dividerColor: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE9ECEF),
       textTheme: TextTheme(
-        bodyLarge: TextStyle(
-          color: brightness == Brightness.light ? Colors.black87 : Colors.white,
+        bodyLarge: TextStyle(color: isDark ? Colors.white : Colors.black87),
+        bodyMedium: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+      ),
+      // ✅ FIX: InputDecorationTheme for dark mode TextFields
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF5F5F5),
+        labelStyle: TextStyle(
+          color: isDark ? const Color(0xFF9E9E9E) : Colors.grey,
         ),
-        bodyMedium: TextStyle(
-          color: brightness == Brightness.light
-              ? Colors.black54
-              : Colors.white70,
+        hintStyle: TextStyle(
+          color: isDark ? const Color(0xFF6B6B6B) : Colors.grey[400],
+        ),
+        helperStyle: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(
+            color: isDark ? const Color(0xFF333333) : Colors.grey[300]!,
+          ),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(
+            color: isDark ? const Color(0xFF333333) : Colors.grey[300]!,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFFF6B00), width: 2),
+        ),
+        // ✅ FIX: Text color in TextField for dark mode
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
         ),
       ),
     );

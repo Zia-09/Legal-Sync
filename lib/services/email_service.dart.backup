@@ -1,0 +1,709 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class EmailService {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final SupabaseClient _supabase = Supabase.instance.client;
+  static const String _mailCollection = 'mail';
+
+  /// 🔹 Send Login Success Email via Resend
+  Future<void> sendLoginSuccessEmail({
+    required String email,
+    required String name,
+  }) async {
+    try {
+      await _supabase.functions.invoke(
+        'send-email',
+        body: {
+          'to': email,
+          'subject': 'Login Successful - LegalSync Elite Services',
+          'html':
+              '''
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px; background: white;">
+              <div style="text-align: center; margin-bottom: 30px;">
+                <h2 style="color: #FF6B00; margin: 0;">Welcome Back, $name!</h2>
+              </div>
+              
+              <p style="font-size: 16px; color: #333;">You have successfully logged into your <strong>LegalSync</strong> account.</p>
+              
+              <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #FF6B00;">
+                <p style="margin: 0; color: #666;"><strong>Account:</strong> $email</p>
+                <p style="margin: 10px 0 0 0; color: #666;"><strong>Status:</strong> ✓ Active & Professional</p>
+              </div>
+              
+              <p style="font-size: 14px; color: #777;">If this wasn't you, please <a href="#" style="color: #FF6B00; text-decoration: none;"><strong>secure your account</strong></a> immediately.</p>
+              
+              <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />
+              <p style="text-align: center; font-size: 12px; color: #aaa;">&copy; 2026 LegalSync Elite. All Professional Rights Reserved.</p>
+            </div>
+          ''',
+        },
+      );
+      print('✅ Login email sent to $email');
+    } catch (e) {
+      print('❌ Failed to send login email: $e');
+    }
+  }
+
+  /// 🔹 Send Welcome Email (Registration) via Resend
+  Future<void> sendWelcomeEmail({
+    required String email,
+    required String name,
+    required String role,
+  }) async {
+    try {
+      final isLawyer = role == 'lawyer';
+      final subject = isLawyer
+          ? 'Welcome to LegalSync - Lawyer Dashboard'
+          : 'Welcome to LegalSync - Find Your Perfect Lawyer';
+
+      await _supabase.functions.invoke(
+        'send-email',
+        body: {
+          'to': email,
+          'subject': subject,
+          'html':
+              '''
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px; background: white;">
+              <div style="text-align: center; margin-bottom: 30px;">
+                <h2 style="color: #FF6B00; margin: 0;">🎉 Welcome to LegalSync!</h2>
+              </div>
+              
+              <p style="font-size: 16px; color: #333;">Hi <strong>$name</strong>,</p>
+              <p style="color: #666; line-height: 1.6;">Your account has been successfully created. We're thrilled to have you on board as a ${isLawyer ? 'professional lawyer' : 'valued client'}.</p>
+              
+              <div style="background: linear-gradient(135deg, #FF6B00 0%, #FF8C42 100%); color: white; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+                <h3 style="margin: 0 0 10px 0;">Get Started Today</h3>
+                <p style="margin: 0; font-size: 14px;">${isLawyer ? 'Complete your profile and start accepting cases' : 'Browse lawyers and discover your perfect legal match'}</p>
+              </div>
+              
+              <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 0; color: #333;"><strong>Email:</strong> $email</p>
+                <p style="margin: 10px 0 0 0; color: #333;"><strong>Role:</strong> ${isLawyer ? '⚖️ Lawyer' : '👤 Client'}</p>
+              </div>
+              
+              <p style="color: #666; font-size: 14px;">If you have any questions, our support team is here to help!</p>
+              
+              <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />
+              <p style="text-align: center; font-size: 12px; color: #aaa;">&copy; 2026 LegalSync Elite. Excellence in legal management.</p>
+            </div>
+          ''',
+        },
+      );
+      print('✅ Welcome email sent to $email');
+    } catch (e) {
+      print('❌ Failed to send welcome email: $e');
+    }
+  }
+
+  /// 🔹 Send Hearing Scheduled Email via Resend
+  Future<void> sendHearingScheduledEmail({
+    required String toEmail,
+    required String recipientName,
+    required String caseTitle,
+    required String hearingDate,
+    required String hearingTime,
+    required String hearingType,
+    required String location,
+    required String lawyerName,
+    required String clientName,
+    bool isForLawyer = false,
+  }) async {
+    try {
+      final subject = isForLawyer
+          ? '⚖️ Hearing Confirmed - $hearingDate'
+          : '📅 Your Hearing is Scheduled - $hearingDate';
+
+      final recipientRole = isForLawyer ? 'Lawyer' : 'Client';
+
+      await _supabase.functions.invoke(
+        'send-email',
+        body: {
+          'to': toEmail,
+          'subject': subject,
+          'html':
+              '''
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px; background: white;">
+              <div style="text-align: center; margin-bottom: 30px;">
+                <h2 style="color: #FF6B00; margin: 0;">⚖️ Hearing Scheduled</h2>
+                <p style="color: #666; margin: 10px 0 0 0; font-size: 14px;">$recipientRole Confirmation</p>
+              </div>
+              
+              <p style="font-size: 16px; color: #333;">Hi <strong>$recipientName</strong>,</p>
+              <p style="color: #666; line-height: 1.6;">A hearing has been scheduled for your case. Please see the details below:</p>
+              
+              <div style="background: white; border: 2px solid #FF6B00; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                <h3 style="color: #FF6B00; margin: 0 0 15px 0; border-bottom: 2px solid #FF6B00; padding-bottom: 10px;">Hearing Details</h3>
+                
+                <table style="width: 100%; border-collapse: collapse;">
+                  <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 10px 0; color: #666; font-weight: bold;">Case:</td>
+                    <td style="padding: 10px 0; color: #333;">$caseTitle</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 10px 0; color: #666; font-weight: bold;">📅 Date:</td>
+                    <td style="padding: 10px 0; color: #333; font-size: 16px; font-weight: bold;">$hearingDate</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 10px 0; color: #666; font-weight: bold;">⏰ Time:</td>
+                    <td style="padding: 10px 0; color: #333; font-size: 16px; font-weight: bold;">$hearingTime</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 10px 0; color: #666; font-weight: bold;">Type:</td>
+                    <td style="padding: 10px 0; color: #333;">$hearingType</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 10px 0; color: #666; font-weight: bold;">📍 Location:</td>
+                    <td style="padding: 10px 0; color: #333;">$location</td>
+                  </tr>
+                </table>
+              </div>
+              
+              <div style="background-color: #f0f9ff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #FF6B00;">
+                <h4 style="color: #FF6B00; margin: 0 0 10px 0;">📋 Parties Involved</h4>
+                <p style="margin: 0; color: #333;"><strong>Lawyer:</strong> $lawyerName</p>
+                <p style="margin: 10px 0 0 0; color: #333;"><strong>Client:</strong> $clientName</p>
+              </div>
+              
+              ${isForLawyer ? '''
+              <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #FF6B00;">
+                <h4 style="color: #FF6B00; margin: 0 0 10px 0;">✓ Checklist</h4>
+                <ul style="margin: 0; padding-left: 20px; color: #333;">
+                  <li>Review case documents</li>
+                  <li>Prepare legal arguments</li>
+                  <li>Confirm client availability</li>
+                  <li>Arrange transportation if needed</li>
+                </ul>
+              </div>
+              ''' : '''
+              <div style="background-color: #e8f5e9; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #FF6B00;">
+                <h4 style="color: #FF6B00; margin: 0 0 10px 0;">💡 Preparation Tips</h4>
+                <ul style="margin: 0; padding-left: 20px; color: #333;">
+                  <li>Mark this date on your calendar</li>
+                  <li>Prepare required documents</li>
+                  <li>Contact your lawyer a day before</li>
+                  <li>Arrive 15 minutes early</li>
+                </ul>
+              </div>
+              '''}
+              
+              <p style="color: #666; font-size: 14px; margin-top: 20px;">For any questions, please contact your legal team or our support.</p>
+              
+              <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />
+              <p style="text-align: center; font-size: 12px; color: #aaa;">&copy; 2026 LegalSync Elite. Serving justice with excellence.</p>
+            </div>
+          ''',
+        },
+      );
+      print('✅ Hearing email sent to $toEmail');
+    } catch (e) {
+      print('❌ Failed to send hearing email: $e');
+    }
+  }
+
+  /// 🔹 Send Custom Professional Email via Resend
+  Future<void> sendProfessionalEmail({
+    required String to,
+    required String subject,
+    required String htmlContent,
+  }) async {
+    try {
+      await _supabase.functions.invoke(
+        'send-email',
+        body: {'to': to, 'subject': subject, 'html': htmlContent},
+      );
+      print('✅ Professional email sent to $to');
+    } catch (e) {
+      print('❌ Failed to send professional email: $e');
+    }
+  }
+
+  /// 🔹 Send Scheduled Professional Email via Resend or Firebase
+  /// Note: Resend doesn't support scheduling, so we queue it with Firebase
+  Future<void> sendScheduledProfessionalEmail({
+    required String to,
+    required String subject,
+    required String htmlContent,
+    required DateTime scheduledAt,
+  }) async {
+    try {
+      // First try Resend (it will send immediately)
+      await _supabase.functions.invoke(
+        'send-email',
+        body: {'to': to, 'subject': subject, 'html': htmlContent},
+      );
+      print('✅ Scheduled email sent immediately to $to');
+    } catch (e) {
+      print('⚠️ Resend failed for scheduled email, trying Firebase: $e');
+      // Fallback to Firebase with scheduling
+      try {
+        await _firestore.collection(_mailCollection).add({
+          'to': to,
+          'message': {'subject': subject, 'html': htmlContent},
+          'delivery': {
+            'startTime': Timestamp.fromDate(scheduledAt),
+            'state': 'PENDING',
+          },
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        print('✅ Email queued in Firebase with scheduling');
+      } catch (firebaseError) {
+        print('❌ Failed to queue Firebase email: $firebaseError');
+      }
+    }
+  }
+
+  /// 🔹 Trigger Traditional Firebase Email (Fallback)
+  Future<void> sendViaFirebase({
+    required String to,
+    required String subject,
+    required String htmlContent,
+  }) async {
+    try {
+      await _firestore.collection(_mailCollection).add({
+        'to': to,
+        'message': {'subject': subject, 'html': htmlContent},
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      print('✅ Email queued in Firebase');
+    } catch (e) {
+      print('❌ Failed to queue Firebase email: $e');
+    }
+  }
+
+  /// 🔹 Send Invoice Email via Resend
+  /// Integrate email service to send invoice
+  Future<void> sendInvoiceEmail({
+    required String toEmail,
+    required String clientName,
+    required String lawyerName,
+    required String invoiceNumber,
+    required String invoiceId,
+    required double totalAmount,
+    required String dueDate,
+    required String caseNumber,
+    required String description,
+  }) async {
+    try {
+      final htmlContent =
+          '''
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px; background: white;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h2 style="color: #FF6B00; margin: 0;">📄 Invoice from $lawyerName</h2>
+            <p style="color: #666; margin: 10px 0 0 0;">Legal Services Invoice</p>
+          </div>
+          
+          <p style="font-size: 16px; color: #333;">Dear <strong>$clientName</strong>,</p>
+          <p style="color: #666; line-height: 1.6;">Please find below the invoice for the legal services provided. Payment is due by <strong>$dueDate</strong>.</p>
+          
+          <div style="background: white; border: 2px solid #FF6B00; border-radius: 8px; padding: 20px; margin: 20px 0;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 10px 0; color: #666; font-weight: bold;">Invoice Number:</td>
+                <td style="padding: 10px 0; color: #FF6B00; text-align: right; font-weight: bold;">$invoiceNumber</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 10px 0; color: #666; font-weight: bold;">Case Number:</td>
+                <td style="padding: 10px 0; color: #333; text-align: right;">$caseNumber</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 10px 0; color: #666; font-weight: bold;">Description:</td>
+                <td style="padding: 10px 0; color: #333; text-align: right;">$description</td>
+              </tr>
+              <tr style="border-bottom: 2px solid #FF6B00; background-color: #fff3e0;">
+                <td style="padding: 15px 0; color: #FF6B00; font-weight: bold; font-size: 18px;">TOTAL AMOUNT</td>
+                <td style="padding: 15px 0; color: #FF6B00; text-align: right; font-weight: bold; font-size: 18px;">\$${totalAmount.toStringAsFixed(2)}</td>
+              </tr>
+            </table>
+          </div>
+          
+          <div style="background-color: #e8f5e9; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4CAF50;">
+            <h4 style="color: #2E7D32; margin: 0 0 10px 0;">📌 Payment Instructions</h4>
+            <p style="margin: 0; color: #333; font-size: 14px;">Please make payment by <strong>$dueDate</strong>. Multiple payment methods are available on our platform.</p>
+          </div>
+          
+          <p style="color: #666; font-size: 13px; margin-top: 20px;">If you have any questions about this invoice, please contact us immediately.</p>
+          
+          <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />
+          <p style="text-align: center; font-size: 12px; color: #aaa;">&copy; 2026 LegalSync Elite. Professional Legal Services Management.</p>
+        </div>
+      ''';
+
+      await sendProfessionalEmail(
+        to: toEmail,
+        subject: '📄 Invoice $invoiceNumber - Professional Services',
+        htmlContent: htmlContent,
+      );
+      print('✅ Invoice email sent to $toEmail');
+    } catch (e) {
+      print('❌ Failed to send invoice email: $e');
+    }
+  }
+
+  /// 🔹 Send Invoice Reminder Email via Resend
+  Future<void> sendInvoiceReminderEmail({
+    required String toEmail,
+    required String clientName,
+    required String invoiceNumber,
+    required double totalAmount,
+    required String dueDate,
+  }) async {
+    try {
+      final htmlContent =
+          '''
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ff9800; border-radius: 10px; background: #fff8f0;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h2 style="color: #FF6B00; margin: 0;">⏰ Invoice Reminder</h2>
+            <p style="color: #E65100; margin: 10px 0 0 0;">Payment Due Soon</p>
+          </div>
+          
+          <p style="font-size: 16px; color: #333;">Dear <strong>$clientName</strong>,</p>
+          <p style="color: #666; line-height: 1.6;">This is a friendly reminder that your invoice <strong>$invoiceNumber</strong> for <strong>\$${totalAmount.toStringAsFixed(2)}</strong> is due by <strong style="color: #FF6B00;">$dueDate</strong>.</p>
+          
+          <div style="background: white; border: 2px solid #FF6B00; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center;">
+            <p style="margin: 0; color: #666; font-size: 14px;">If you have already made the payment, please disregard this reminder.</p>
+          </div>
+          
+          <p style="color: #666; font-size: 13px;">For payment inquiries or to discuss payment arrangements, please reach out to us.</p>
+          
+          <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />
+          <p style="text-align: center; font-size: 12px; color: #aaa;">&copy; 2026 LegalSync Elite. Professional Legal Services Management.</p>
+        </div>
+      ''';
+
+      await sendProfessionalEmail(
+        to: toEmail,
+        subject: '⏰ Payment Reminder - Invoice $invoiceNumber',
+        htmlContent: htmlContent,
+      );
+      print('✅ Invoice reminder sent to $toEmail');
+    } catch (e) {
+      print('❌ Failed to send invoice reminder: $e');
+    }
+  }
+
+  /// 🔹 Send Case Update Email via Resend
+  Future<void> sendCaseUpdateEmail({
+    required String toEmail,
+    required String recipientName,
+    required String caseTitle,
+    required String caseNumber,
+    required String
+    updateType, // 'status_updated', 'note_added', 'document_added'
+    required String updateDescription,
+    required String newStatus,
+  }) async {
+    try {
+      String icon = '📋';
+      String titleText = 'Case Updated';
+
+      switch (updateType.toLowerCase()) {
+        case 'status_updated':
+          icon = '✅';
+          titleText = 'Case Status Changed';
+          break;
+        case 'note_added':
+          icon = '📝';
+          titleText = 'New Case Note';
+          break;
+        case 'document_added':
+          icon = '📎';
+          titleText = 'Document Uploaded';
+          break;
+      }
+
+      final htmlContent =
+          '''
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px; background: white;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h2 style="color: #FF6B00; margin: 0;">$icon $titleText</h2>
+            <p style="color: #666; margin: 10px 0 0 0;">Your Case Has Been Updated</p>
+          </div>
+          
+          <p style="font-size: 16px; color: #333;">Dear <strong>$recipientName</strong>,</p>
+          <p style="color: #666; line-height: 1.6;">There's an important update on your case. Please review the details below:</p>
+          
+          <div style="background: white; border: 2px solid #FF6B00; border-radius: 8px; padding: 20px; margin: 20px 0;">
+            <h3 style="color: #FF6B00; margin: 0 0 15px 0; border-bottom: 2px solid #FF6B00; padding-bottom: 10px;">Case Details</h3>
+            
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 10px 0; color: #666; font-weight: bold;">Case:</td>
+                <td style="padding: 10px 0; color: #333;">$caseTitle</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 10px 0; color: #666; font-weight: bold;">Case Number:</td>
+                <td style="padding: 10px 0; color: #333;">$caseNumber</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 10px 0; color: #666; font-weight: bold;">Update Type:</td>
+                <td style="padding: 10px 0; color: #333;">$updateType</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 10px 0; color: #666; font-weight: bold;">New Status:</td>
+                <td style="padding: 10px 0; color: #FF6B00; font-weight: bold; font-size: 16px;">$newStatus</td>
+              </tr>
+            </table>
+          </div>
+          
+          <div style="background-color: #f0f9ff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #FF6B00;">
+            <h4 style="color: #FF6B00; margin: 0 0 10px 0;">📌 What Changed</h4>
+            <p style="margin: 0; color: #333; line-height: 1.6;">$updateDescription</p>
+          </div>
+          
+          <p style="color: #666; font-size: 14px; margin-top: 20px;">Log in to LegalSync to view full details and respond to your lawyer.</p>
+          
+          <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />
+          <p style="text-align: center; font-size: 12px; color: #aaa;">&copy; 2026 LegalSync Elite. Serving justice with excellence.</p>
+        </div>
+      ''';
+
+      await sendProfessionalEmail(
+        to: toEmail,
+        subject: '$icon Case Update: $caseTitle',
+        htmlContent: htmlContent,
+      );
+      print('✅ Case update email sent to $toEmail');
+    } catch (e) {
+      print('❌ Failed to send case update email: $e');
+    }
+  }
+
+  /// 🔹 Send Hearing Reminder/Update Email via Resend
+  Future<void> sendHearingReminderEmail({
+    required String toEmail,
+    required String recipientName,
+    required String caseTitle,
+    required String oldHearingDate,
+    required String newHearingDate,
+    required String hearingTime,
+    required String location,
+    required String lawyerName,
+  }) async {
+    try {
+      final htmlContent =
+          '''
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px; background: white;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h2 style="color: #FF6B00; margin: 0;">⚠️ Hearing Date Updated</h2>
+            <p style="color: #E65100; margin: 10px 0 0 0;">Important Schedule Change</p>
+          </div>
+          
+          <p style="font-size: 16px; color: #333;">Dear <strong>$recipientName</strong>,</p>
+          <p style="color: #666; line-height: 1.6;">The scheduled hearing date for your case has been changed. Please update your calendar:</p>
+          
+          <div style="background: white; border: 2px solid #FF6B00; border-radius: 8px; padding: 20px; margin: 20px 0;">
+            <h3 style="color: #FF6B00; margin: 0 0 15px 0; border-bottom: 2px solid #FF6B00; padding-bottom: 10px;">Hearing Schedule Update</h3>
+            
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 10px 0; color: #666; font-weight: bold;">Case:</td>
+                <td style="padding: 10px 0; color: #333;">$caseTitle</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #ddd; background-color: #fff3e0;">
+                <td style="padding: 10px 0; color: #E65100; font-weight: bold;">❌ Previous Date:</td>
+                <td style="padding: 10px 0; color: #E65100; text-decoration: line-through;">$oldHearingDate</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #eee; background-color: #e8f5e9;">
+                <td style="padding: 10px 0; color: #2E7D32; font-weight: bold;">✅ New Date:</td>
+                <td style="padding: 10px 0; color: #2E7D32; font-weight: bold; font-size: 16px;">$newHearingDate</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 10px 0; color: #666; font-weight: bold;">⏰ Time:</td>
+                <td style="padding: 10px 0; color: #333; font-size: 16px;">$hearingTime</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 0; color: #666; font-weight: bold;">📍 Location:</td>
+                <td style="padding: 10px 0; color: #333;">$location</td>
+              </tr>
+            </table>
+          </div>
+          
+          <div style="background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2196F3;">
+            <h4 style="color: #1565C0; margin: 0 0 10px 0;">📋 Action Required</h4>
+            <ul style="margin: 0; padding-left: 20px; color: #333;">
+              <li>Update your calendar immediately</li>
+              <li>Confirm availability with your lawyer: <strong>$lawyerName</strong></li>
+              <li>Make necessary travel arrangements</li>
+              <li>Gather all required documents</li>
+            </ul>
+          </div>
+          
+          <p style="color: #666; font-size: 14px; margin-top: 20px;">If you have any concerns about this new date, please contact your lawyer right away.</p>
+          
+          <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />
+          <p style="text-align: center; font-size: 12px; color: #aaa;">&copy; 2026 LegalSync Elite. Serving justice with excellence.</p>
+        </div>
+      ''';
+
+      await sendProfessionalEmail(
+        to: toEmail,
+        subject: '⚠️ Hearing Date Updated - $caseTitle',
+        htmlContent: htmlContent,
+      );
+      print('✅ Hearing reminder email sent to $toEmail');
+    } catch (e) {
+      print('❌ Failed to send hearing reminder email: $e');
+    }
+  }
+
+  /// 🔹 Send Login Notification Email
+  Future<void> sendLoginNotificationEmail({
+    required String toEmail,
+    required String userName,
+  }) async {
+    try {
+      final now = DateTime.now();
+      final formattedDate =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final formattedTime =
+          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+
+      final htmlContent =
+          '''
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px; background: white;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h2 style="color: #FF6B00; margin: 0;">🔐 New Login Detected</h2>
+            <p style="color: #666; margin: 10px 0 0 0;">Security Notification</p>
+          </div>
+          
+          <p style="font-size: 16px; color: #333;">Dear <strong>$userName</strong>,</p>
+          <p style="color: #666; line-height: 1.6;">We've detected a new login to your LegalSync account. Here are the details:</p>
+          
+          <div style="background: white; border: 2px solid #FF6B00; border-radius: 8px; padding: 20px; margin: 20px 0;">
+            <h3 style="color: #FF6B00; margin: 0 0 15px 0; border-bottom: 2px solid #FF6B00; padding-bottom: 10px;">Login Information</h3>
+            
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 10px 0; color: #666; font-weight: bold;">📅 Date:</td>
+                <td style="padding: 10px 0; color: #333; font-size: 16px;">$formattedDate</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 10px 0; color: #666; font-weight: bold;">⏰ Time:</td>
+                <td style="padding: 10px 0; color: #333; font-size: 16px;">$formattedTime</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 10px 0; color: #666; font-weight: bold;">✅ Status:</td>
+                <td style="padding: 10px 0; color: #2E7D32; font-weight: bold;">Verified</td>
+              </tr>
+            </table>
+          </div>
+          
+          <div style="background-color: #fff3e0; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #FF6B00;">
+            <h4 style="color: #E65100; margin: 0 0 10px 0;">🔒 Security Reminder</h4>
+            <ul style="margin: 0; padding-left: 20px; color: #333; font-size: 14px;">
+              <li>If this wasn't you, secure your account immediately</li>
+              <li>Change your password right away</li>
+              <li>Review recent account activity</li>
+              <li>Contact support if you notice anything suspicious</li>
+            </ul>
+          </div>
+          
+          <p style="color: #666; font-size: 14px; margin-top: 20px;">Your account security is our priority. If you have any concerns, please contact our support team.</p>
+          
+          <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />
+          <p style="text-align: center; font-size: 12px; color: #aaa;">&copy; 2026 LegalSync Elite. Protecting your legal interests.</p>
+        </div>
+      ''';
+
+      await sendProfessionalEmail(
+        to: toEmail,
+        subject: '🔐 New Login to LegalSync',
+        htmlContent: htmlContent,
+      );
+      print('✅ Login notification email sent to $toEmail');
+    } catch (e) {
+      print('❌ Failed to send login notification email: $e');
+    }
+  }
+
+  /// 🔹 Send Hearing Scheduled Email
+  Future<void> sendBillingNotificationEmail({
+    required String toEmail,
+    required String clientName,
+    required String
+    notificationType, // 'payment_received', 'billing_ready', 'subscription_update', etc.
+    required Map<String, dynamic> billingDetails,
+  }) async {
+    try {
+      String subject = 'Billing Notification - LegalSync';
+      String titleText = 'Billing Update';
+      String messageText = 'Your billing information has been updated.';
+      String icon = '📧';
+
+      switch (notificationType.toLowerCase()) {
+        case 'payment_received':
+          subject = '✅ Payment Received - Invoice Confirmed';
+          titleText = 'Payment Confirmed';
+          messageText =
+              'Thank you! We have received your payment of \$${billingDetails['amount'] ?? 'N/A'}.';
+          icon = '✅';
+          break;
+        case 'billing_ready':
+          subject = '📋 New Invoice Ready';
+          titleText = 'Invoice Available';
+          messageText =
+              'A new invoice for \$${billingDetails['amount'] ?? 'N/A'} is now available.';
+          icon = '📋';
+          break;
+        case 'subscription_update':
+          subject = '🔄 Subscription Updated';
+          titleText = 'Subscription Change';
+          messageText =
+              'Your subscription has been ${billingDetails['action'] ?? 'updated'}.';
+          icon = '🔄';
+          break;
+        case 'payment_failed':
+          subject = '⚠️ Payment Failed - Action Required';
+          titleText = 'Payment Issue';
+          messageText =
+              'Your recent payment attempt failed. Please update your payment method.';
+          icon = '⚠️';
+          break;
+        case 'refund_issued':
+          subject = '💰 Refund Processed';
+          titleText = 'Refund Confirmation';
+          messageText =
+              'A refund of \$${billingDetails['amount'] ?? 'N/A'} has been processed.';
+          icon = '💰';
+          break;
+      }
+
+      final htmlContent =
+          '''
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px; background: white;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h2 style="color: #FF6B00; margin: 0;">$icon $titleText</h2>
+            <p style="color: #666; margin: 10px 0 0 0;">Billing Management</p>
+          </div>
+          
+          <p style="font-size: 16px; color: #333;">Dear <strong>$clientName</strong>,</p>
+          <p style="color: #666; line-height: 1.6;">$messageText</p>
+          
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #FF6B00;">
+            <h4 style="color: #FF6B00; margin: 0 0 10px 0;">📊 Billing Details</h4>
+            <p style="margin: 0; color: #333;">
+              ${billingDetails.entries.map((e) => '<strong>${e.key}:</strong> ${e.value}<br/>').join()}
+            </p>
+          </div>
+          
+          <p style="color: #666; font-size: 13px; margin-top: 20px;">For any questions regarding your billing, please contact our support team.</p>
+          
+          <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />
+          <p style="text-align: center; font-size: 12px; color: #aaa;">&copy; 2026 LegalSync Elite. Professional Legal Services Management.</p>
+        </div>
+      ''';
+
+      await sendProfessionalEmail(
+        to: toEmail,
+        subject: subject,
+        htmlContent: htmlContent,
+      );
+      print('✅ Billing notification sent to $toEmail');
+    } catch (e) {
+      print('❌ Failed to send billing notification: $e');
+    }
+  }
+}
+
+final emailService = EmailService();

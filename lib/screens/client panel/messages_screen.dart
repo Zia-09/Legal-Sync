@@ -208,8 +208,9 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                                               hintText:
                                                   'Search conversations...',
                                               hintStyle: TextStyle(
-                                                color: subtitleColor
-                                                    .withValues(alpha: 0.6),
+                                                color: subtitleColor.withValues(
+                                                  alpha: 0.6,
+                                                ),
                                               ),
                                               border: InputBorder.none,
                                               isDense: true,
@@ -358,6 +359,10 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
   }
 
   Widget _buildBottomNav(BuildContext context) {
+    final navBgColor = Theme.of(context).cardColor;
+    final navBorderColor = Theme.of(context).dividerColor;
+    final unselectedColor = Theme.of(context).unselectedWidgetColor;
+
     const items = [
       {'label': 'Home'},
       {'label': 'Lawyer'},
@@ -382,9 +387,9 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
 
     return Container(
       height: 70,
-      decoration: const BoxDecoration(
-        color: Color(0xFF141414),
-        border: Border(top: BorderSide(color: Color(0xFF1E1E1E), width: 1)),
+      decoration: BoxDecoration(
+        color: navBgColor,
+        border: Border(top: BorderSide(color: navBorderColor, width: 1)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -417,18 +422,14 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
               children: [
                 Icon(
                   isActive ? activeIcons[index] : icons[index],
-                  color: isActive
-                      ? const Color(0xFFFF6B00)
-                      : const Color(0xFF5A5A5A),
+                  color: isActive ? const Color(0xFFFF6B00) : unselectedColor,
                   size: 24,
                 ),
                 const SizedBox(height: 4),
                 Text(
                   items[index]['label']!,
                   style: TextStyle(
-                    color: isActive
-                        ? const Color(0xFFFF6B00)
-                        : const Color(0xFF5A5A5A),
+                    color: isActive ? const Color(0xFFFF6B00) : unselectedColor,
                     fontSize: 10,
                     fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
                   ),

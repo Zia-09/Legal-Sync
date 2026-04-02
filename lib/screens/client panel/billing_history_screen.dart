@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/provider/billing_provider.dart';
+import 'package:legal_sync/provider/invoice_provider.dart';
 import 'package:intl/intl.dart';
 
 class BillingHistoryScreen extends ConsumerStatefulWidget {
@@ -59,15 +60,20 @@ class _BillingHistoryScreenState extends ConsumerState<BillingHistoryScreen> {
         data: (client) {
           if (client == null) return const Center(child: Text('User not found'));
           
-          final billingAsync = ref.watch(billingByClientProvider(client.clientId));
+          final billingAsync = ref.watch(streamBillingByClientProvider(client.clientId));
+          final invoicesAsync = ref.watch(streamInvoicesByClientProvider(client.clientId));
           
-          return billingAsync.when(
-            data: (billing) => SingleChildScrollView(
+          return invoicesAsync.when(
+            data: (invoices) => SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSummaryCard(billing, cardColor, textColor, subtitleColor, isDark),
+                  billingAsync.when(
+                    data: (billing) => _buildSummaryCard(billing, cardColor, textColor, subtitleColor, isDark),
+                    loading: () => _buildSummaryCardSkeleton(cardColor, isDark),
+                    error: (e, st) => const SizedBox.shrink(),
+                  ),
                   const SizedBox(height: 32),
                   _buildFilters(isDark),
                   const SizedBox(height: 24),
@@ -76,7 +82,7 @@ class _BillingHistoryScreenState extends ConsumerState<BillingHistoryScreen> {
                     style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
-                  _buildInvoicesList(client.clientId, cardColor, textColor, subtitleColor, isDark),
+                  _buildInvoicesList(invoices, cardColor, textColor, subtitleColor, isDark),
                 ],
               ),
             ),
@@ -189,31 +195,111 @@ class _BillingHistoryScreenState extends ConsumerState<BillingHistoryScreen> {
     );
   }
 
-  Widget _buildInvoicesList(String clientId, Color cardColor, Color textColor, Color subtitleColor, bool isDark) {
-    // In e:\legal_sync\lib\provider\invoice_provider.dart, there is no getInvoicesByClient, only byCase or byLawyer.
-    // I will mock some data or use byCase if I had a caseId, but for now I'll create a list tied to the client if the service supports it or mock.
-    // Since I'm acting as a senior dev, I'll assume we might need a getInvoicesByClient in the future but for now I'll use a placeholder logic.
-    
-    // Let's check invoice_provider.dart again. It doesn't have byClient.
-    // I'll use a mocked list for UI purposes as per design, but functional enough to show filtering.
+  Widget _buildInvoicesList(List invoices, Color cardColor, Color textColor, Color subtitleColor, bool isDark) {
+    if (invoices.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.receipt_long_outlined, color: subtitleColor, size: 32),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No invoices yet',
+                style: TextStyle(color: subtitleColor, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Column(
-      children: [
-        _buildInvoiceItem('Retainer Refill - August 2023', 'INV-2023-082', 2500, 'Oct 12, 2023', 'PAID', Colors.green, cardColor, textColor, subtitleColor, isDark),
-        _buildInvoiceItem('Court Filing Fees - Sept 2023', 'INV-2023-094', 450, 'Nov 01, 2023', 'PENDING', Colors.orange, cardColor, textColor, subtitleColor, isDark),
-        _buildInvoiceItem('Expert Witness Consultation', 'INV-2023-071', 1200, '14 Days', 'OVERDUE', Colors.red, cardColor, textColor, subtitleColor, isDark),
-        _buildInvoiceItem('Legal Documentation Prep', 'INV-2023-065', 3800, 'Sep 15, 2023', 'PAID', Colors.green, cardColor, textColor, subtitleColor, isDark),
-      ].where((item) {
-        if (_selectedFilter == 'All') return true;
-        // In reality we'd check the status field
-        return true; 
-      }).toList(),
+      children: invoices
+          .where((inv) {
+            if (_selectedFilter == 'All') return true;
+            return inv.status.toUpperCase() == _selectedFilter.toUpperCase();
+          })
+          .map((invoice) => _buildInvoiceItem(
+                invoice.description ?? 'Invoice',
+                invoice.invoiceId,
+                invoice.totalAmount ?? 0.0,
+                DateFormat('MMM dd, yyyy').format(invoice.createdDate),
+                invoice.status ?? 'DRAFT',
+                _getStatusColor(invoice.status ?? 'DRAFT'),
+                cardColor,
+                textColor,
+                subtitleColor,
+                isDark,
+              ))
+          .toList(),
+    );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'PAID':
+        return Colors.green;
+      case 'PENDING':
+        return Colors.orange;
+      case 'OVERDUE':
+        return Colors.red;
+      case 'DRAFT':
+        return Colors.grey;
+      default:
+        return Colors.blue;
+    }
+  }
+
+  Widget _buildSummaryCardSkeleton(Color cardColor, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: isDark ? null : [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20, offset: const Offset(0, 10))
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Case Fee Summary', style: TextStyle(color: Colors.grey.shade400, fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('PAID TO DATE', style: TextStyle(color: Colors.grey.shade500, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                  const SizedBox(height: 8),
+                  Container(width: 100, height: 20, color: Colors.grey.shade300),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('ESTIMATED TOTAL', style: TextStyle(color: Colors.grey.shade500, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                  const SizedBox(height: 8),
+                  Container(width: 100, height: 20, color: Colors.grey.shade300),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildInvoiceItem(String title, String invNo, double amount, String date, String status, Color statusColor, Color cardColor, Color textColor, Color subtitleColor, bool isDark) {
-    if (_selectedFilter != 'All' && _selectedFilter.toUpperCase() != status) return const SizedBox.shrink();
-
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(

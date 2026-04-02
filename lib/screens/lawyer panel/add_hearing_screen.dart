@@ -102,6 +102,10 @@ class _AddHearingScreenState extends ConsumerState<AddHearingScreen> {
     final appBarBg = isDark ? const Color(0xFF1A1A1A) : Colors.white;
     final containerBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
     final textColor = isDark ? Colors.white : const Color(0xFF131D31);
+    final inputBgColor = isDark ? const Color(0xFF252525) : Colors.white;
+    final inputBorderColor = isDark ? const Color(0xFF333333) : Colors.grey.shade200;
+    final inputTextColor = isDark ? Colors.white : Colors.black87;
+    final inputHintColor = isDark ? Colors.grey.shade500 : Colors.grey.shade400;
 
     final casesAsync = ref.watch(casesByLawyerProvider(user.uid));
 
@@ -148,7 +152,7 @@ class _AddHearingScreenState extends ConsumerState<AddHearingScreen> {
                         if (cases.isEmpty) {
                           return _buildEmptyCaseInfo();
                         }
-                        return _buildCaseDropdown(cases);
+                        return _buildCaseDropdown(cases, isDark, inputBgColor, inputBorderColor, inputTextColor, inputHintColor);
                       },
                       loading: () => const LinearProgressIndicator(),
                       error: (e, _) => Text(
@@ -158,7 +162,7 @@ class _AddHearingScreenState extends ConsumerState<AddHearingScreen> {
                     ),
                     const SizedBox(height: 20),
                     _buildSectionHeader('Hearing Details'),
-                    _buildHearingTypeDropdown(),
+                    _buildHearingTypeDropdown(isDark, inputBgColor, inputBorderColor, inputTextColor, inputHintColor),
                     const SizedBox(height: 16),
                     Row(
                       children: [
@@ -408,39 +412,65 @@ class _AddHearingScreenState extends ConsumerState<AddHearingScreen> {
     );
   }
 
-  Widget _buildCaseDropdown(List<CaseModel> cases) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F9FC),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+  Widget _buildCaseDropdown(
+    List<CaseModel> cases,
+    bool isDark,
+    Color inputBgColor,
+    Color inputBorderColor,
+    Color inputTextColor,
+    Color inputHintColor,
+  ) {
+    return Theme(
+      data: Theme.of(context).copyWith(
+        canvasColor: inputBgColor,
       ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButtonFormField<CaseModel>(
-          decoration: const InputDecoration(border: InputBorder.none),
-          hint: const Text('Choose an active case'),
-          isExpanded: true,
-          validator: (val) => val == null ? 'Please select a case' : null,
-          items: cases.map((c) {
-            return DropdownMenuItem(
-              value: c,
-              child: Text(
-                '${c.caseNumber ?? 'No #'} - ${c.clientName ?? 'Unknown'}',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            );
-          }).toList(),
-          onChanged: (CaseModel? val) {
-            setState(() {
-              _selectedCaseId = val?.caseId;
-              _selectedClientId = val?.clientId;
-            });
-          },
+      child: DropdownButtonFormField<CaseModel>(
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: inputBgColor,
+          hintText: 'Choose an active case',
+          hintStyle: TextStyle(color: inputHintColor, fontSize: 14),
+          contentPadding: const EdgeInsets.all(16),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: inputBorderColor),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: inputBorderColor),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFFFF6B00), width: 2),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFFEF4444)),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFFFF6B00), width: 2),
+          ),
         ),
+        isExpanded: true,
+        style: TextStyle(color: inputTextColor, fontSize: 14, fontWeight: FontWeight.w500),
+        hint: Text('Choose an active case', style: TextStyle(color: inputHintColor)),
+        validator: (val) => val == null ? 'Please select a case' : null,
+        items: cases.map((c) {
+          return DropdownMenuItem(
+            value: c,
+            child: Text(
+              '${c.caseNumber ?? 'No #'} - ${c.clientName ?? 'Unknown'}',
+              style: TextStyle(color: inputTextColor, fontSize: 14),
+            ),
+          );
+        }).toList(),
+        onChanged: (CaseModel? val) {
+          setState(() {
+            _selectedCaseId = val?.caseId;
+            _selectedClientId = val?.clientId;
+          });
+        },
       ),
     );
   }
@@ -460,33 +490,60 @@ class _AddHearingScreenState extends ConsumerState<AddHearingScreen> {
     );
   }
 
-  Widget _buildHearingTypeDropdown() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F9FC),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+  Widget _buildHearingTypeDropdown(
+    bool isDark,
+    Color inputBgColor,
+    Color inputBorderColor,
+    Color inputTextColor,
+    Color inputHintColor,
+  ) {
+    return Theme(
+      data: Theme.of(context).copyWith(
+        canvasColor: inputBgColor,
       ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: _hearingType,
-          isExpanded: true,
-          items: _hearingTypes.map((String val) {
-            return DropdownMenuItem<String>(
-              value: val,
-              child: Text(
-                val,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            );
-          }).toList(),
-          onChanged: (val) =>
-              setState(() => _hearingType = val ?? _hearingTypes.first),
+      child: DropdownButtonFormField<String>(
+        value: _hearingType,
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: inputBgColor,
+          hintText: 'Select hearing type',
+          hintStyle: TextStyle(color: inputHintColor, fontSize: 14),
+          contentPadding: const EdgeInsets.all(16),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: inputBorderColor),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: inputBorderColor),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFFFF6B00), width: 2),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFFEF4444)),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFFFF6B00), width: 2),
+          ),
         ),
+        isExpanded: true,
+        style: TextStyle(color: inputTextColor, fontSize: 14, fontWeight: FontWeight.w500),
+        items: _hearingTypes.map((String val) {
+          return DropdownMenuItem<String>(
+            value: val,
+            child: Text(
+              val,
+              style: TextStyle(color: inputTextColor, fontSize: 14),
+            ),
+          );
+        }).toList(),
+        onChanged: (val) =>
+            setState(() => _hearingType = val ?? _hearingTypes.first),
+        validator: (val) => val == null ? 'Please select hearing type' : null,
       ),
     );
   }

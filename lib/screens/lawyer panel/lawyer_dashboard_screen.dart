@@ -521,7 +521,11 @@ class _LawyerHomeContent extends ConsumerWidget {
                       priorityTextColor: Colors.red,
                       topic: req.adminNote ?? 'Legal Consultation Request',
                       time: DateFormat('h:mm a').format(req.scheduledAt),
-                      avatarUrl: 'https://i.pravatar.cc/150?u=${req.clientId}',
+                      avatarUrl: clients.any((c) => c.clientId == req.clientId)
+                          ? clients
+                                .firstWhere((c) => c.clientId == req.clientId)
+                                .profileImage
+                          : null,
                     ),
                   ),
                 ),
@@ -540,7 +544,7 @@ class _LawyerHomeContent extends ConsumerWidget {
     required Color priorityTextColor,
     required String topic,
     required String time,
-    required String avatarUrl,
+    required String? avatarUrl,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -557,7 +561,13 @@ class _LawyerHomeContent extends ConsumerWidget {
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundImage: NetworkImage(avatarUrl),
+                backgroundColor: Colors.grey.shade200,
+                backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
+                    ? NetworkImage(avatarUrl)
+                    : null,
+                child: (avatarUrl == null || avatarUrl.isEmpty)
+                    ? Icon(Icons.person, size: 24, color: Colors.grey.shade600)
+                    : null,
               ),
               const SizedBox(width: 12),
               Expanded(

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
 import 'package:legal_sync/model/client_Model.dart';
 import 'package:legal_sync/model/lawyer_Model.dart';
 import 'package:legal_sync/services/email_service.dart';
@@ -40,10 +41,26 @@ class AuthService {
     required String password,
   }) async {
     try {
-      await _auth.signInWithEmailAndPassword(
+      final userCredential = await _auth.signInWithEmailAndPassword(
         email: email.trim(),
         password: password,
       );
+
+      // Get user data for welcome email
+      final userDoc = await _firestore
+          .collection(_usersCollection)
+          .doc(userCredential.user!.uid)
+          .get();
+      final userName = userDoc.data()?['name'] as String? ?? 'User';
+
+      // Send login notification email (fire-and-forget to avoid blocking UI)
+      unawaited(
+        EmailService().sendLoginNotificationEmail(
+          toEmail: email.trim(),
+          userName: userName,
+        ),
+      );
+
       return 'success';
     } on FirebaseAuthException catch (e) {
       return e.message ?? 'Invalid email or password.';
@@ -105,22 +122,13 @@ class AuthService {
             .doc(uid)
             .set(client.toJson());
 
-        // Send Welcome Email
-        await emailService.sendProfessionalEmail(
-          to: email.trim(),
-          subject: 'Welcome to LegalSync Elite - Your Legal Partner',
-          htmlContent:
-              '''
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-              <h2 style="color: #FF6B00; text-align: center;">Welcome to LegalSync Elite, $name!</h2>
-              <p style="font-size: 16px; color: #333;">Your account has been successfully created. We are thrilled to have you on board.</p>
-              <p style="color: #666;">You can now securely log in to find professional lawyers, schedule consultations, and manage your legal documents.</p>
-              <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                <p style="margin: 0; color: #FF6B00;"><strong>Status:</strong> Active Client</p>
-              </div>
-              <p style="text-align: center; font-size: 12px; color: #aaa;">&copy; 2026 LegalSync Elite. Excellence in legal management.</p>
-            </div>
-          ''',
+        // Send Welcome Email (fire-and-forget to avoid blocking UI)
+        unawaited(
+          EmailService().sendWelcomeEmail(
+            email: email.trim(),
+            name: name,
+            role: 'client',
+          ),
         );
       } else {
         final lawyer = LawyerModel(
@@ -143,11 +151,13 @@ class AuthService {
             .doc(uid)
             .set(lawyer.toJson());
 
-        // Send Welcome Email for Lawyer
-        await emailService.sendWelcomeEmail(
-          email: email.trim(),
-          name: name,
-          role: 'lawyer',
+        // Send Welcome Email for Lawyer (fire-and-forget to avoid blocking UI)
+        unawaited(
+          EmailService().sendWelcomeEmail(
+            email: email.trim(),
+            name: name,
+            role: 'lawyer',
+          ),
         );
       }
 

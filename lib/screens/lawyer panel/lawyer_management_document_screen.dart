@@ -77,9 +77,9 @@ class _LawyerManagementDocumentScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildTopSnapshotCard(documents),
+                _buildTopSnapshotCard(documents, isDark),
                 const SizedBox(height: 20),
-                _buildFilterSection(cases, documents, clients),
+                _buildFilterSection(cases, documents, clients, isDark),
                 const SizedBox(height: 24),
                 _buildClientUploadsList(filteredDocs, cases, clients),
               ],
@@ -122,26 +122,35 @@ class _LawyerManagementDocumentScreenState
     }).toList();
   }
 
-  Widget _buildTopSnapshotCard(List<DocumentModel> documents) {
+  Widget _buildTopSnapshotCard(List<DocumentModel> documents, bool isDark) {
     final pending = documents
         .where((d) => !d.isApprovedForClient && !d.isRejected)
         .length;
     final approved = documents.where((d) => d.isApprovedForClient).length;
     final rejected = documents.where((d) => d.isRejected).length;
 
+    final bgColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtextColor = isDark ? Colors.white70 : Colors.black54;
+    final inputBorderColor = isDark
+        ? const Color(0xFF333333)
+        : Colors.grey.shade300;
+    final hintColor = isDark ? const Color(0xFF9E9E9E) : Colors.grey.shade600;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF131D31), // Dark Navy
+        color: bgColor,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: inputBorderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Review and manage documents uploaded by clients or pending your review.',
-            style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+            style: TextStyle(color: subtextColor, fontSize: 13, height: 1.4),
           ),
           const SizedBox(height: 20),
           Row(
@@ -151,33 +160,53 @@ class _LawyerManagementDocumentScreenState
                 'Pending',
                 pending.toString(),
                 const Color(0xFFFF6B00),
-              ), // Orange
-              _buildSnapshotItem('Approved', approved.toString(), Colors.green),
-              _buildSnapshotItem('Rejected', rejected.toString(), Colors.red),
+                subtextColor,
+              ),
+              _buildSnapshotItem(
+                'Approved',
+                approved.toString(),
+                Colors.green,
+                subtextColor,
+              ),
+              _buildSnapshotItem(
+                'Rejected',
+                rejected.toString(),
+                Colors.red,
+                subtextColor,
+              ),
             ],
           ),
-          const SizedBox(height: 16),
-          // Search Bar on top of Navy card
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white24),
+          const SizedBox(height: 20),
+          // Professional Search TextField
+          TextField(
+            controller: _searchController,
+            onChanged: (val) {
+              setState(() {
+                _searchQuery = val;
+              });
+            },
+            style: TextStyle(
+              color: textColor,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
             ),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (val) {
-                setState(() {
-                  _searchQuery = val;
-                });
-              },
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                icon: Icon(Icons.search, color: Colors.white54),
-                hintText: 'Search cases or client...',
-                hintStyle: TextStyle(color: Colors.white54, fontSize: 13),
-                border: InputBorder.none,
+            cursorColor: const Color(0xFFFF6B00),
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: isDark
+                  ? const Color(0xFF2A2A2A)
+                  : const Color(0xFFF8F9FA),
+              hintText: 'Search cases or client...',
+              hintStyle: TextStyle(color: hintColor, fontSize: 14),
+              prefixIcon: Icon(Icons.search, color: hintColor, size: 22),
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              focusedErrorBorder: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
               ),
             ),
           ),
@@ -186,7 +215,12 @@ class _LawyerManagementDocumentScreenState
     );
   }
 
-  Widget _buildSnapshotItem(String title, String count, Color countColor) {
+  Widget _buildSnapshotItem(
+    String title,
+    String count,
+    Color countColor,
+    Color subtextColor,
+  ) {
     return Column(
       children: [
         Text(
@@ -201,7 +235,7 @@ class _LawyerManagementDocumentScreenState
         Text(
           title,
           style: TextStyle(
-            color: Colors.white70,
+            color: subtextColor,
             fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
@@ -214,6 +248,7 @@ class _LawyerManagementDocumentScreenState
     List<dynamic> cases,
     List<DocumentModel> documents,
     List<dynamic> clients,
+    bool isDark,
   ) {
     final caseItems = [
       'All cases',
@@ -228,6 +263,11 @@ class _LawyerManagementDocumentScreenState
           .map((c) => c.name as String),
     ];
 
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final labelColor = isDark ? Colors.white70 : Colors.black54;
+    final tabBgColor = isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade200;
+    final tabSelectedBgColor = isDark ? const Color(0xFF252525) : Colors.white;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -236,12 +276,12 @@ class _LawyerManagementDocumentScreenState
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Filter Documents',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: textColor,
                 ),
               ),
               GestureDetector(
@@ -271,13 +311,13 @@ class _LawyerManagementDocumentScreenState
           Container(
             height: 40,
             decoration: BoxDecoration(
-              color: Colors.grey.shade200,
+              color: tabBgColor,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
               children: [
-                _buildTab('All Documents', 0),
-                _buildTab('Pending Reviews', 1),
+                _buildTab('All Documents', 0, tabSelectedBgColor, textColor),
+                _buildTab('Pending Reviews', 1, tabSelectedBgColor, textColor),
               ],
             ),
           ),
@@ -290,6 +330,7 @@ class _LawyerManagementDocumentScreenState
                   'CASE',
                   _selectedCaseFilter,
                   caseItems,
+                  isDark,
                 ),
               ),
               const SizedBox(width: 12),
@@ -298,18 +339,19 @@ class _LawyerManagementDocumentScreenState
                   'CLIENT',
                   _selectedClientFilter,
                   clientItems,
+                  isDark,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
           // Document Types Chips
-          const Text(
+          Text(
             'DOCUMENT TYPE',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.bold,
-              color: Colors.black54,
+              color: labelColor,
               letterSpacing: 1,
             ),
           ),
@@ -327,7 +369,12 @@ class _LawyerManagementDocumentScreenState
     );
   }
 
-  Widget _buildTab(String title, int index) {
+  Widget _buildTab(
+    String title,
+    int index,
+    Color selectedBgColor,
+    Color textColor,
+  ) {
     bool isSelected = _selectedTabIndex == index;
     return Expanded(
       child: GestureDetector(
@@ -339,7 +386,7 @@ class _LawyerManagementDocumentScreenState
         child: Container(
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: isSelected ? Colors.white : Colors.transparent,
+            color: isSelected ? selectedBgColor : Colors.transparent,
             borderRadius: BorderRadius.circular(20),
             boxShadow: isSelected
                 ? [
@@ -354,7 +401,7 @@ class _LawyerManagementDocumentScreenState
           child: Text(
             title,
             style: TextStyle(
-              color: isSelected ? Colors.black87 : Colors.grey.shade600,
+              color: isSelected ? textColor : Colors.grey.shade600,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               fontSize: 13,
             ),
@@ -367,57 +414,78 @@ class _LawyerManagementDocumentScreenState
   Widget _buildFilterDropdown(
     String label,
     String selectedValue,
-    List<String> items, {
+    List<String> items,
+    bool isDark, {
     bool hideLabel = false,
   }) {
+    final bgColor = isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF5F5F5);
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final labelColor = isDark ? Colors.white70 : Colors.black54;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (!hideLabel)
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.bold,
-              color: Colors.black54,
+              color: labelColor,
               letterSpacing: 1,
             ),
           ),
         if (!hideLabel) const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300),
+        Theme(
+          data: Theme.of(context).copyWith(
+            canvasColor: isDark ? const Color(0xFF252525) : Colors.white,
           ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: selectedValue,
-              isExpanded: true,
-              icon: Icon(
-                Icons.keyboard_arrow_down,
-                color: Colors.grey.shade600,
+          child: DropdownButtonFormField<String>(
+            value: selectedValue,
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: bgColor,
+              isDense: true,
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              focusedErrorBorder: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
               ),
-              style: const TextStyle(
-                color: Colors.black87,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-              items: items
-                  .map(
-                    (item) => DropdownMenuItem(value: item, child: Text(item)),
-                  )
-                  .toList(),
-              onChanged: (val) {
-                if (val != null) {
-                  setState(() {
-                    if (label == 'CASE') _selectedCaseFilter = val;
-                    if (label == 'CLIENT') _selectedClientFilter = val;
-                  });
-                }
-              },
             ),
+            isExpanded: true,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+            icon: Icon(
+              Icons.arrow_drop_down,
+              color: const Color(0xFFFF6B00),
+              size: 24,
+            ),
+            items: items
+                .map(
+                  (item) => DropdownMenuItem(
+                    value: item,
+                    child: Text(
+                      item,
+                      style: TextStyle(color: textColor, fontSize: 13),
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: (val) {
+              if (val != null) {
+                setState(() {
+                  if (label == 'CASE') _selectedCaseFilter = val;
+                  if (label == 'CLIENT') _selectedClientFilter = val;
+                });
+              }
+            },
           ),
         ),
       ],

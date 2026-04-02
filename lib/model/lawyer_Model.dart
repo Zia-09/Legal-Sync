@@ -39,6 +39,17 @@ class LawyerModel {
 
   final double aiScore;
 
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // CASE STATISTICS & PERFORMANCE TRACKING
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  final int casesTotal; // Total cases handled
+  final int casesWon; // Cases won/favorable verdict
+  final int casesLost; // Cases lost/unfavorable verdict
+  final int casesSettled; // Cases settled
+  final int casesDismissed; // Cases dismissed
+  final int casesAppealed; // Cases appealed
+  final double winRatio; // Percentage of cases won (0.0-100.0)
+
   const LawyerModel({
     required this.lawyerId,
     required this.name,
@@ -74,6 +85,13 @@ class LawyerModel {
     this.aiWinRate = 0.0,
     this.aiPredictionHistory = const [],
     this.aiScore = 0.0,
+    this.casesTotal = 0,
+    this.casesWon = 0,
+    this.casesLost = 0,
+    this.casesSettled = 0,
+    this.casesDismissed = 0,
+    this.casesAppealed = 0,
+    this.winRatio = 0.0,
   });
 
   /// ✅ Convert from Firestore
@@ -137,6 +155,16 @@ class LawyerModel {
       aiScore: (json['aiScore'] is num)
           ? (json['aiScore'] as num).toDouble()
           : 0.0,
+      // Case Statistics
+      casesTotal: json['casesTotal'] ?? 0,
+      casesWon: json['casesWon'] ?? 0,
+      casesLost: json['casesLost'] ?? 0,
+      casesSettled: json['casesSettled'] ?? 0,
+      casesDismissed: json['casesDismissed'] ?? 0,
+      casesAppealed: json['casesAppealed'] ?? 0,
+      winRatio: (json['winRatio'] is num)
+          ? (json['winRatio'] as num).toDouble()
+          : 0.0,
     );
   }
 
@@ -177,6 +205,14 @@ class LawyerModel {
       'aiWinRate': aiWinRate,
       'aiPredictionHistory': aiPredictionHistory,
       'aiScore': aiScore,
+      // Case Statistics
+      'casesTotal': casesTotal,
+      'casesWon': casesWon,
+      'casesLost': casesLost,
+      'casesSettled': casesSettled,
+      'casesDismissed': casesDismissed,
+      'casesAppealed': casesAppealed,
+      'winRatio': winRatio,
     };
   }
 
@@ -217,6 +253,13 @@ class LawyerModel {
     double? aiWinRate,
     List<Map<String, dynamic>>? aiPredictionHistory,
     double? aiScore,
+    int? casesTotal,
+    int? casesWon,
+    int? casesLost,
+    int? casesSettled,
+    int? casesDismissed,
+    int? casesAppealed,
+    double? winRatio,
   }) {
     return LawyerModel(
       lawyerId: lawyerId,
@@ -255,6 +298,13 @@ class LawyerModel {
       aiWinRate: aiWinRate ?? this.aiWinRate,
       aiPredictionHistory: aiPredictionHistory ?? this.aiPredictionHistory,
       aiScore: aiScore ?? this.aiScore,
+      casesTotal: casesTotal ?? this.casesTotal,
+      casesWon: casesWon ?? this.casesWon,
+      casesLost: casesLost ?? this.casesLost,
+      casesSettled: casesSettled ?? this.casesSettled,
+      casesDismissed: casesDismissed ?? this.casesDismissed,
+      casesAppealed: casesAppealed ?? this.casesAppealed,
+      winRatio: winRatio ?? this.winRatio,
     );
   }
 

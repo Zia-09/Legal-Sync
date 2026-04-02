@@ -31,6 +31,16 @@ class CaseModel {
   final String? aiModelVersion;
   final DateTime? aiPredictedAt;
 
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // CASE COMPLETION & OUTCOME FIELDS
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  final String?
+  caseOutcome; // 'won', 'lost', 'settled', 'dismissed', 'appealed'
+  final String? outcomeNotes; // Detailed description of outcome
+  final DateTime? completedAt; // When case was finalized
+  final int completedHearings; // Count of completed hearings
+  final List<String> completedHearingIds; // IDs of finished hearings
+
   const CaseModel({
     required this.caseId,
     required this.clientId,
@@ -60,6 +70,11 @@ class CaseModel {
     this.hearings = const [],
     this.caseNumber,
     this.clientName,
+    this.caseOutcome,
+    this.outcomeNotes,
+    this.completedAt,
+    this.completedHearings = 0,
+    this.completedHearingIds = const [],
   });
 
   // AI Prediction Fields comment (for clarity)
@@ -107,6 +122,14 @@ class CaseModel {
       'hearings': hearings,
       'caseNumber': caseNumber,
       'clientName': clientName,
+      // Case Completion Fields
+      'caseOutcome': caseOutcome,
+      'outcomeNotes': outcomeNotes,
+      'completedAt': completedAt != null
+          ? Timestamp.fromDate(completedAt!)
+          : null,
+      'completedHearings': completedHearings,
+      'completedHearingIds': completedHearingIds,
     };
   }
 
@@ -145,6 +168,14 @@ class CaseModel {
       'hearings': hearings,
       'caseNumber': caseNumber,
       'clientName': clientName,
+      // Case Completion Fields
+      'caseOutcome': caseOutcome,
+      'outcomeNotes': outcomeNotes,
+      'completedAt': completedAt != null
+          ? Timestamp.fromDate(completedAt!)
+          : null,
+      'completedHearings': completedHearings,
+      'completedHearingIds': completedHearingIds,
     };
   }
 
@@ -187,6 +218,13 @@ class CaseModel {
           const [],
       caseNumber: json['caseNumber']?.toString(),
       clientName: json['clientName']?.toString(),
+      // Case Completion Fields
+      caseOutcome: json['caseOutcome']?.toString(),
+      outcomeNotes: json['outcomeNotes']?.toString(),
+      completedAt: _safeDate(json['completedAt']),
+      completedHearings: (json['completedHearings'] as num?)?.toInt() ?? 0,
+      completedHearingIds:
+          (json['completedHearingIds'] as List?)?.cast<String>() ?? const [],
     );
   }
 
@@ -228,6 +266,13 @@ class CaseModel {
           const [],
       caseNumber: map['caseNumber']?.toString(),
       clientName: map['clientName']?.toString(),
+      // Case Completion Fields
+      caseOutcome: map['caseOutcome']?.toString(),
+      outcomeNotes: map['outcomeNotes']?.toString(),
+      completedAt: _safeDate(map['completedAt']),
+      completedHearings: (map['completedHearings'] as num?)?.toInt() ?? 0,
+      completedHearingIds:
+          (map['completedHearingIds'] as List?)?.cast<String>() ?? const [],
     );
   }
 
@@ -256,6 +301,11 @@ class CaseModel {
     List<Map<String, dynamic>>? hearings,
     String? caseNumber,
     String? clientName,
+    String? caseOutcome,
+    String? outcomeNotes,
+    DateTime? completedAt,
+    int? completedHearings,
+    List<String>? completedHearingIds,
   }) {
     return CaseModel(
       caseId: caseId,
@@ -286,6 +336,11 @@ class CaseModel {
       hearings: hearings ?? this.hearings,
       caseNumber: caseNumber ?? this.caseNumber,
       clientName: clientName ?? this.clientName,
+      caseOutcome: caseOutcome ?? this.caseOutcome,
+      outcomeNotes: outcomeNotes ?? this.outcomeNotes,
+      completedAt: completedAt ?? this.completedAt,
+      completedHearings: completedHearings ?? this.completedHearings,
+      completedHearingIds: completedHearingIds ?? this.completedHearingIds,
     );
   }
 }

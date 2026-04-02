@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../model/invoice_Model.dart';
 import '../services/invoice_service.dart';
+import 'package:legal_sync/provider/case_provider.dart';
 
 // Service provider
 final invoiceServiceProvider = Provider((ref) {
@@ -22,6 +23,43 @@ final streamInvoicesByLawyerProvider =
     StreamProvider.family<List<InvoiceModel>, String>((ref, lawyerId) {
       final service = ref.watch(invoiceServiceProvider);
       return service.getInvoicesByLawyer(lawyerId);
+    });
+
+/// Get all invoices for a client across all their cases (realtime)
+final streamInvoicesByClientProvider =
+    StreamProvider.family<List<InvoiceModel>, String>((ref, clientId) {
+      final casesAsync = ref.watch(casesByClientProvider(clientId));
+      final service = ref.watch(invoiceServiceProvider);
+      
+      return casesAsync.when(
+        data: (cases) {
+          if (cases.isEmpty) return Stream.value([]);
+          
+          // Emit updates every 2 seconds for realtime effect
+          return Stream.periodic(const Duration(seconds: 2), (_) async {
+            List<InvoiceModel> allInvoices = [];
+            final invoiceSet = <String>{};
+            
+            for (final caseModel in cases) {
+              try {
+                final invoices = await service.getInvoicesByCase(caseModel.caseId).first;
+                for (final invoice in invoices) {
+                  if (invoiceSet.add(invoice.invoiceId)) {
+                    allInvoices.add(invoice);
+                  }
+                }
+              } catch (e) {
+                // Skip on error
+              }
+            }
+            
+            allInvoices.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+            return allInvoices;
+          }).asyncMap((future) async => await future);
+        },
+        loading: () => Stream.value([]),
+        error: (err, st) => Stream.error(err),
+      );
     });
 
 /// Get single invoice by ID (Future provider)

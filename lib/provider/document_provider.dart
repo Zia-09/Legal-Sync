@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/model/document_Model.dart';
 import 'package:legal_sync/services/document_service.dart';
+import 'package:legal_sync/provider/case_provider.dart';
 
 final documentServiceProvider = Provider((ref) => DocumentService());
 
@@ -14,6 +15,43 @@ final documentsByCaseProvider =
     StreamProvider.family<List<DocumentModel>, String>((ref, caseId) {
       final service = ref.watch(documentServiceProvider);
       return service.getDocumentsByCase(caseId);
+    });
+
+/// Get all documents for a client across all their cases (realtime)
+final documentsByClientProvider = 
+    StreamProvider.family<List<DocumentModel>, String>((ref, clientId) {
+      final casesAsync = ref.watch(casesByClientProvider(clientId));
+      final service = ref.watch(documentServiceProvider);
+      
+      return casesAsync.when(
+        data: (cases) {
+          if (cases.isEmpty) return Stream.value([]);
+          
+          // Emit initial empty list, then poll for updates
+          return Stream.periodic(const Duration(seconds: 2), (_) async {
+            List<DocumentModel> allDocs = [];
+            final docSet = <String>{};
+            
+            for (final caseModel in cases) {
+              try {
+                final docs = await service.getClientVisibleDocuments(caseModel.caseId).first;
+                for (final doc in docs) {
+                  if (docSet.add(doc.documentId)) {
+                    allDocs.add(doc);
+                  }
+                }
+              } catch (e) {
+                // Skip on error
+              }
+            }
+            
+            allDocs.sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
+            return allDocs;
+          }).asyncMap((future) async => await future);
+        },
+        loading: () => Stream.value([]),
+        error: (err, st) => Stream.error(err),
+      );
     });
 
 final documentStateProvider =

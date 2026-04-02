@@ -1,12 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
+import 'dart:async';
 import 'package:legal_sync/app_helper/case_status_helper.dart';
 import 'package:legal_sync/model/case_Model.dart';
 import 'package:legal_sync/model/notification_model.dart';
 import 'package:legal_sync/services/case_status_history_service.dart';
 import 'package:legal_sync/services/notification_services.dart';
 import 'package:legal_sync/services/activity_service.dart';
+import 'package:legal_sync/services/email_service.dart';
+import 'package:legal_sync/services/lawyer_services.dart';
 
 /// 🔹 CaseService handles all Firestore operations for case management
 class CaseService {
@@ -78,6 +81,68 @@ class CaseService {
       await _firestore.collection(_collection).doc(caseId).update(data);
     } catch (e) {
       throw Exception('❌ Failed to update case: $e');
+    }
+  }
+
+  /// 🔹 Update case and send email notification to client
+  Future<void> updateCaseWithEmailNotification({
+    required String caseId,
+    required Map<String, dynamic> updateData,
+    required String
+    updateType, // 'status_updated', 'note_added', 'document_added'
+    required String updateDescription,
+  }) async {
+    try {
+      // First update the case
+      updateData['updatedAt'] = Timestamp.now();
+      await _firestore.collection(_collection).doc(caseId).update(updateData);
+
+      // Get case and client data for email
+      final caseDoc = await _firestore
+          .collection(_collection)
+          .doc(caseId)
+          .get();
+      if (!caseDoc.exists) return;
+
+      final caseData = caseDoc.data() as Map<String, dynamic>;
+      final clientId = caseData['clientId'] as String?;
+      final caseTitle = caseData['title'] as String? ?? 'Your Case';
+      final caseNumber = caseData['caseNumber'] as String? ?? 'N/A';
+      final newStatus =
+          updateData['status'] as String? ??
+          caseData['status'] as String? ??
+          'Updated';
+
+      if (clientId != null && clientId.isNotEmpty) {
+        // Get client email
+        final clientDoc = await _firestore
+            .collection('users')
+            .doc(clientId)
+            .get();
+        if (clientDoc.exists) {
+          final clientData = clientDoc.data() as Map<String, dynamic>;
+          final clientEmail = clientData['email'] as String?;
+          final clientName = clientData['name'] as String? ?? 'Client';
+
+          if (clientEmail != null && clientEmail.isNotEmpty) {
+            // Send email notification (fire-and-forget to avoid blocking)
+            unawaited(
+              EmailService().sendCaseUpdateEmail(
+                toEmail: clientEmail,
+                recipientName: clientName,
+                caseTitle: caseTitle,
+                caseNumber: caseNumber,
+                updateType: updateType,
+                updateDescription: updateDescription,
+                newStatus: newStatus,
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      print('⚠️ Case updated but email notification failed: $e');
+      // Don't throw - case was updated successfully even if email failed
     }
   }
 
@@ -411,8 +476,328 @@ class CaseService {
   }
 
   // =========================
+  // CASE COMPLETION & OUTCOME
+  // =========================
+
+  /// 🔹 Mark case with final outcome (won, lost, settled, dismissed, appealed)
+  /// Sends completion email to client with outcome details
+  Future<void> markCaseWithOutcome({
+    required String caseId,
+    required String
+    outcome, // 'won', 'lost', 'settled', 'dismissed', 'appealed'
+    required String outcomeNotes,
+    String? lawyerId,
+  }) async {
+    try {
+      // Get case and client data
+      final caseDoc = await _firestore
+          .collection(_collection)
+          .doc(caseId)
+          .get();
+      if (!caseDoc.exists) throw Exception('Case not found');
+
+      final caseData = caseDoc.data() as Map<String, dynamic>;
+      final clientId = caseData['clientId'] as String;
+      final lawyerIdVal = lawyerId ?? (caseData['lawyerId'] as String?);
+      final caseTitle = caseData['title'] as String? ?? 'Your Case';
+
+      // Update case with outcome
+      await _firestore.collection(_collection).doc(caseId).update({
+        'status': 'closed',
+        'caseOutcome': outcome,
+        'outcomeNotes': outcomeNotes,
+        'completedAt': Timestamp.now(),
+        'updatedAt': Timestamp.now(),
+      });
+
+      // Log status history
+      await _statusHistoryService.logStatusChange(
+        caseId: caseId,
+        lawyerId: lawyerIdVal ?? '',
+        previousStatus: caseData['status'] as String? ?? 'pending',
+        newStatus: 'closed',
+        changedBy: lawyerIdVal ?? 'system',
+        reason: 'Case completed with outcome: $outcome',
+        notes: outcomeNotes,
+      );
+
+      // Get client email and send notification
+      final clientDoc = await _firestore
+          .collection('users')
+          .doc(clientId)
+          .get();
+      if (clientDoc.exists) {
+        final clientData = clientDoc.data() as Map<String, dynamic>;
+        final clientEmail = clientData['email'] as String?;
+        final clientName = clientData['name'] as String? ?? 'Client';
+
+        if (clientEmail != null && clientEmail.isNotEmpty) {
+          // Send appropriate completion email based on outcome
+          unawaited(
+            _sendCaseCompletionEmail(
+              clientEmail: clientEmail,
+              clientName: clientName,
+              lawyerName: caseData['lawyerName'] as String? ?? 'Your Lawyer',
+              caseTitle: caseTitle,
+              outcome: outcome,
+              outcomeNotes: outcomeNotes,
+            ),
+          );
+        }
+      }
+
+      // Add notification
+      if (clientId.isNotEmpty) {
+        await _notificationService.addNotification(
+          NotificationModel(
+            notificationId: _notificationService.generateNotificationId(),
+            userId: clientId,
+            title: 'Case Completed',
+            message:
+                'Your case "$caseTitle" has been completed. Outcome: $outcome',
+            type: 'case_completed',
+            createdAt: DateTime.now(),
+            metadata: {'caseId': caseId, 'outcome': outcome},
+          ),
+        );
+      }
+
+      // Update lawyer case statistics
+      if (lawyerIdVal != null && lawyerIdVal.isNotEmpty) {
+        try {
+          final lawyerService = LawyerService();
+          await lawyerService.updateCaseStatistics(
+            lawyerId: lawyerIdVal,
+            outcome: outcome,
+          );
+        } catch (e) {
+          print('⚠️ Failed to update lawyer statistics: $e');
+          // Don't throw - case was already marked complete
+        }
+      }
+    } catch (e) {
+      throw Exception('❌ Failed to mark case with outcome: $e');
+    }
+  }
+
+  /// 🔹 Complete a hearing for a case
+  /// Increments hearing count and tracks hearing completion
+  Future<void> completeHearing({
+    required String caseId,
+    required String hearingId,
+  }) async {
+    try {
+      final caseDoc = await _firestore
+          .collection(_collection)
+          .doc(caseId)
+          .get();
+      if (!caseDoc.exists) throw Exception('Case not found');
+
+      final caseData = caseDoc.data() as Map<String, dynamic>;
+      final completedHearings =
+          (caseData['completedHearings'] as num?)?.toInt() ?? 0;
+      final completedIds =
+          (caseData['completedHearingIds'] as List?)?.cast<String>() ?? [];
+
+      // Add hearing ID if not already present
+      if (!completedIds.contains(hearingId)) {
+        completedIds.add(hearingId);
+
+        // Update case with completed hearing
+        await _firestore.collection(_collection).doc(caseId).update({
+          'completedHearings': completedHearings + 1,
+          'completedHearingIds': completedIds,
+          'updatedAt': Timestamp.now(),
+        });
+      }
+
+      // Notify if case is now ready for completion
+      final hearingsList =
+          (caseData['hearings'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      if (completedIds.length == hearingsList.length &&
+          hearingsList.isNotEmpty) {
+        // All hearings completed - notify lawyer
+        final lawyerId = caseData['lawyerId'] as String?;
+        if (lawyerId != null && lawyerId.isNotEmpty) {
+          await _notificationService.addNotification(
+            NotificationModel(
+              notificationId: _notificationService.generateNotificationId(),
+              userId: lawyerId,
+              title: 'Case Ready for Completion',
+              message:
+                  'All hearings for "${caseData['title']}" have been completed. You can now close the case.',
+              type: 'case_ready_for_completion',
+              createdAt: DateTime.now(),
+              metadata: {'caseId': caseId},
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      throw Exception('❌ Failed to complete hearing: $e');
+    }
+  }
+
+  /// 🔹 Get case progress percentage based on completed hearings
+  Stream<int> streamCaseProgressPercentage(String caseId) {
+    return _firestore.collection(_collection).doc(caseId).snapshots().map((
+      snapshot,
+    ) {
+      if (!snapshot.exists) return 0;
+
+      final data = snapshot.data() as Map<String, dynamic>;
+      final hearings =
+          (data['hearings'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final completedHearings =
+          (data['completedHearings'] as num?)?.toInt() ?? 0;
+
+      if (hearings.isEmpty) return 0;
+      return ((completedHearings / hearings.length) * 100).toInt();
+    });
+  }
+
+  /// 🔹 Check if case is ready for completion (all hearings done)
+  Future<bool> checkIfCaseReadyForCompletion(String caseId) async {
+    try {
+      final caseDoc = await _firestore
+          .collection(_collection)
+          .doc(caseId)
+          .get();
+      if (!caseDoc.exists) return false;
+
+      final data = caseDoc.data() as Map<String, dynamic>;
+      final hearings =
+          (data['hearings'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final completedHearings =
+          (data['completedHearings'] as num?)?.toInt() ?? 0;
+
+      return hearings.isNotEmpty && completedHearings == hearings.length;
+    } catch (e) {
+      print('❌ Error checking case completion: $e');
+      return false;
+    }
+  }
+
+  /// 🔹 Stream cases that are ready for completion
+  Stream<List<CaseModel>> streamCasesReadyForCompletion(String lawyerId) {
+    return _firestore
+        .collection(_collection)
+        .where('lawyerId', isEqualTo: lawyerId)
+        .where('status', isEqualTo: 'in_progress')
+        .snapshots()
+        .map((snapshot) {
+          final cases = snapshot.docs
+              .map(
+                (doc) => CaseModel.fromJson({
+                  ...doc.data() as Map<String, dynamic>,
+                  'caseId': doc.id,
+                }),
+              )
+              .toList();
+
+          // Filter to only include cases where all hearings are completed
+          return cases.where((caseModel) {
+            final hearings = caseModel.hearings;
+            final completedHearings = caseModel.completedHearings;
+            return hearings.isNotEmpty && completedHearings == hearings.length;
+          }).toList();
+        });
+  }
+
+  /// 🔹 Get case completion metrics
+  Future<Map<String, dynamic>> getCaseCompletionMetrics(String caseId) async {
+    try {
+      final caseDoc = await _firestore
+          .collection(_collection)
+          .doc(caseId)
+          .get();
+      if (!caseDoc.exists) throw Exception('Case not found');
+
+      final data = caseDoc.data() as Map<String, dynamic>;
+      final hearings =
+          (data['hearings'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final completedHearings =
+          (data['completedHearings'] as num?)?.toInt() ?? 0;
+      final caseOutcome = data['caseOutcome'] as String?;
+      final completedAt = data['completedAt'];
+
+      final percentage = hearings.isEmpty
+          ? 0
+          : ((completedHearings / hearings.length) * 100).toInt();
+
+      return {
+        'totalHearings': hearings.length,
+        'completedHearings': completedHearings,
+        'percentageComplete': percentage,
+        'isReadyForCompletion':
+            hearings.isNotEmpty && completedHearings == hearings.length,
+        'isCompleted': caseOutcome != null,
+        'outcome': caseOutcome,
+        'completedAt': completedAt,
+      };
+    } catch (e) {
+      throw Exception('❌ Failed to get completion metrics: $e');
+    }
+  }
+
+  // =========================
   // PRIVATE HELPERS
   // =========================
+
+  /// 🔹 Send case completion email with outcome
+  Future<void> _sendCaseCompletionEmail({
+    required String clientEmail,
+    required String clientName,
+    required String lawyerName,
+    required String caseTitle,
+    required String outcome,
+    required String outcomeNotes,
+  }) async {
+    try {
+      final subject = 'Case Completed: $caseTitle';
+      final outcomeText = outcome.toUpperCase();
+
+      final htmlContent =
+          '''
+        <html>
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <h2 style="color: #0066cc;">Case Completion Notification</h2>
+              
+              <p>Dear $clientName,</p>
+              
+              <p>We are pleased to inform you that your case has been completed.</p>
+              
+              <div style="background-color: #f5f5f5; padding: 15px; border-left: 4px solid #0066cc; margin: 20px 0;">
+                <p><strong>Case Title:</strong> $caseTitle</p>
+                <p><strong>Outcome:</strong> <span style="color: #28a745; font-weight: bold;">$outcomeText</span></p>
+                <p><strong>Details:</strong> $outcomeNotes</p>
+              </div>
+              
+              <p>Your lawyer, <strong>$lawyerName</strong>, is available if you have any follow-up questions or need further assistance.</p>
+              
+              <p>Thank you for trusting us with your legal matter.</p>
+              
+              <p>Best regards,<br>LegalSync Team</p>
+              
+              <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
+              <footer style="font-size: 12px; color: #666;">
+                <p>This is an automated email from LegalSync. Please do not reply directly.</p>
+              </footer>
+            </div>
+          </body>
+        </html>
+      ''';
+
+      await EmailService().sendProfessionalEmail(
+        to: clientEmail,
+        subject: subject,
+        htmlContent: htmlContent,
+      );
+    } catch (e) {
+      print('⚠️ Failed to send case completion email: $e');
+    }
+  }
 
   Stream<List<CaseModel>> _getCasesStream(Query query) {
     return query.snapshots().map(

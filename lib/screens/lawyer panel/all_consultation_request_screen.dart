@@ -1,95 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
+import 'package:legal_sync/model/appoinment_model.dart';
+import 'package:legal_sync/model/client_Model.dart';
+import 'package:legal_sync/provider/appointment_provider.dart';
+import 'package:legal_sync/provider/auth_provider.dart';
+import 'package:legal_sync/provider/client_provider.dart';
 
-class AllConsultationRequestScreen extends StatefulWidget {
+class AllConsultationRequestScreen extends ConsumerStatefulWidget {
   const AllConsultationRequestScreen({super.key});
 
   @override
-  State<AllConsultationRequestScreen> createState() =>
+  ConsumerState<AllConsultationRequestScreen> createState() =>
       _AllConsultationRequestScreenState();
 }
 
-class ConsultationRequest {
-  final String id;
-  final String clientName;
-  final String priority;
-  final Color priorityColor;
-  final Color priorityBg;
-  final String timeText;
-  final String category;
-  final String avatarUrl;
-
-  ConsultationRequest({
-    required this.id,
-    required this.clientName,
-    required this.priority,
-    required this.priorityColor,
-    required this.priorityBg,
-    required this.timeText,
-    required this.category,
-    required this.avatarUrl,
-  });
-}
-
 class _AllConsultationRequestScreenState
-    extends State<AllConsultationRequestScreen>
+    extends ConsumerState<AllConsultationRequestScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
-  final List<ConsultationRequest> _pendingRequests = [
-    ConsultationRequest(
-      id: '1',
-      clientName: 'Michael Henderson',
-      priority: 'High Priority',
-      priorityColor: Colors.red.shade700,
-      priorityBg: Colors.red.shade50,
-      timeText: '12 mins ago',
-      category: 'Corporate Litigation',
-      avatarUrl: 'https://i.pravatar.cc/150?img=12',
-    ),
-    ConsultationRequest(
-      id: '2',
-      clientName: 'Sarah Miller',
-      priority: 'Standard',
-      priorityColor: Colors.blue.shade700,
-      priorityBg: Colors.blue.shade50,
-      timeText: '1 hour ago',
-      category: 'Real Estate Law',
-      avatarUrl: 'https://i.pravatar.cc/150?img=5',
-    ),
-    ConsultationRequest(
-      id: '3',
-      clientName: 'Robert Smith',
-      priority: 'Standard',
-      priorityColor: Colors.blue.shade700,
-      priorityBg: Colors.blue.shade50,
-      timeText: '3 hours ago',
-      category: 'Intellectual Property',
-      avatarUrl: 'https://i.pravatar.cc/150?img=13',
-    ),
-  ];
-
-  final List<ConsultationRequest> _acceptedRequests = [];
+  late List<AppointmentModel> _acceptedRequests = [];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-  }
-
-  void _acceptRequest(ConsultationRequest request) {
-    setState(() {
-      _pendingRequests.remove(request);
-      _acceptedRequests.add(request);
-    });
-    // Optional: Switch to Accepted tab automatically
-    // _tabController.animateTo(1);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Accepted consultation with ${request.clientName}'),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
-      ),
-    );
   }
 
   @override
@@ -106,6 +42,16 @@ class _AllConsultationRequestScreenState
         : const Color(0xFFF7F9FC);
     final appBarBg = isDark ? const Color(0xFF1A1A1A) : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black87;
+
+    final authState = ref.watch(authStateProvider);
+    final currentUser = authState.value;
+
+    if (currentUser == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Consultation Requests')),
+        body: const Center(child: Text('Not authenticated')),
+      );
+    }
 
     return Scaffold(
       backgroundColor: scaffoldBg,
@@ -153,7 +99,7 @@ class _AllConsultationRequestScreenState
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildPendingList(),
+          _buildPendingList(currentUser.uid),
           _buildAcceptedList(),
           _buildHistoryList(),
         ],
@@ -161,20 +107,58 @@ class _AllConsultationRequestScreenState
     );
   }
 
-  Widget _buildPendingList() {
-    if (_pendingRequests.isEmpty) {
-      return const Center(child: Text('No pending requests.'));
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.all(20),
-      itemCount: _pendingRequests.length,
-      itemBuilder: (context, index) {
-        final request = _pendingRequests[index];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: _buildConsultationCard(request: request, showActions: true),
+  Widget _buildPendingList(String lawyerId) {
+    final appointmentsAsync = ref.watch(
+      streamPendingAppointmentsForLawyerProvider(lawyerId),
+    );
+    final clientsAsync = ref.watch(allClientsProvider);
+
+    return appointmentsAsync.when(
+      data: (appointments) {
+        return clientsAsync.when(
+          data: (clients) {
+            if (appointments.isEmpty) {
+              return const Center(child: Text('No pending requests.'));
+            }
+            return ListView.builder(
+              padding: const EdgeInsets.all(20),
+              itemCount: appointments.length,
+              itemBuilder: (context, index) {
+                final appointment = appointments[index];
+                final client = clients.firstWhere(
+                  (c) => c.clientId == appointment.clientId,
+                  orElse: () => ClientModel(
+                    clientId: appointment.clientId,
+                    name: 'Unknown Client',
+                    email: '',
+                    phone: '',
+                    profileImage: null,
+                    caseIds: [],
+                    walletBalance: 0,
+                    hasPendingPayment: false,
+                    isVerified: false,
+                    status: 'active',
+                    joinedAt: Timestamp.now(),
+                  ),
+                );
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: _buildConsultationCard(
+                    appointment: appointment,
+                    client: client,
+                    showActions: true,
+                  ),
+                );
+              },
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, stack) => Center(child: Text('Error: $error')),
         );
       },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => Center(child: Text('Error: $error')),
     );
   }
 
@@ -182,20 +166,7 @@ class _AllConsultationRequestScreenState
     if (_acceptedRequests.isEmpty) {
       return const Center(child: Text('No accepted requests yet.'));
     }
-    return ListView.builder(
-      padding: const EdgeInsets.all(20),
-      itemCount: _acceptedRequests.length,
-      itemBuilder: (context, index) {
-        final request = _acceptedRequests[index];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: _buildConsultationCard(
-            request: request,
-            showActions: false, // Don't show Accept/Decline once accepted
-          ),
-        );
-      },
-    );
+    return const Center(child: Text('Feature coming soon'));
   }
 
   Widget _buildHistoryList() {
@@ -203,7 +174,8 @@ class _AllConsultationRequestScreenState
   }
 
   Widget _buildConsultationCard({
-    required ConsultationRequest request,
+    required AppointmentModel appointment,
+    required ClientModel client,
     required bool showActions,
   }) {
     return Container(
@@ -235,11 +207,25 @@ class _AllConsultationRequestScreenState
               children: [
                 CircleAvatar(
                   radius: 18,
-                  backgroundImage: NetworkImage(request.avatarUrl),
+                  backgroundColor: Colors.grey.shade200,
+                  backgroundImage:
+                      (client.profileImage != null &&
+                          client.profileImage!.isNotEmpty)
+                      ? NetworkImage(client.profileImage!)
+                      : null,
+                  child:
+                      (client.profileImage == null ||
+                          client.profileImage!.isEmpty)
+                      ? Icon(
+                          Icons.person,
+                          size: 20,
+                          color: Colors.grey.shade600,
+                        )
+                      : null,
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  request.clientName,
+                  client.name,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
@@ -264,20 +250,20 @@ class _AllConsultationRequestScreenState
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: request.priorityBg,
+                        color: Colors.red.shade50,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        request.priority.toUpperCase(),
+                        'CONSULTATION',
                         style: TextStyle(
-                          color: request.priorityColor,
+                          color: Colors.red,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                     Text(
-                      request.timeText,
+                      DateFormat('h:mm a').format(appointment.scheduledAt),
                       style: TextStyle(
                         color: Colors.grey.shade500,
                         fontSize: 12,
@@ -287,7 +273,7 @@ class _AllConsultationRequestScreenState
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  request.category,
+                  appointment.adminNote ?? 'Legal Consultation Request',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -301,7 +287,19 @@ class _AllConsultationRequestScreenState
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () {
-                            // Decline logic if needed
+                            // Decline logic
+                            ref
+                                .read(appointmentStateProvider.notifier)
+                                .rejectAppointment(appointment.appointmentId);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Declined consultation with ${client.name}',
+                                ),
+                                backgroundColor: Colors.orange,
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
                           },
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -322,7 +320,21 @@ class _AllConsultationRequestScreenState
                       const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () => _acceptRequest(request),
+                          onPressed: () {
+                            // Accept logic
+                            ref
+                                .read(appointmentStateProvider.notifier)
+                                .approveAppointment(appointment.appointmentId);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Accepted consultation with ${client.name}',
+                                ),
+                                backgroundColor: Colors.green,
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFFF6B00),
                             padding: const EdgeInsets.symmetric(vertical: 12),

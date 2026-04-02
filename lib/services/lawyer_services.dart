@@ -202,4 +202,157 @@ class LawyerService {
       throw Exception('Failed to get top AI lawyers: $e');
     }
   }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // CASE STATISTICS & OUTCOME TRACKING
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  /// 📊 Update lawyer case statistics when case is completed
+  /// Called from CaseService.markCaseWithOutcome()
+  Future<void> updateCaseStatistics({
+    required String lawyerId,
+    required String
+    outcome, // 'won', 'lost', 'settled', 'dismissed', 'appealed'
+  }) async {
+    try {
+      final lawyerDoc = await _firestore
+          .collection('lawyers')
+          .doc(lawyerId)
+          .get();
+      if (!lawyerDoc.exists) {
+        throw Exception('Lawyer not found');
+      }
+
+      final currentData = lawyerDoc.data() as Map<String, dynamic>;
+
+      // Get current values
+      int casesTotal = (currentData['casesTotal'] as num?)?.toInt() ?? 0;
+      int casesWon = (currentData['casesWon'] as num?)?.toInt() ?? 0;
+      int casesLost = (currentData['casesLost'] as num?)?.toInt() ?? 0;
+      int casesSettled = (currentData['casesSettled'] as num?)?.toInt() ?? 0;
+      int casesDismissed =
+          (currentData['casesDismissed'] as num?)?.toInt() ?? 0;
+      int casesAppealed = (currentData['casesAppealed'] as num?)?.toInt() ?? 0;
+
+      // Increment case total
+      casesTotal++;
+
+      // Increment based on outcome
+      switch (outcome.toLowerCase()) {
+        case 'won':
+          casesWon++;
+          break;
+        case 'lost':
+          casesLost++;
+          break;
+        case 'settled':
+          casesSettled++;
+          break;
+        case 'dismissed':
+          casesDismissed++;
+          break;
+        case 'appealed':
+          casesAppealed++;
+          break;
+      }
+
+      // Calculate win ratio (percentage)
+      final winRatio = casesTotal > 0 ? ((casesWon / casesTotal) * 100) : 0.0;
+
+      // Update Firestore
+      await _firestore.collection('lawyers').doc(lawyerId).update({
+        'casesTotal': casesTotal,
+        'casesWon': casesWon,
+        'casesLost': casesLost,
+        'casesSettled': casesSettled,
+        'casesDismissed': casesDismissed,
+        'casesAppealed': casesAppealed,
+        'winRatio': winRatio,
+      });
+
+      print('✅ Case statistics updated for lawyer $lawyerId');
+      print(
+        '   Total: $casesTotal | Won: $casesWon | Lost: $casesLost | Settled: $casesSettled | Win Ratio: ${winRatio.toStringAsFixed(1)}%',
+      );
+    } catch (e) {
+      throw Exception('Failed to update case statistics: $e');
+    }
+  }
+
+  /// 📊 Get lawyer case statistics
+  Future<Map<String, dynamic>> getLawyerCaseStatistics(String lawyerId) async {
+    try {
+      final lawyer = await getLawyerById(lawyerId);
+      if (lawyer == null) throw Exception('Lawyer not found');
+
+      return {
+        'casesTotal': lawyer.casesTotal,
+        'casesWon': lawyer.casesWon,
+        'casesLost': lawyer.casesLost,
+        'casesSettled': lawyer.casesSettled,
+        'casesDismissed': lawyer.casesDismissed,
+        'casesAppealed': lawyer.casesAppealed,
+        'winRatio': lawyer.winRatio,
+        'displayText':
+            '${lawyer.casesWon}W - ${lawyer.casesLost}L - ${lawyer.casesSettled}S (${lawyer.winRatio.toStringAsFixed(1)}%)',
+      };
+    } catch (e) {
+      throw Exception('Failed to get case statistics: $e');
+    }
+  }
+
+  /// 📊 Stream lawyer case statistics in real-time
+  Stream<Map<String, dynamic>> streamLawyerCaseStatistics(String lawyerId) {
+    return getLawyerStream(lawyerId).map((lawyer) {
+      if (lawyer == null) {
+        return {
+          'casesTotal': 0,
+          'casesWon': 0,
+          'casesLost': 0,
+          'casesSettled': 0,
+          'casesDismissed': 0,
+          'casesAppealed': 0,
+          'winRatio': 0.0,
+          'displayText': 'No cases yet',
+        };
+      }
+
+      return {
+        'casesTotal': lawyer.casesTotal,
+        'casesWon': lawyer.casesWon,
+        'casesLost': lawyer.casesLost,
+        'casesSettled': lawyer.casesSettled,
+        'casesDismissed': lawyer.casesDismissed,
+        'casesAppealed': lawyer.casesAppealed,
+        'winRatio': lawyer.winRatio,
+        'displayText':
+            '${lawyer.casesWon}W - ${lawyer.casesLost}L - ${lawyer.casesSettled}S (${lawyer.winRatio.toStringAsFixed(1)}%)',
+      };
+    });
+  }
+
+  /// 📊 Get top lawyers by win ratio
+  Future<List<LawyerModel>> getTopLawyersByWinRatio({int limit = 10}) async {
+    try {
+      final snapshot = await _firestore.collection('lawyers').get();
+
+      final lawyers = snapshot.docs
+          .map(
+            (doc) => LawyerModel.fromJson({
+              ...doc.data() as Map<String, dynamic>,
+              'lawyerId': doc.id,
+            }),
+          )
+          .toList();
+
+      // Filter only lawyers with at least 1 completed case
+      final activeLawyers = lawyers.where((l) => l.casesTotal > 0).toList();
+
+      // Sort by win ratio
+      activeLawyers.sort((a, b) => b.winRatio.compareTo(a.winRatio));
+      return activeLawyers.take(limit).toList();
+    } catch (e) {
+      throw Exception('Failed to get top lawyers by win ratio: $e');
+    }
+  }
 }

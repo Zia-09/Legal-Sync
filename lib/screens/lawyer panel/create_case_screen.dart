@@ -7,8 +7,8 @@ import 'package:legal_sync/model/case_Model.dart';
 import 'package:legal_sync/model/client_Model.dart';
 import 'package:legal_sync/provider/auth_provider.dart';
 import 'package:legal_sync/provider/case_provider.dart';
-import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/provider/document_provider.dart';
+import 'package:legal_sync/provider/appointment_provider.dart';
 
 class CreateCaseScreen extends ConsumerStatefulWidget {
   const CreateCaseScreen({super.key});
@@ -483,30 +483,73 @@ class _CreateCaseScreenState extends ConsumerState<CreateCaseScreen> {
   }
 
   Widget _buildClientSelector() {
-    final clientsAsync = ref.watch(myClientsProvider);
+    final user = ref.watch(authStateProvider).value;
+    if (user == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    // ✅ Get only clients with ACCEPTED consultations
+    final clientsAsync = ref.watch(
+      clientsWithAcceptedConsultationsProvider(user.uid),
+    );
 
     return clientsAsync.when(
       data: (clients) {
         if (clients.isEmpty) {
-          // Fallback to all clients if no specific clients found
-          return ref
-              .watch(allClientsProvider)
-              .when(
-                data: (allClients) {
-                  return _buildDropdown(allClients, isFallback: true);
-                },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, stack) => Text('Error: $err'),
-              );
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.orange.shade300),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                    SizedBox(width: 12),
+                    Flexible(
+                      child: Text(
+                        'No accepted consultations yet',
+                        style: TextStyle(
+                          color: Colors.orange,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Accept client consultation requests first to create cases.',
+                  style: TextStyle(color: Colors.orange.shade700, fontSize: 12),
+                ),
+              ],
+            ),
+          );
         }
+
         return _buildDropdown(clients);
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, stack) => Text('Error loading clients: $err'),
+      error: (err, stack) => Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.red.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.red.shade300),
+        ),
+        child: Text(
+          'Error loading clients: $err',
+          style: TextStyle(color: Colors.red.shade700),
+        ),
+      ),
     );
   }
 
-  Widget _buildDropdown(List<ClientModel> clients, {bool isFallback = false}) {
+  Widget _buildDropdown(List<ClientModel> clients) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
@@ -517,7 +560,7 @@ class _CreateCaseScreenState extends ConsumerState<CreateCaseScreen> {
       child: DropdownButtonHideUnderline(
         child: DropdownButton<ClientModel>(
           value: _selectedClient,
-          hint: Text(isFallback ? 'Select From All Clients' : 'Select Client'),
+          hint: const Text('Select Client'),
           isExpanded: true,
           items: clients.map((client) {
             return DropdownMenuItem<ClientModel>(

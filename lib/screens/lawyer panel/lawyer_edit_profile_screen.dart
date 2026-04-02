@@ -277,6 +277,11 @@ class _LawyerEditProfileScreenState
                   child: ElevatedButton(
                     onPressed: () async {
                       if (lawyer == null) return;
+
+                      // Get context references BEFORE async operation
+                      final messenger = ScaffoldMessenger.of(context);
+                      final navigator = Navigator.of(context);
+
                       try {
                         setState(() => _isUploading = true);
                         await ref
@@ -294,9 +299,6 @@ class _LawyerEditProfileScreenState
                               },
                             );
 
-                        final messenger = ScaffoldMessenger.of(context);
-                        final navigator = Navigator.of(context);
-
                         // Refresh lawyer data
                         ref.invalidate(currentLawyerProvider);
 
@@ -310,7 +312,7 @@ class _LawyerEditProfileScreenState
                         navigator.pop();
                       } catch (e) {
                         if (!mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        messenger.showSnackBar(
                           SnackBar(content: Text('Failed to update: $e')),
                         );
                       } finally {

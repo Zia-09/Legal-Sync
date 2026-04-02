@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:legal_sync/model/invoice_Model.dart';
 import 'package:legal_sync/services/time_tracking_service.dart';
+import 'package:legal_sync/services/email_service.dart';
 
 class InvoiceService {
   InvoiceService({
@@ -151,16 +152,48 @@ class InvoiceService {
     }
   }
 
-  /// 🔹 Send invoice to client
-  Future<void> sendInvoice(String invoiceId, String clientEmail) async {
+  /// 🔹 Send invoice to client (integrate email service to send invoice)
+  Future<void> sendInvoice(String invoiceId, String clientEmail, {String? clientName, String? lawyerName}) async {
     try {
+      final invoice = await getInvoiceById(invoiceId);
+      if (invoice == null) throw Exception('Invoice not found');
+
+      // Send email via EmailService
+      await EmailService().sendInvoiceEmail(
+        toEmail: clientEmail,
+        clientName: clientName ?? 'Valued Client',
+        lawyerName: lawyerName ?? 'Your Legal Consultant',
+        invoiceNumber: invoice.invoiceNumber ?? 'INV-${invoice.invoiceId}',
+        invoiceId: invoiceId,
+        totalAmount: invoice.totalAmount,
+        dueDate: invoice.dueDate?.toString() ?? 'To be determined',
+        caseNumber: invoice.caseId,
+        description: invoice.notes ?? 'Professional legal services',
+      );
+
       // Update status to "sent"
       await updateInvoiceStatus(invoiceId, 'sent');
-
-      // TODO: Integrate email service to send invoice
-      // For now, just mark as sent
     } catch (e) {
-      throw Exception('Failed to send invoice: $e');
+      throw Exception('Failed to send invoice email: $e');
+    }
+  }
+
+  /// 🔹 Send invoice reminder email
+  Future<void> sendInvoiceReminder(String invoiceId, String clientEmail, {String? clientName}) async {
+    try {
+      final invoice = await getInvoiceById(invoiceId);
+      if (invoice == null) throw Exception('Invoice not found');
+
+      // Send reminder email
+      await EmailService().sendInvoiceReminderEmail(
+        toEmail: clientEmail,
+        clientName: clientName ?? 'Valued Client',
+        invoiceNumber: invoice.invoiceNumber ?? 'INV-${invoice.invoiceId}',
+        totalAmount: invoice.totalAmount,
+        dueDate: invoice.dueDate?.toString() ?? 'Soon',
+      );
+    } catch (e) {
+      throw Exception('Failed to send invoice reminder: $e');
     }
   }
 

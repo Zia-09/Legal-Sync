@@ -6,6 +6,7 @@ import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/services/appoinment_services.dart';
 import 'package:legal_sync/services/notification_services.dart';
 import 'package:legal_sync/services/review_service.dart';
+import 'package:legal_sync/services/lawyer_services.dart';
 import 'chat_detail_screen.dart';
 import 'messages_screen.dart';
 import 'leave_review_screen.dart';
@@ -269,6 +270,246 @@ class LawyerProfileScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 20),
+
+                  // 📊 LAWYER CASE STATISTICS - OPTION 1: Simple Stats Bar
+                  if (lawyer != null)
+                    StreamBuilder<Map<String, dynamic>>(
+                      stream: LawyerService().streamLawyerCaseStatistics(
+                        lawyer!.lawyerId,
+                      ),
+                      builder: (context, snapshot) {
+                        final stats = snapshot.data ?? {};
+                        final displayText =
+                            stats['displayText'] ?? 'No cases yet';
+
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1A1A1A),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: const Color(
+                                0xFFFF6B00,
+                              ).withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              const Text(
+                                'Case Record',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                displayText,
+                                style: const TextStyle(
+                                  color: Color(0xFFFF6B00),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  const SizedBox(height: 16),
+
+                  // 📊 OPTION 2: Detailed Stats Widget
+                  if (lawyer != null)
+                    StreamBuilder<Map<String, dynamic>>(
+                      stream: LawyerService().streamLawyerCaseStatistics(
+                        lawyer!.lawyerId,
+                      ),
+                      builder: (context, snapshot) {
+                        final stats = snapshot.data ?? {};
+                        final total = stats['casesTotal'] ?? 0;
+                        final won = stats['casesWon'] ?? 0;
+                        final lost = stats['casesLost'] ?? 0;
+                        final settled = stats['casesSettled'] ?? 0;
+                        final winRatio = stats['winRatio'] as double? ?? 0.0;
+
+                        return Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1A1A1A),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Case Performance',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              // Total Cases
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Total Cases',
+                                    style: TextStyle(color: Colors.white70),
+                                  ),
+                                  Text(
+                                    '$total',
+                                    style: const TextStyle(
+                                      color: Color(0xFFFF6B00),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const Divider(color: Colors.white10),
+                              // Won
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Won',
+                                    style: TextStyle(color: Colors.white70),
+                                  ),
+                                  Text(
+                                    '$won',
+                                    style: const TextStyle(
+                                      color: Color(0xFF10B981),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              // Lost
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Lost',
+                                    style: TextStyle(color: Colors.white70),
+                                  ),
+                                  Text(
+                                    '$lost',
+                                    style: const TextStyle(
+                                      color: Color(0xFFEF4444),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              // Settled
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Settled',
+                                    style: TextStyle(color: Colors.white70),
+                                  ),
+                                  Text(
+                                    '$settled',
+                                    style: const TextStyle(
+                                      color: Color(0xFF3B82F6),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              const Divider(color: Colors.white10),
+                              // Win Ratio
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Win Ratio',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${winRatio.toStringAsFixed(1)}%',
+                                    style: const TextStyle(
+                                      color: Color(0xFFFF6B00),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              // Win Ratio Progress Bar
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: winRatio / 100,
+                                  minHeight: 6,
+                                  backgroundColor: Colors.white10,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    winRatio > 75
+                                        ? const Color(0xFF10B981)
+                                        : winRatio > 50
+                                        ? const Color(0xFFFF6B00)
+                                        : const Color(0xFFEF4444),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  const SizedBox(height: 16),
+
+                  // 📊 OPTION 3: Achievement Badges
+                  if (lawyer != null)
+                    StreamBuilder<Map<String, dynamic>>(
+                      stream: LawyerService().streamLawyerCaseStatistics(
+                        lawyer!.lawyerId,
+                      ),
+                      builder: (context, snapshot) {
+                        final stats = snapshot.data ?? {};
+                        final won = stats['casesWon'] ?? 0;
+                        final winRatio = stats['winRatio'] as double? ?? 0.0;
+
+                        return Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            // Victories Badge
+                            if (won >= 1)
+                              _buildBadge(
+                                icon: Icons.emoji_events,
+                                label: '$won Victories',
+                                color: const Color(0xFF10B981),
+                              ),
+                            // Win Rate Badge
+                            if (won >= 1)
+                              _buildBadge(
+                                icon: Icons.trending_up,
+                                label:
+                                    '${winRatio.toStringAsFixed(0)}% Win Rate',
+                                color: winRatio > 75
+                                    ? const Color(0xFF10B981)
+                                    : const Color(0xFFFF6B00),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
                   const SizedBox(height: 20),
 
                   // Action Buttons
@@ -675,6 +916,36 @@ class LawyerProfileScreen extends ConsumerWidget {
                   const SizedBox(height: 32),
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBadge({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],

@@ -973,11 +973,20 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
         itemCount: cases.length,
         itemBuilder: (context, index) {
           final isSelected = _selectedCaseIndex == index;
+          final caseItem = cases[index];
+
+          // Display case reference (number or title)
+          final caseLabel = caseItem.caseNumber?.isNotEmpty == true
+              ? caseItem.caseNumber!
+              : caseItem.title.length > 15
+              ? '${caseItem.title.substring(0, 15)}...'
+              : caseItem.title;
+
           return GestureDetector(
             onTap: () => setState(() => _selectedCaseIndex = index),
             child: Container(
               margin: const EdgeInsets.only(right: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
                 color: isSelected
                     ? const Color(0xFFFF6B00)
@@ -990,15 +999,34 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
                 ),
               ),
               child: Center(
-                child: Text(
-                  'Case ${index + 1}',
-                  style: TextStyle(
-                    color: isSelected ? Colors.white : const Color(0xFF9E9E9E),
-                    fontSize: 13,
-                    fontWeight: isSelected
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                  ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      caseLabel,
+                      style: TextStyle(
+                        color: isSelected
+                            ? Colors.white
+                            : const Color(0xFF9E9E9E),
+                        fontSize: 12,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      caseItem.status.toUpperCase(),
+                      style: TextStyle(
+                        color: isSelected
+                            ? Colors.white70
+                            : const Color(0xFF6B6B6B),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -1009,6 +1037,18 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
   }
 
   Widget _buildBottomNav(BuildContext context) {
+    final themeMode = ref.watch(themeModeProvider);
+    final isDark =
+        themeMode.value == ThemeMode.dark ||
+        (themeMode.value == ThemeMode.system &&
+            MediaQuery.of(context).platformBrightness == Brightness.dark);
+
+    final navBgColor = isDark ? const Color(0xFF141414) : Colors.white;
+    final navBorderColor = isDark
+        ? const Color(0xFF1E1E1E)
+        : const Color(0xFFE9ECEF);
+    final unselectedColor = isDark ? const Color(0xFF5A5A5A) : Colors.grey;
+
     final items = [
       {'icon': Icons.home_outlined, 'activeIcon': Icons.home, 'label': 'Home'},
       {
@@ -1034,9 +1074,9 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
     ];
     return Container(
       height: 70,
-      decoration: const BoxDecoration(
-        color: Color(0xFF141414),
-        border: Border(top: BorderSide(color: Color(0xFF1E1E1E), width: 1)),
+      decoration: BoxDecoration(
+        color: navBgColor,
+        border: Border(top: BorderSide(color: navBorderColor, width: 1)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -1072,18 +1112,14 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
                   isActive
                       ? item['activeIcon'] as IconData
                       : item['icon'] as IconData,
-                  color: isActive
-                      ? const Color(0xFFFF6B00)
-                      : const Color(0xFF5A5A5A),
+                  color: isActive ? const Color(0xFFFF6B00) : unselectedColor,
                   size: 24,
                 ),
                 const SizedBox(height: 4),
                 Text(
                   item['label'] as String,
                   style: TextStyle(
-                    color: isActive
-                        ? const Color(0xFFFF6B00)
-                        : const Color(0xFF5A5A5A),
+                    color: isActive ? const Color(0xFFFF6B00) : unselectedColor,
                     fontSize: 10,
                     fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
                   ),
@@ -1106,6 +1142,16 @@ class _HearingUpdatesSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hearingsAsync = ref.watch(streamHearingsByCaseIdsProvider(caseIds));
+    final themeMode = ref.watch(themeModeProvider);
+    final isDark =
+        themeMode.value == ThemeMode.dark ||
+        (themeMode.value == ThemeMode.system &&
+            MediaQuery.of(context).platformBrightness == Brightness.dark);
+
+    final textColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final subTextColor = isDark
+        ? const Color(0xFF6B6B6B)
+        : const Color(0xFF6C757D);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1113,10 +1159,10 @@ class _HearingUpdatesSection extends ConsumerWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'Hearing Updates',
               style: TextStyle(
-                color: Colors.white,
+                color: textColor,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
@@ -1143,9 +1189,9 @@ class _HearingUpdatesSection extends ConsumerWidget {
         hearingsAsync.when(
           data: (hearings) {
             if (hearings.isEmpty) {
-              return const Text(
+              return Text(
                 'No upcoming hearings scheduled yet',
-                style: TextStyle(color: Color(0xFF6B6B6B), fontSize: 13),
+                style: TextStyle(color: subTextColor, fontSize: 13),
               );
             }
             return Column(
@@ -1160,6 +1206,7 @@ class _HearingUpdatesSection extends ConsumerWidget {
                         hearings[i].courtName ?? 'Court room to be assigned',
                     description: hearings[i].notes,
                     isRecent: i == 0,
+                    isDark: isDark,
                   ),
                   if (i < hearings.length - 1) const SizedBox(height: 10),
                 ],
@@ -1293,6 +1340,7 @@ class _HearingUpdateCard extends StatelessWidget {
   final String subtitle;
   final String? description;
   final bool isRecent;
+  final bool isDark;
 
   const _HearingUpdateCard({
     required this.date,
@@ -1300,19 +1348,34 @@ class _HearingUpdateCard extends StatelessWidget {
     required this.subtitle,
     this.description,
     required this.isRecent,
+    required this.isDark,
   });
 
   @override
   Widget build(BuildContext context) {
+    final cardColor = isDark
+        ? const Color(0xFF1A1A1A)
+        : const Color(0xFFFFFFFF);
+    final borderColor = isDark
+        ? const Color(0xFF252525)
+        : const Color(0xFFE9ECEF);
+    final textColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final subTextColor = isDark
+        ? const Color(0xFF9E9E9E)
+        : const Color(0xFF6C757D);
+    final descBgColor = isDark
+        ? const Color(0xFF2A2A2A)
+        : const Color(0xFFF0F0F0);
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: cardColor,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isRecent
               ? const Color(0xFFFF6B00).withValues(alpha: 0.3)
-              : const Color(0xFF252525),
+              : borderColor,
         ),
       ),
       child: Row(
@@ -1323,14 +1386,12 @@ class _HearingUpdateCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: isRecent
                   ? const Color(0xFFFF6B00).withValues(alpha: 0.12)
-                  : const Color(0xFF252525),
+                  : borderColor,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               isRecent ? Icons.gavel : Icons.history,
-              color: isRecent
-                  ? const Color(0xFFFF6B00)
-                  : const Color(0xFF6B6B6B),
+              color: isRecent ? const Color(0xFFFF6B00) : subTextColor,
               size: 18,
             ),
           ),
@@ -1342,9 +1403,7 @@ class _HearingUpdateCard extends StatelessWidget {
                 Text(
                   date,
                   style: TextStyle(
-                    color: isRecent
-                        ? const Color(0xFFFF6B00)
-                        : const Color(0xFF6B6B6B),
+                    color: isRecent ? const Color(0xFFFF6B00) : subTextColor,
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
                   ),
@@ -1352,8 +1411,8 @@ class _HearingUpdateCard extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: textColor,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
@@ -1361,10 +1420,7 @@ class _HearingUpdateCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: const TextStyle(
-                    color: Color(0xFF9E9E9E),
-                    fontSize: 11,
-                  ),
+                  style: TextStyle(color: subTextColor, fontSize: 11),
                 ),
                 if (description != null && description!.isNotEmpty) ...[
                   const SizedBox(height: 6),
@@ -1372,14 +1428,14 @@ class _HearingUpdateCard extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2A2A2A).withValues(alpha: 0.5),
+                      color: descBgColor.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFF333333)),
+                      border: Border.all(color: borderColor),
                     ),
                     child: Text(
                       description!,
-                      style: const TextStyle(
-                        color: Color(0xFFCCCCCC),
+                      style: TextStyle(
+                        color: subTextColor,
                         fontSize: 11,
                         height: 1.3,
                       ),
@@ -1452,6 +1508,22 @@ class _CaseDocumentsSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final docsAsync = ref.watch(documentsByCaseProvider(caseId));
+    final themeMode = ref.watch(themeModeProvider);
+    final isDark =
+        themeMode.value == ThemeMode.dark ||
+        (themeMode.value == ThemeMode.system &&
+            MediaQuery.of(context).platformBrightness == Brightness.dark);
+
+    final textColor = isDark ? Colors.white : const Color(0xFF1A1A1A);
+    final cardColor = isDark
+        ? const Color(0xFF1E1E1E)
+        : const Color(0xFFFFFFFF);
+    final borderColor = isDark
+        ? const Color(0xFF2A2A2A)
+        : const Color(0xFFE9ECEF);
+    final subTextColor = isDark
+        ? const Color(0xFF6B6B6B)
+        : const Color(0xFF6C757D);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1459,10 +1531,10 @@ class _CaseDocumentsSection extends ConsumerWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'Case Documents',
               style: TextStyle(
-                color: Colors.white,
+                color: textColor,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
@@ -1513,17 +1585,17 @@ class _CaseDocumentsSection extends ConsumerWidget {
               return Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1A1A1A),
+                  color: cardColor,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFF252525)),
+                  border: Border.all(color: borderColor),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.folder_open, color: Color(0xFF6B6B6B)),
-                    SizedBox(width: 12),
+                    Icon(Icons.folder_open, color: subTextColor),
+                    const SizedBox(width: 12),
                     Text(
                       'No documents available yet',
-                      style: TextStyle(color: Color(0xFF6B6B6B)),
+                      style: TextStyle(color: subTextColor),
                     ),
                   ],
                 ),
@@ -1537,6 +1609,11 @@ class _CaseDocumentsSection extends ConsumerWidget {
                       child: _DocumentRow(
                         doc: doc,
                         uploadedByClient: doc.uploadedBy == clientId,
+                        isDark: isDark,
+                        cardColor: cardColor,
+                        borderColor: borderColor,
+                        textColor: textColor,
+                        subTextColor: subTextColor,
                       ),
                     ),
                   )
@@ -1554,7 +1631,7 @@ class _CaseDocumentsSection extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: Text(
                 'Error loading documents: $e',
-                style: const TextStyle(color: Color(0xFF9E9E9E)),
+                style: TextStyle(color: subTextColor),
               ),
             ),
           ),
@@ -1568,7 +1645,21 @@ class _CaseDocumentsSection extends ConsumerWidget {
 class _DocumentRow extends StatelessWidget {
   final dynamic doc;
   final bool uploadedByClient;
-  const _DocumentRow({required this.doc, this.uploadedByClient = false});
+  final bool isDark;
+  final Color cardColor;
+  final Color borderColor;
+  final Color textColor;
+  final Color subTextColor;
+
+  const _DocumentRow({
+    required this.doc,
+    this.uploadedByClient = false,
+    required this.isDark,
+    required this.cardColor,
+    required this.borderColor,
+    required this.textColor,
+    required this.subTextColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1587,9 +1678,9 @@ class _DocumentRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: cardColor,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF252525)),
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         children: [
@@ -1609,8 +1700,8 @@ class _DocumentRow extends StatelessWidget {
               children: [
                 Text(
                   name,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: textColor,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
@@ -1660,7 +1751,7 @@ class _DocumentRow extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: const Color(0xFF252525),
+                color: borderColor,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(

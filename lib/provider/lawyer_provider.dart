@@ -259,3 +259,29 @@ final filteredLawyersProvider = StreamProvider<List<LawyerModel>>((ref) {
     error: (e, st) => const Stream.empty(),
   );
 });
+
+// ===============================
+// REAL-TIME LAWYER STATISTICS
+// ===============================
+
+/// 🔴 Stream lawyer case statistics in real-time
+/// Shows: casesWon, casesLost, casesSettled, winRatio, etc.
+final lawyerCaseStatisticsProvider =
+    StreamProvider.family<Map<String, dynamic>, String>((ref, lawyerId) {
+      final service = ref.watch(lawyerServiceProvider);
+      return service.streamLawyerCaseStatistics(lawyerId);
+    });
+
+/// 🔴 Get lawyer statistics (one-time fetch)
+final lawyerStatsFutureProvider =
+    FutureProvider.family<Map<String, dynamic>, String>((ref, lawyerId) async {
+      final service = ref.watch(lawyerServiceProvider);
+      return service.getLawyerCaseStatistics(lawyerId);
+    });
+
+/// 🔴 Top lawyers by win ratio (leaderboard)
+final topLawyersByWinRatioProvider =
+    FutureProvider.family<List<LawyerModel>, int>((ref, limit) async {
+      final service = ref.watch(lawyerServiceProvider);
+      return service.getTopLawyersByWinRatio(limit: limit);
+    });

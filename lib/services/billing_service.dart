@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../model/billing_Model.dart';
+import '../model/payment_transaction_Model.dart';
+import 'email_service.dart';
 
 /// 🔹 Billing Service - Manage client billing and payment tracking
 class BillingService {
@@ -256,16 +258,143 @@ class BillingService {
     }
   }
 
-  /// Send payment reminder
-  Future<void> sendPaymentReminder(String billingId) async {
+  /// Send payment reminder (implement notification email sending)
+  Future<void> sendPaymentReminder(String billingId, String clientEmail, {String? clientName}) async {
     try {
       final billing = await getBillingById(billingId);
       if (billing == null) throw Exception('Billing not found');
 
-      // TODO: Implement notification/email sending
-      print('Payment reminder sent for billing: $billingId');
+      // Send email notification for payment reminder
+      await EmailService().sendBillingNotificationEmail(
+        toEmail: clientEmail,
+        clientName: clientName ?? 'Valued Client',
+        notificationType: 'payment_reminder',
+        billingDetails: {
+          'amount': billing.balance.toStringAsFixed(2),
+          'dueDate': billing.nextBillingDate?.toString() ?? 'Soon',
+          'billingId': billingId,
+        },
+      );
+
+      print('✅ Payment reminder sent to $clientEmail for billing: $billingId');
     } catch (e) {
-      print('Error sending payment reminder: $e');
+      print('❌ Error sending payment reminder: $e');
+      rethrow;
+    }
+  }
+
+  /// Send payment confirmation email
+  Future<void> sendPaymentConfirmation(
+    String billingId,
+    String clientEmail,
+    double amountPaid, {
+    String? clientName,
+  }) async {
+    try {
+      final billing = await getBillingById(billingId);
+      if (billing == null) throw Exception('Billing not found');
+
+      // Send email notification for successful payment
+      await EmailService().sendBillingNotificationEmail(
+        toEmail: clientEmail,
+        clientName: clientName ?? 'Valued Client',
+        notificationType: 'payment_received',
+        billingDetails: {
+          'amount': amountPaid.toStringAsFixed(2),
+          'billingId': billingId,
+          'date': DateTime.now().toString(),
+          'remainingBalance': billing.balance.toStringAsFixed(2),
+        },
+      );
+
+      print('✅ Payment confirmation sent to $clientEmail');
+    } catch (e) {
+      print('❌ Error sending payment confirmation: $e');
+      rethrow;
+    }
+  }
+
+  /// Send billing ready notification
+  Future<void> sendBillingReadyNotification(
+    String billingId,
+    String clientEmail,
+    double totalAmount, {
+    String? clientName,
+  }) async {
+    try {
+      // Send email notification when billing is ready
+      await EmailService().sendBillingNotificationEmail(
+        toEmail: clientEmail,
+        clientName: clientName ?? 'Valued Client',
+        notificationType: 'billing_ready',
+        billingDetails: {
+          'amount': totalAmount.toStringAsFixed(2),
+          'billingId': billingId,
+          'date': DateTime.now().toString(),
+        },
+      );
+
+      print('✅ Billing ready notification sent to $clientEmail');
+    } catch (e) {
+      print('❌ Error sending billing ready notification: $e');
+      rethrow;
+    }
+  }
+
+  /// Send subscription update notification
+  Future<void> sendSubscriptionUpdateNotification(
+    String billingId,
+    String clientEmail,
+    String action, {
+    String? clientName,
+    String? newFrequency,
+    double? newAmount,
+  }) async {
+    try {
+      // Send email notification for subscription changes
+      await EmailService().sendBillingNotificationEmail(
+        toEmail: clientEmail,
+        clientName: clientName ?? 'Valued Client',
+        notificationType: 'subscription_update',
+        billingDetails: {
+          'action': action,
+          'billingId': billingId,
+          'newFrequency': newFrequency ?? 'unchanged',
+          'newAmount': newAmount?.toStringAsFixed(2) ?? 'unchanged',
+          'date': DateTime.now().toString(),
+        },
+      );
+
+      print('✅ Subscription update notification sent to $clientEmail');
+    } catch (e) {
+      print('❌ Error sending subscription update notification: $e');
+      rethrow;
+    }
+  }
+
+  /// Send payment failure notification
+  Future<void> sendPaymentFailureNotification(
+    String billingId,
+    String clientEmail,
+    String failureReason, {
+    String? clientName,
+  }) async {
+    try {
+      // Send email notification for payment failures
+      await EmailService().sendBillingNotificationEmail(
+        toEmail: clientEmail,
+        clientName: clientName ?? 'Valued Client',
+        notificationType: 'payment_failed',
+        billingDetails: {
+          'billingId': billingId,
+          'reason': failureReason,
+          'date': DateTime.now().toString(),
+        },
+      );
+
+      print('✅ Payment failure notification sent to $clientEmail');
+    } catch (e) {
+      print('❌ Error sending payment failure notification: $e');
       rethrow;
     }
   }
@@ -288,6 +417,172 @@ class BillingService {
     } catch (e) {
       print('Error deleting billing: $e');
       rethrow;
+    }
+  }
+
+  // ==================== PAYMENT TRANSACTION METHODS ====================
+
+  /// Create payment transaction
+  Future<PaymentTransactionModel> createPaymentTransaction({
+    required String clientId,
+    required String lawyerId,
+    required String caseId,
+    required double amount,
+    required String paymentMethod,
+    String? description,
+  }) async {
+    try {
+      final transactionId = _firestore.collection('transactions').doc().id;
+      final transaction = PaymentTransactionModel(
+        transactionId: transactionId,
+        clientId: clientId,
+        lawyerId: lawyerId,
+        caseId: caseId,
+        amount: amount,
+        paymentMethod: paymentMethod,
+        status: 'pending',
+        transactionType: 'payment',
+        transactionDate: DateTime.now(),
+        description: description ?? 'Payment to lawyer for case',
+      );
+
+      await _firestore
+          .collection('transactions')
+          .doc(transactionId)
+          .set(transaction.toJson());
+
+      return transaction;
+    } catch (e) {
+      print('Error creating payment transaction: $e');
+      rethrow;
+    }
+  }
+
+  /// Complete payment transaction
+  Future<void> completePaymentTransaction(
+    String transactionId,
+    String? transactionRef,
+  ) async {
+    try {
+      await _firestore.collection('transactions').doc(transactionId).update({
+        'status': 'completed',
+        'completedDate': Timestamp.now(),
+        'transactionRef': transactionRef,
+      });
+    } catch (e) {
+      print('Error completing payment transaction: $e');
+      rethrow;
+    }
+  }
+
+  /// Fail payment transaction
+  Future<void> failPaymentTransaction(
+    String transactionId,
+    String failureReason,
+  ) async {
+    try {
+      await _firestore.collection('transactions').doc(transactionId).update({
+        'status': 'failed',
+        'failureReason': failureReason,
+      });
+    } catch (e) {
+      print('Error failing payment transaction: $e');
+      rethrow;
+    }
+  }
+
+  /// Get transaction by ID
+  Future<PaymentTransactionModel?> getTransactionById(
+    String transactionId,
+  ) async {
+    try {
+      final doc =
+          await _firestore.collection('transactions').doc(transactionId).get();
+      if (doc.exists) {
+        return PaymentTransactionModel.fromJson(doc.data() ?? {});
+      }
+      return null;
+    } catch (e) {
+      print('Error getting transaction: $e');
+      return null;
+    }
+  }
+
+  /// Get transactions by client
+  Stream<List<PaymentTransactionModel>> getTransactionsByClient(
+    String clientId,
+  ) {
+    return _firestore
+        .collection('transactions')
+        .where('clientId', isEqualTo: clientId)
+        .orderBy('transactionDate', descending: true)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs
+              .map((doc) =>
+                  PaymentTransactionModel.fromJson(doc.data()))
+              .toList();
+        });
+  }
+
+  /// Get transactions by lawyer
+  Stream<List<PaymentTransactionModel>> getTransactionsByLawyer(
+    String lawyerId,
+  ) {
+    return _firestore
+        .collection('transactions')
+        .where('lawyerId', isEqualTo: lawyerId)
+        .orderBy('transactionDate', descending: true)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs
+              .map((doc) =>
+                  PaymentTransactionModel.fromJson(doc.data()))
+              .toList();
+        });
+  }
+
+  /// Get transactions by case
+  Stream<List<PaymentTransactionModel>> getTransactionsByCase(
+    String caseId,
+  ) {
+    return _firestore
+        .collection('transactions')
+        .where('caseId', isEqualTo: caseId)
+        .orderBy('transactionDate', descending: true)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs
+              .map((doc) =>
+                  PaymentTransactionModel.fromJson(doc.data()))
+              .toList();
+        });
+  }
+
+  /// Send payment confirmation to client
+  Future<void> sendPaymentConfirmationToClient(
+    PaymentTransactionModel transaction,
+    String clientEmail,
+    String lawyerName, {
+    String? clientName,
+  }) async {
+    try {
+      await EmailService().sendBillingNotificationEmail(
+        toEmail: clientEmail,
+        clientName: clientName ?? 'Valued Client',
+        notificationType: 'payment_received',
+        billingDetails: {
+          'amount': transaction.amount.toStringAsFixed(2),
+          'lawyerName': lawyerName,
+          'transactionId': transaction.transactionId,
+          'date': transaction.transactionDate.toString(),
+          'status': transaction.status,
+        },
+      );
+
+      print('✅ Payment confirmation sent to $clientEmail');
+    } catch (e) {
+      print('❌ Error sending payment confirmation: $e');
     }
   }
 }

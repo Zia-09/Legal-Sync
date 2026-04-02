@@ -348,6 +348,10 @@ class _LegalCategoriesScreenState extends ConsumerState<LegalCategoriesScreen> {
   }
 
   Widget _buildBottomNav(BuildContext context) {
+    final navBgColor = Theme.of(context).cardColor;
+    final navBorderColor = Theme.of(context).dividerColor;
+    final unselectedColor = Theme.of(context).unselectedWidgetColor;
+
     const items = ['Home', 'Lawyer', 'Cases', 'Chat', 'Setting'];
     const icons = [
       Icons.home_outlined,
@@ -366,9 +370,9 @@ class _LegalCategoriesScreenState extends ConsumerState<LegalCategoriesScreen> {
 
     return Container(
       height: 70,
-      decoration: const BoxDecoration(
-        color: Color(0xFF141414),
-        border: Border(top: BorderSide(color: Color(0xFF1E1E1E), width: 1)),
+      decoration: BoxDecoration(
+        color: navBgColor,
+        border: Border(top: BorderSide(color: navBorderColor, width: 1)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -406,9 +410,7 @@ class _LegalCategoriesScreenState extends ConsumerState<LegalCategoriesScreen> {
                 children: [
                   Icon(
                     isActive ? activeIcons[index] : icons[index],
-                    color: isActive
-                        ? const Color(0xFFFF6B00)
-                        : const Color(0xFF5A5A5A),
+                    color: isActive ? const Color(0xFFFF6B00) : unselectedColor,
                     size: 24,
                   ),
                   const SizedBox(height: 4),
@@ -417,7 +419,7 @@ class _LegalCategoriesScreenState extends ConsumerState<LegalCategoriesScreen> {
                     style: TextStyle(
                       color: isActive
                           ? const Color(0xFFFF6B00)
-                          : const Color(0xFF5A5A5A),
+                          : unselectedColor,
                       fontSize: 10,
                       fontWeight: isActive
                           ? FontWeight.w600
@@ -484,7 +486,9 @@ class _CategoryCard extends ConsumerWidget {
                       color: category['bgColor'] as Color,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: (category['color'] as Color).withValues(alpha: 0.2),
+                        color: (category['color'] as Color).withValues(
+                          alpha: 0.2,
+                        ),
                       ),
                     ),
                     child: Icon(
