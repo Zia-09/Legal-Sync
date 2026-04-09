@@ -6,6 +6,7 @@ import 'firebase_options.dart';
 import 'screens/splash_screen.dart';
 import 'provider/theme_provider.dart';
 import 'provider/auth_provider.dart';
+import 'config/routes.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -52,6 +53,8 @@ class MyApp extends ConsumerWidget {
         darkTheme: _buildThemeData(Brightness.dark),
         themeMode: ThemeMode.light,
         home: const Scaffold(body: Center(child: CircularProgressIndicator())),
+        onGenerateRoute: AppRouter.generateRoute,
+        onUnknownRoute: AppRouter.onUnknownRoute,
       ),
       error: (_, _) => MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -60,6 +63,8 @@ class MyApp extends ConsumerWidget {
         darkTheme: _buildThemeData(Brightness.dark),
         themeMode: ThemeMode.light,
         home: const SplashScreen(),
+        onGenerateRoute: AppRouter.generateRoute,
+        onUnknownRoute: AppRouter.onUnknownRoute,
       ),
     );
   }
@@ -72,6 +77,8 @@ class MyApp extends ConsumerWidget {
       theme: _buildThemeData(Brightness.light),
       darkTheme: _buildThemeData(Brightness.dark),
       home: const SplashScreen(),
+      onGenerateRoute: AppRouter.generateRoute,
+      onUnknownRoute: AppRouter.onUnknownRoute,
     );
   }
 

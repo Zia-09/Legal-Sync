@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:legal_sync/screens/onboarding/onboarding_screen3.dart';
+import 'package:legal_sync/config/routes.dart';
 
 class OnboardingPage2 extends StatelessWidget {
   const OnboardingPage2({super.key});
@@ -13,7 +13,7 @@ class OnboardingPage2 extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: GestureDetector(
-          onTap: () => Navigator.pop(context),
+          onTap: () => context.goBack(),
           child: Container(
             margin: const EdgeInsets.all(8),
             padding: const EdgeInsets.all(8),
@@ -119,12 +119,7 @@ class OnboardingPage2 extends StatelessWidget {
                   children: [
                     TextButton(
                       onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const OnboardingPage3(),
-                          ),
-                        );
+                        context.navigateTo(RouteNames.onboarding3);
                       },
                       child: const Text(
                         "Skip",
@@ -133,12 +128,7 @@ class OnboardingPage2 extends StatelessWidget {
                     ),
                     ElevatedButton(
                       onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const OnboardingPage3(),
-                          ),
-                        );
+                        context.navigateTo(RouteNames.onboarding3);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFFFB800),

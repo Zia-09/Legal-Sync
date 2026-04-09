@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/model/lawyer_Model.dart';
 import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/provider/auth_provider.dart';
 import 'package:legal_sync/screens/client panel/lawyer_profile_screen.dart';
-import 'package:legal_sync/screens/client panel/login_screen.dart';
 import 'package:legal_sync/screens/client panel/client_notifications_screen.dart';
 
 // ─── Lawyer Card Widget ───────────────────────────────────────────────────────
@@ -218,13 +218,38 @@ class HomeDrawer extends ConsumerWidget {
                   label: 'Logout',
                   color: Colors.redAccent,
                   onTap: () async {
-                    await ref.read(authNotifierProvider.notifier).logout();
-                    if (context.mounted) {
-                      Navigator.pushAndRemoveUntil(
-                        context,
-                        MaterialPageRoute(builder: (_) => const LoginScreen()),
-                        (route) => false,
-                      );
+                    // 🔓 Show confirmation dialog
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Exit Application'),
+                        content: const Text(
+                          'Are you sure you want to logout and exit the app?',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text(
+                              'Logout',
+                              style: TextStyle(color: Colors.redAccent),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirm == true) {
+                      // ✅ Logout and clear data
+                      await ref.read(authNotifierProvider.notifier).logout();
+
+                      if (context.mounted) {
+                        // 🚪 Exit app
+                        SystemNavigator.pop();
+                      }
                     }
                   },
                 ),

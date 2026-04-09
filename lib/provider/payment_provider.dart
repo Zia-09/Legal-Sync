@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/model/payment_transaction_Model.dart';
 import 'package:legal_sync/services/billing_service.dart';
+import 'package:legal_sync/services/payment_service.dart';
 
 class PaymentMethod {
   final String id;
@@ -32,34 +33,35 @@ class PaymentMethod {
 }
 
 class PaymentNotifier extends StateNotifier<List<PaymentMethod>> {
-  PaymentNotifier() : super([
-    PaymentMethod(
-      id: 'easypaisa',
-      title: 'EasyPaisa',
-      subtitle: 'Fast & Secure',
-      iconPath: 'images/easypaisa.png',
-      isEnabled: false,
-    ),
-    PaymentMethod(
-      id: 'jazzcash',
-      title: 'JazzCash',
-      subtitle: 'Instant Transfer',
-      iconPath: 'images/jazzcash.png',
-      isEnabled: false,
-    ),
-    PaymentMethod(
-      id: 'nayapay',
-      title: 'NayaPay',
-      subtitle: 'Digital Payments',
-      iconPath: 'images/nayapay.png',
-      isEnabled: true,
-    ),
-  ]);
+  PaymentNotifier()
+    : super([
+        PaymentMethod(
+          id: 'easypaisa',
+          title: 'EasyPaisa',
+          subtitle: 'Fast & Secure',
+          iconPath: 'images/easypaisa.png',
+          isEnabled: true,
+        ),
+        PaymentMethod(
+          id: 'jazzcash',
+          title: 'JazzCash',
+          subtitle: 'Instant Transfer',
+          iconPath: 'images/jazzcash.png',
+          isEnabled: true,
+        ),
+        PaymentMethod(
+          id: 'nayapay',
+          title: 'NayaPay',
+          subtitle: 'Digital Payments',
+          iconPath: 'images/nayapay.png',
+          isEnabled: true,
+        ),
+      ]);
 
   void toggleMethod(String id, bool enabled) {
     state = [
       for (final method in state)
-        if (method.id == id) method.copyWith(isEnabled: enabled) else method
+        if (method.id == id) method.copyWith(isEnabled: enabled) else method,
     ];
   }
 
@@ -68,34 +70,46 @@ class PaymentNotifier extends StateNotifier<List<PaymentMethod>> {
   }
 }
 
-final paymentProvider = StateNotifierProvider<PaymentNotifier, List<PaymentMethod>>((ref) {
-  return PaymentNotifier();
-});
+final paymentProvider =
+    StateNotifierProvider<PaymentNotifier, List<PaymentMethod>>((ref) {
+      return PaymentNotifier();
+    });
 
-// ===============================
-// Transaction Service Provider
-// ===============================
+// ═══════════════════════════════════════════════════════════════════════════
+// PAYMENT SERVICE PROVIDERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Payment Service Provider - singleton instance
+final paymentServiceProvider = Provider((ref) => PaymentService());
+
+/// Billing Service Provider - singleton instance
 final billingServiceProvider = Provider((ref) => BillingService());
 
-// ===============================
-// Transaction Stream Providers
-// ===============================
+// ═══════════════════════════════════════════════════════════════════════════
+// REAL-TIME TRANSACTION STREAMS
+// ═══════════════════════════════════════════════════════════════════════════
 
-/// Stream transactions for a client
+/// Stream transactions for a client (real-time)
 final transactionsByClientProvider =
-    StreamProvider.family<List<PaymentTransactionModel>, String>((ref, clientId) {
+    StreamProvider.family<List<PaymentTransactionModel>, String>((
+      ref,
+      clientId,
+    ) {
       final service = ref.watch(billingServiceProvider);
       return service.getTransactionsByClient(clientId);
     });
 
-/// Stream transactions for a lawyer  
+/// Stream transactions for a lawyer (real-time)
 final transactionsByLawyerProvider =
-    StreamProvider.family<List<PaymentTransactionModel>, String>((ref, lawyerId) {
+    StreamProvider.family<List<PaymentTransactionModel>, String>((
+      ref,
+      lawyerId,
+    ) {
       final service = ref.watch(billingServiceProvider);
       return service.getTransactionsByLawyer(lawyerId);
     });
 
-/// Stream transactions for a case
+/// Stream transactions for a case (real-time)
 final transactionsByCaseProvider =
     StreamProvider.family<List<PaymentTransactionModel>, String>((ref, caseId) {
       final service = ref.watch(billingServiceProvider);
@@ -105,7 +119,8 @@ final transactionsByCaseProvider =
 // ===============================
 // Transaction Notifier
 // ===============================
-class TransactionNotifier extends StateNotifier<AsyncValue<PaymentTransactionModel?>> {
+class TransactionNotifier
+    extends StateNotifier<AsyncValue<PaymentTransactionModel?>> {
   final BillingService _service;
 
   TransactionNotifier(this._service) : super(const AsyncValue.data(null));
@@ -170,9 +185,60 @@ class TransactionNotifier extends StateNotifier<AsyncValue<PaymentTransactionMod
   }
 }
 
-final transactionNotifierProvider = StateNotifierProvider<
-    TransactionNotifier,
-    AsyncValue<PaymentTransactionModel?>>((ref) {
-  final service = ref.watch(billingServiceProvider);
-  return TransactionNotifier(service);
+final transactionNotifierProvider =
+    StateNotifierProvider<
+      TransactionNotifier,
+      AsyncValue<PaymentTransactionModel?>
+    >((ref) {
+      final service = ref.watch(billingServiceProvider);
+      return TransactionNotifier(service);
+    });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REAL-TIME WALLET STREAMS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Stream user wallet balance (real-time)
+final walletBalanceProvider = StreamProvider.family<double, String>((
+  ref,
+  userId,
+) {
+  final service = ref.watch(paymentServiceProvider);
+  return service.streamWalletBalance(userId);
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TRANSACTION STATISTICS PROVIDERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Get user transaction statistics (async)
+final userTransactionStatsProvider =
+    FutureProvider.family<Map<String, dynamic>, String>((ref, userId) {
+      final service = ref.watch(paymentServiceProvider);
+      return service.getUserTransactionStats(userId);
+    });
+
+/// Get monthly transaction summary
+final monthlyTransactionSummaryProvider =
+    FutureProvider.family<
+      Map<String, dynamic>,
+      (String userId, int month, int year)
+    >((ref, params) {
+      final service = ref.watch(paymentServiceProvider);
+      return service.getMonthlyTransactionSummary(
+        params.$1,
+        month: params.$2,
+        year: params.$3,
+      );
+    });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PAYMENT METHODS PROVIDERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Get user payment methods (async)
+final userPaymentMethodsProvider =
+    FutureProvider.family<List<Map<String, dynamic>>, String>((ref, userId) {
+      final service = ref.watch(paymentServiceProvider);
+      return service.getUserPaymentMethods(userId);
+    });

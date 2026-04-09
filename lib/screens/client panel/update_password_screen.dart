@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/provider/auth_provider.dart';
 
@@ -25,7 +27,7 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
 
   void _checkStrength(String value) {
     double strength = 0;
-    if (value.length >= 8) strength += 0.25;
+    if (value.length >= 6) strength += 0.25;
     if (value.contains(RegExp(r'[A-Z]'))) strength += 0.25;
     if (value.contains(RegExp(r'[a-z]'))) strength += 0.25;
     if (value.contains(RegExp(r'[0-9!@#\$&*~]'))) strength += 0.25;
@@ -59,10 +61,14 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final scaffoldBg = isDark ? const Color(0xFF121212) : const Color(0xFFF7F9FC);
+    final scaffoldBg = isDark
+        ? const Color(0xFF121212)
+        : const Color(0xFFF7F9FC);
     final cardColor = isDark ? const Color(0xFF1A1A1A) : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black87;
-    final subtitleColor = isDark ? const Color(0xFF9E9E9E) : Colors.grey.shade600;
+    final subtitleColor = isDark
+        ? const Color(0xFF9E9E9E)
+        : Colors.grey.shade600;
 
     return Scaffold(
       backgroundColor: scaffoldBg,
@@ -85,7 +91,11 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
         ),
         title: Text(
           'Security Settings',
-          style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: textColor,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         centerTitle: true,
       ),
@@ -107,12 +117,20 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
                       color: const Color(0xFFDC2626).withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.lock_reset, color: Color(0xFFDC2626), size: 40),
+                    child: const Icon(
+                      Icons.lock_reset,
+                      color: Color(0xFFDC2626),
+                      size: 40,
+                    ),
                   ),
                   const SizedBox(height: 24),
                   Text(
                     'Update Password',
-                    style: TextStyle(color: textColor, fontSize: 24, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -126,13 +144,15 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
                     decoration: BoxDecoration(
                       color: cardColor,
                       borderRadius: BorderRadius.circular(20),
-                      boxShadow: isDark? null : [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 15,
-                          offset: const Offset(0, 5),
-                        )
-                      ],
+                      boxShadow: isDark
+                          ? null
+                          : [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 15,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -142,7 +162,9 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
                           controller: _currentPasswordController,
                           hint: 'Enter current password',
                           obscure: _obscureCurrent,
-                          toggleObscure: () => setState(() => _obscureCurrent = !_obscureCurrent),
+                          toggleObscure: () => setState(
+                            () => _obscureCurrent = !_obscureCurrent,
+                          ),
                           isDark: isDark,
                         ),
                         const SizedBox(height: 20),
@@ -152,7 +174,8 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
                           hint: 'Enter new password',
                           obscure: _obscureNew,
                           onChanged: _checkStrength,
-                          toggleObscure: () => setState(() => _obscureNew = !_obscureNew),
+                          toggleObscure: () =>
+                              setState(() => _obscureNew = !_obscureNew),
                           isDark: isDark,
                         ),
                         const SizedBox(height: 12),
@@ -163,8 +186,12 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
                                 borderRadius: BorderRadius.circular(2),
                                 child: LinearProgressIndicator(
                                   value: _strength,
-                                  backgroundColor: Colors.grey.withValues(alpha: 0.2),
-                                  valueColor: AlwaysStoppedAnimation<Color>(_strengthColor),
+                                  backgroundColor: Colors.grey.withValues(
+                                    alpha: 0.2,
+                                  ),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    _strengthColor,
+                                  ),
                                   minHeight: 4,
                                 ),
                               ),
@@ -186,7 +213,9 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
                           controller: _confirmPasswordController,
                           hint: 'Confirm new password',
                           obscure: _obscureConfirm,
-                          toggleObscure: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                          toggleObscure: () => setState(
+                            () => _obscureConfirm = !_obscureConfirm,
+                          ),
                           isDark: isDark,
                         ),
                         const SizedBox(height: 32),
@@ -194,17 +223,27 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
                           width: double.infinity,
                           height: 56,
                           child: ElevatedButton(
-                            onPressed: authState.isLoading ? null : _handleUpdatePassword,
+                            onPressed: authState.isLoading
+                                ? null
+                                : _handleUpdatePassword,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFDC2626),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
                               elevation: 0,
                             ),
                             child: authState.isLoading
-                                ? const CircularProgressIndicator(color: Colors.white)
+                                ? const CircularProgressIndicator(
+                                    color: Colors.white,
+                                  )
                                 : const Text(
                                     'Save New Password',
-                                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                           ),
                         ),
@@ -227,7 +266,11 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
       padding: const EdgeInsets.only(bottom: 8, left: 4),
       child: Text(
         text,
-        style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.w600),
+        style: TextStyle(
+          color: color,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -249,14 +292,23 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
         hintText: hint,
         hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
         filled: true,
-        fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade50,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        fillColor: isDark
+            ? Colors.white.withValues(alpha: 0.05)
+            : Colors.grey.shade50,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
         ),
         suffixIcon: IconButton(
-          icon: Icon(obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: Colors.grey, size: 20),
+          icon: Icon(
+            obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+            color: Colors.grey,
+            size: 20,
+          ),
           onPressed: toggleObscure,
         ),
       ),
@@ -275,15 +327,30 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
           children: [
             const Icon(Icons.info_outline, color: Color(0xFFDC2626), size: 18),
             const SizedBox(width: 8),
-            Text('Password Requirements', style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(
+              'Password Requirements',
+              style: TextStyle(
+                color: textColor,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 16),
-        _buildRequirementItem('Minimum 8 characters long', _newPasswordController.text.length >= 8),
-        _buildRequirementItem('One uppercase & one lowercase character', 
-          _newPasswordController.text.contains(RegExp(r'[A-Z]')) && _newPasswordController.text.contains(RegExp(r'[a-z]'))),
-        _buildRequirementItem('At least one number or special symbol', 
-          _newPasswordController.text.contains(RegExp(r'[0-9!@#\$&*~]'))),
+        _buildRequirementItem(
+          'Minimum 6 characters long',
+          _newPasswordController.text.length >= 6,
+        ),
+        _buildRequirementItem(
+          'One uppercase & one lowercase character',
+          _newPasswordController.text.contains(RegExp(r'[A-Z]')) &&
+              _newPasswordController.text.contains(RegExp(r'[a-z]')),
+        ),
+        _buildRequirementItem(
+          'At least one number or special symbol',
+          _newPasswordController.text.contains(RegExp(r'[0-9!@#\$&*~]')),
+        ),
       ],
     );
   }
@@ -313,28 +380,61 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
 
   Future<void> _handleUpdatePassword() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_newPasswordController.text.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password must be at least 6 characters long'),
+        ),
+      );
+      return;
+    }
     if (_newPasswordController.text != _confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Passwords do not match')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Passwords do not match')));
       return;
     }
     if (_strength < 0.75) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please use a stronger password')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please use a stronger password')),
+      );
       return;
     }
 
     try {
       final container = ProviderScope.containerOf(context);
-      await container.read(authNotifierProvider.notifier).updatePassword(
-        currentPassword: _currentPasswordController.text,
-        newPassword: _newPasswordController.text,
-      );
+      await container
+          .read(authNotifierProvider.notifier)
+          .updatePassword(
+            currentPassword: _currentPasswordController.text,
+            newPassword: _newPasswordController.text,
+          );
+
+      // 💾 Update password last changed timestamp in Firestore
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        await FirebaseFirestore.instance.collection('users').doc(uid).update({
+          'passwordLastUpdated': Timestamp.now(),
+        });
+      }
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password updated successfully!'), backgroundColor: Colors.green));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Password updated successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
         Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }

@@ -103,7 +103,9 @@ class _AddHearingScreenState extends ConsumerState<AddHearingScreen> {
     final containerBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
     final textColor = isDark ? Colors.white : const Color(0xFF131D31);
     final inputBgColor = isDark ? const Color(0xFF252525) : Colors.white;
-    final inputBorderColor = isDark ? const Color(0xFF333333) : Colors.grey.shade200;
+    final inputBorderColor = isDark
+        ? const Color(0xFF333333)
+        : Colors.grey.shade200;
     final inputTextColor = isDark ? Colors.white : Colors.black87;
     final inputHintColor = isDark ? Colors.grey.shade500 : Colors.grey.shade400;
 
@@ -152,7 +154,14 @@ class _AddHearingScreenState extends ConsumerState<AddHearingScreen> {
                         if (cases.isEmpty) {
                           return _buildEmptyCaseInfo();
                         }
-                        return _buildCaseDropdown(cases, isDark, inputBgColor, inputBorderColor, inputTextColor, inputHintColor);
+                        return _buildCaseDropdown(
+                          cases,
+                          isDark,
+                          inputBgColor,
+                          inputBorderColor,
+                          inputTextColor,
+                          inputHintColor,
+                        );
                       },
                       loading: () => const LinearProgressIndicator(),
                       error: (e, _) => Text(
@@ -162,7 +171,13 @@ class _AddHearingScreenState extends ConsumerState<AddHearingScreen> {
                     ),
                     const SizedBox(height: 20),
                     _buildSectionHeader('Hearing Details'),
-                    _buildHearingTypeDropdown(isDark, inputBgColor, inputBorderColor, inputTextColor, inputHintColor),
+                    _buildHearingTypeDropdown(
+                      isDark,
+                      inputBgColor,
+                      inputBorderColor,
+                      inputTextColor,
+                      inputHintColor,
+                    ),
                     const SizedBox(height: 16),
                     Row(
                       children: [
@@ -421,9 +436,7 @@ class _AddHearingScreenState extends ConsumerState<AddHearingScreen> {
     Color inputHintColor,
   ) {
     return Theme(
-      data: Theme.of(context).copyWith(
-        canvasColor: inputBgColor,
-      ),
+      data: Theme.of(context).copyWith(canvasColor: inputBgColor),
       child: DropdownButtonFormField<CaseModel>(
         decoration: InputDecoration(
           filled: true,
@@ -453,8 +466,15 @@ class _AddHearingScreenState extends ConsumerState<AddHearingScreen> {
           ),
         ),
         isExpanded: true,
-        style: TextStyle(color: inputTextColor, fontSize: 14, fontWeight: FontWeight.w500),
-        hint: Text('Choose an active case', style: TextStyle(color: inputHintColor)),
+        style: TextStyle(
+          color: inputTextColor,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+        hint: Text(
+          'Choose an active case',
+          style: TextStyle(color: inputHintColor),
+        ),
         validator: (val) => val == null ? 'Please select a case' : null,
         items: cases.map((c) {
           return DropdownMenuItem(
@@ -498,9 +518,7 @@ class _AddHearingScreenState extends ConsumerState<AddHearingScreen> {
     Color inputHintColor,
   ) {
     return Theme(
-      data: Theme.of(context).copyWith(
-        canvasColor: inputBgColor,
-      ),
+      data: Theme.of(context).copyWith(canvasColor: inputBgColor),
       child: DropdownButtonFormField<String>(
         value: _hearingType,
         decoration: InputDecoration(
@@ -531,7 +549,11 @@ class _AddHearingScreenState extends ConsumerState<AddHearingScreen> {
           ),
         ),
         isExpanded: true,
-        style: TextStyle(color: inputTextColor, fontSize: 14, fontWeight: FontWeight.w500),
+        style: TextStyle(
+          color: inputTextColor,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
         items: _hearingTypes.map((String val) {
           return DropdownMenuItem<String>(
             value: val,

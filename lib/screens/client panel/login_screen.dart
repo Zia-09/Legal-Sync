@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/provider/auth_provider.dart';
-import 'package:legal_sync/screens/client%20panel/forgot_password_screen.dart';
-import 'package:legal_sync/screens/client%20panel/home_screen.dart';
-import 'package:legal_sync/screens/client%20panel/register_screen.dart';
 import 'package:legal_sync/widgets/brand_logo.dart';
+import 'package:legal_sync/config/routes.dart';
+import 'package:legal_sync/utils/animations.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -62,9 +61,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
       // ────────────────────────────────────────────────────────────────────────
 
-      Navigator.of(
-        context,
-      ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
+      context.navigateAndClearStack(RouteNames.clientHome);
 
       if (!mounted) return;
 
@@ -130,9 +127,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final authState = ref.watch(authNotifierProvider);
     final isLoading = authState is AsyncLoading;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final scaffoldBg = isDark ? const Color(0xFF0F0F0F) : const Color(0xFFF7F9FC);
+    final scaffoldBg = isDark
+        ? const Color(0xFF0F0F0F)
+        : const Color(0xFFF7F9FC);
     final textColor = isDark ? Colors.white : Colors.black87;
-    final subtitleColor = isDark ? const Color(0xFF9E9E9E) : Colors.grey.shade600;
+    final subtitleColor = isDark
+        ? const Color(0xFF9E9E9E)
+        : Colors.grey.shade600;
     final labelColor = isDark ? const Color(0xFFCCCCCC) : Colors.grey.shade700;
 
     return Scaffold(
@@ -167,207 +168,290 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
                 ),
-                Positioned(
-                  top: 40,
-                  left: 10,
-                  child: IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: Icon(Icons.arrow_back, color: isDark ? Colors.white : Colors.black),
-                  ),
-                ),
               ],
             ),
 
             // Form
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 8),
-                    const BrandLogo(
-                      fontSize: 32,
-                      alignment: MainAxisAlignment.start,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Welcome Back',
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 30,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: -0.5,
+              child: AnimationUtils.slideUpAnimation(
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 8),
+                      const BrandLogo(
+                        fontSize: 32,
+                        alignment: MainAxisAlignment.start,
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Sign in to continue your legal journey',
-                      style: TextStyle(color: subtitleColor, fontSize: 14),
-                    ),
-                    const SizedBox(height: 28),
-
-                    // Email
-                    _fieldLabel('Email Address', labelColor),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      style: TextStyle(color: textColor),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'Please enter your email';
-                        }
-                        if (!RegExp(
-                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                        ).hasMatch(v.trim())) {
-                          return 'Please enter a valid email address';
-                        }
-                        return null;
-                      },
-                      decoration: _inputDecoration(
-                        hint: 'Enter your email',
-                        icon: Icons.email_outlined,
-                        isDark: isDark,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Password
-                    _fieldLabel('Password', labelColor),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      style: TextStyle(color: textColor),
-                      validator: (v) {
-                        if (v == null || v.isEmpty) {
-                          return 'Please enter your password';
-                        }
-                        if (v.length < 6) {
-                          return 'Password must be at least 6 characters';
-                        }
-                        return null;
-                      },
-                      decoration: _inputDecoration(
-                        hint: 'Enter your password',
-                        icon: Icons.lock_outline,
-                        isDark: isDark,
-                        suffixIcon: IconButton(
-                          onPressed: () => setState(
-                            () => _obscurePassword = !_obscurePassword,
-                          ),
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                            color: subtitleColor,
-                            size: 20,
-                          ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Welcome Back',
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 30,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: -0.5,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Sign in to continue your legal journey',
+                        style: TextStyle(color: subtitleColor, fontSize: 14),
+                      ),
+                      const SizedBox(height: 28),
 
-                    // Forgot Password
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ForgotPasswordScreen(),
-                          ),
-                        ),
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: const Text(
-                          'Forgot Password?',
-                          style: TextStyle(
-                            color: Color(0xFFFF6B00),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
+                      // Email
+                      _fieldLabel('Email Address', labelColor),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        style: TextStyle(color: textColor),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Please enter your email';
+                          }
+                          if (!RegExp(
+                            r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                          ).hasMatch(v.trim())) {
+                            return 'Please enter a valid email address';
+                          }
+                          return null;
+                        },
+                        decoration: _inputDecoration(
+                          hint: 'Enter your email',
+                          icon: Icons.email_outlined,
+                          isDark: isDark,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
+                      const SizedBox(height: 16),
 
-                    // Login Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: isLoading ? null : _login,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF6B00),
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor: const Color(
-                            0xFFFF6B00,
-                          ).withValues(alpha: 0.6),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: isLoading
-                            ? const SizedBox(
-                                height: 22,
-                                width: 22,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2.5,
-                                ),
-                              )
-                            : const Text(
-                                'Login',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.3,
-                                ),
-                              ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-
-                    // Register link
-                    Center(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            "Don't have an account? ",
-                            style: TextStyle(
+                      // Password
+                      _fieldLabel('Password', labelColor),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        style: TextStyle(color: textColor),
+                        validator: (v) {
+                          if (v == null || v.isEmpty) {
+                            return 'Please enter your password';
+                          }
+                          if (v.length < 6) {
+                            return 'Password must be at least 6 characters';
+                          }
+                          return null;
+                        },
+                        decoration: _inputDecoration(
+                          hint: 'Enter your password',
+                          icon: Icons.lock_outline,
+                          isDark: isDark,
+                          suffixIcon: IconButton(
+                            onPressed: () => setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
                               color: subtitleColor,
-                              fontSize: 14,
+                              size: 20,
                             ),
                           ),
-                          GestureDetector(
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const RegisterScreen(),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Forgot Password
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () =>
+                              context.navigateTo(RouteNames.forgotPassword),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text(
+                            'Forgot Password?',
+                            style: TextStyle(
+                              color: Color(0xFFFF6B00),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Login Button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton(
+                          onPressed: isLoading ? null : _login,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFFF6B00),
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: const Color(
+                              0xFFFF6B00,
+                            ).withValues(alpha: 0.6),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: isLoading
+                              ? const SizedBox(
+                                  height: 22,
+                                  width: 22,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2.5,
+                                  ),
+                                )
+                              : const Text(
+                                  'Login',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Register link
+                      Center(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              "Don't have an account? ",
+                              style: TextStyle(
+                                color: subtitleColor,
+                                fontSize: 14,
                               ),
                             ),
-                            child: const Text(
-                              'Register',
+                            GestureDetector(
+                              onTap: () =>
+                                  context.navigateTo(RouteNames.register),
+                              child: const Text(
+                                'Register',
+                                style: TextStyle(
+                                  color: Color(0xFFFF6B00),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 40),
+
+                      // ──── Professional Lawyer Portal Section ──────────────────
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 20,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            top: BorderSide(
+                              color: isDark
+                                  ? const Color(0xFF2A2A2A)
+                                  : Colors.grey.shade200,
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              'Are you a licensed lawyer?',
                               style: TextStyle(
-                                color: Color(0xFFFF6B00),
+                                color: textColor,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
+                                letterSpacing: 0.3,
                               ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 14),
+                            // 🎯 Professional Lawyer Portal Button
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () =>
+                                    context.navigateTo(RouteNames.lawyerLogin),
+                                borderRadius: BorderRadius.circular(14),
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 14,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(14),
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        const Color(
+                                          0xFFFF6B00,
+                                        ).withValues(alpha: 0.95),
+                                        const Color(0xFFE55A00),
+                                      ],
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(
+                                          0xFFFF6B00,
+                                        ).withValues(alpha: 0.25),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(
+                                        Icons.gavel_outlined,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      const Text(
+                                        'Access Lawyer Portal',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      const Icon(
+                                        Icons.arrow_forward_rounded,
+                                        color: Colors.white,
+                                        size: 18,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 32),
-                  ],
+                      const SizedBox(height: 16),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -379,11 +463,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Widget _fieldLabel(String label, Color color) => Text(
     label,
-    style: TextStyle(
-      color: color,
-      fontSize: 13,
-      fontWeight: FontWeight.w500,
-    ),
+    style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w500),
   );
 
   InputDecoration _inputDecoration({
@@ -392,12 +472,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     required bool isDark,
     Widget? suffixIcon,
   }) {
-    final borderSide = BorderSide(color: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade300);
+    final borderSide = BorderSide(
+      color: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade300,
+    );
     final radius = BorderRadius.circular(12);
     return InputDecoration(
       hintText: hint,
-      hintStyle: TextStyle(color: isDark ? const Color(0xFF5A5A5A) : Colors.grey.shade400),
-      prefixIcon: Icon(icon, color: isDark ? const Color(0xFF9E9E9E) : Colors.grey.shade500, size: 20),
+      hintStyle: TextStyle(
+        color: isDark ? const Color(0xFF5A5A5A) : Colors.grey.shade400,
+      ),
+      prefixIcon: Icon(
+        icon,
+        color: isDark ? const Color(0xFF9E9E9E) : Colors.grey.shade500,
+        size: 20,
+      ),
       suffixIcon: suffixIcon,
       filled: true,
       fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,

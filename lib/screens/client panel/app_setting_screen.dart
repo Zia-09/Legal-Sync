@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:legal_sync/provider/auth_provider.dart';
 import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/provider/theme_provider.dart';
 import 'package:legal_sync/screens/client%20panel/case_status_view.dart';
 import 'home_screen.dart';
-
 import 'messages_screen.dart';
 import 'legal_categories_screen.dart';
 import 'package:image_picker/image_picker.dart';
@@ -17,6 +18,7 @@ import 'client_edit_profile_screen.dart';
 import 'payment_methods_screen.dart';
 import 'billing_history_screen.dart';
 import 'recent_activity_screen.dart';
+import 'package:legal_sync/utils/animations.dart';
 
 class AppSettingScreen extends StatefulWidget {
   const AppSettingScreen({super.key});
@@ -29,6 +31,31 @@ class _AppSettingScreenState extends State<AppSettingScreen> {
   bool _twoFactorAuth = true;
   bool _caseNotifications = true;
   bool _isUploading = false;
+
+  // 🕐 Helper method to calculate time difference
+  String _getPasswordUpdateTime(Timestamp? timestamp) {
+    if (timestamp == null) return 'Never updated';
+
+    final now = DateTime.now();
+    final updated = timestamp.toDate();
+    final difference = now.difference(updated);
+
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    } else if (difference.inHours < 1) {
+      return '${difference.inMinutes} minute${difference.inMinutes > 1 ? 's' : ''} ago';
+    } else if (difference.inDays < 1) {
+      return '${difference.inHours} hour${difference.inHours > 1 ? 's' : ''} ago';
+    } else if (difference.inDays < 30) {
+      return '${difference.inDays} day${difference.inDays > 1 ? 's' : ''} ago';
+    } else if (difference.inDays < 365) {
+      final months = (difference.inDays / 30).floor();
+      return '$months month${months > 1 ? 's' : ''} ago';
+    } else {
+      final years = (difference.inDays / 365).floor();
+      return '$years year${years > 1 ? 's' : ''} ago';
+    }
+  }
 
   Future<void> _pickAndUploadImage(WidgetRef ref, String clientId) async {
     // ... existing implementation remains mostly the same, just ensured context.mounted checks
@@ -256,7 +283,8 @@ class _AppSettingScreenState extends State<AppSettingScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => const ClientEditProfileScreen(),
+                                  builder: (_) =>
+                                      const ClientEditProfileScreen(),
                                 ),
                               );
                             },
@@ -282,33 +310,35 @@ class _AppSettingScreenState extends State<AppSettingScreen> {
                         // APPEARANCE
                         _buildSectionHeader('APPEARANCE', subtitleColor),
                         const SizedBox(height: 12),
-                        _SettingRow(
-                          icon: isDark ? Icons.dark_mode : Icons.light_mode,
-                          iconBgColor: isDark
-                              ? const Color(0xFF7C3AED)
-                              : const Color(0xFFFFB800),
-                          title: 'Dark Mode',
-                          subtitle: isDark
-                              ? 'Enable Dark theme'
-                              : 'Enable Light theme',
-                          cardColor: cardColor,
-                          textColor: textColor,
-                          subtitleColor: subtitleColor,
-                          trailing: Switch(
-                            value: isDark,
-                            onChanged: (isDark) {
-                              ref
-                                  .read(themeModeProvider.notifier)
-                                  .toggleTheme(isDark);
-                            },
-                            activeThumbColor: const Color(0xFFFF6B00),
-                            activeTrackColor: const Color(
-                              0xFFFF6B00,
-                            ).withValues(alpha: 0.3),
-                            inactiveThumbColor: const Color(0xFF9E9E9E),
-                            inactiveTrackColor: Theme.of(
-                              context,
-                            ).dividerColor.withValues(alpha: 0.5),
+                        AnimationUtils.slideUpAnimation(
+                          child: _SettingRow(
+                            icon: isDark ? Icons.dark_mode : Icons.light_mode,
+                            iconBgColor: isDark
+                                ? const Color(0xFF7C3AED)
+                                : const Color(0xFFFFB800),
+                            title: 'Dark Mode',
+                            subtitle: isDark
+                                ? 'Enable Dark theme'
+                                : 'Enable Light theme',
+                            cardColor: cardColor,
+                            textColor: textColor,
+                            subtitleColor: subtitleColor,
+                            trailing: Switch(
+                              value: isDark,
+                              onChanged: (isDark) {
+                                ref
+                                    .read(themeModeProvider.notifier)
+                                    .toggleTheme(isDark);
+                              },
+                              activeThumbColor: const Color(0xFFFF6B00),
+                              activeTrackColor: const Color(
+                                0xFFFF6B00,
+                              ).withValues(alpha: 0.3),
+                              inactiveThumbColor: const Color(0xFF9E9E9E),
+                              inactiveTrackColor: Theme.of(
+                                context,
+                              ).dividerColor.withValues(alpha: 0.5),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 24),
@@ -316,42 +346,48 @@ class _AppSettingScreenState extends State<AppSettingScreen> {
                         // CASE & ACCOUNT
                         _buildSectionHeader('CASE & ACCOUNT', subtitleColor),
                         const SizedBox(height: 12),
-                        _SettingRow(
-                          icon: Icons.notifications_active_outlined,
-                          iconBgColor: const Color(0xFF2563EB),
-                          title: 'Case Notifications',
-                          subtitle: 'Alerts for case updates and hearings',
-                          cardColor: cardColor,
-                          textColor: textColor,
-                          subtitleColor: subtitleColor,
-                          trailing: Switch(
-                            value: _caseNotifications,
-                            onChanged: (val) =>
-                                setState(() => _caseNotifications = val),
-                            activeThumbColor: const Color(0xFFFF6B00),
-                            activeTrackColor: const Color(
-                              0xFFFF6B00,
-                            ).withValues(alpha: 0.3),
-                            inactiveThumbColor: const Color(0xFF9E9E9E),
-                            inactiveTrackColor: Theme.of(
-                              context,
-                            ).dividerColor.withValues(alpha: 0.5),
+                        AnimationUtils.slideUpAnimation(
+                          child: _SettingRow(
+                            icon: Icons.notifications_active_outlined,
+                            iconBgColor: const Color(0xFF2563EB),
+                            title: 'Case Notifications',
+                            subtitle: 'Alerts for case updates and hearings',
+                            cardColor: cardColor,
+                            textColor: textColor,
+                            subtitleColor: subtitleColor,
+                            trailing: Switch(
+                              value: _caseNotifications,
+                              onChanged: (val) =>
+                                  setState(() => _caseNotifications = val),
+                              activeThumbColor: const Color(0xFFFF6B00),
+                              activeTrackColor: const Color(
+                                0xFFFF6B00,
+                              ).withValues(alpha: 0.3),
+                              inactiveThumbColor: const Color(0xFF9E9E9E),
+                              inactiveTrackColor: Theme.of(
+                                context,
+                              ).dividerColor.withValues(alpha: 0.5),
+                            ),
                           ),
                         ),
-                        _SettingRow(
-                          icon: Icons.description_outlined,
-                          iconBgColor: const Color(0xFFFF6B00),
-                          title: 'Legal Documents',
-                          subtitle: 'Manage your shared files and e-signs',
-                          cardColor: cardColor,
-                          textColor: textColor,
-                          subtitleColor: subtitleColor,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const RecentActivityScreen()),
-                            );
-                          },
+                        AnimationUtils.slideUpAnimation(
+                          child: _SettingRow(
+                            icon: Icons.description_outlined,
+                            iconBgColor: const Color(0xFFFF6B00),
+                            title: 'Legal Documents',
+                            subtitle: 'Manage your shared files and e-signs',
+                            cardColor: cardColor,
+                            textColor: textColor,
+                            subtitleColor: subtitleColor,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const RecentActivityScreen(),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                         const SizedBox(height: 24),
 
@@ -361,76 +397,123 @@ class _AppSettingScreenState extends State<AppSettingScreen> {
                           subtitleColor,
                         ),
                         const SizedBox(height: 12),
-                        _SettingRow(
-                          icon: Icons.credit_card_outlined,
-                          iconBgColor: const Color(0xFF7C3AED),
-                          title: 'Payment Methods',
-                          subtitle: 'Visa ending in **** 4242',
-                          cardColor: cardColor,
-                          textColor: textColor,
-                          subtitleColor: subtitleColor,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const PaymentMethodsScreen()),
-                            );
-                          },
+                        AnimationUtils.slideUpAnimation(
+                          child: _SettingRow(
+                            icon: Icons.credit_card_outlined,
+                            iconBgColor: const Color(0xFF7C3AED),
+                            title: 'Payment Methods',
+                            subtitle: 'Visa ending in **** 4242',
+                            cardColor: cardColor,
+                            textColor: textColor,
+                            subtitleColor: subtitleColor,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const PaymentMethodsScreen(),
+                                ),
+                              );
+                            },
+                          ),
                         ),
-                        _SettingRow(
-                          icon: Icons.receipt_long_outlined,
-                          iconBgColor: const Color(0xFF0891B2),
-                          title: 'Billing History',
-                          subtitle: 'View and download past invoices',
-                          cardColor: cardColor,
-                          textColor: textColor,
-                          subtitleColor: subtitleColor,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const BillingHistoryScreen()),
-                            );
-                          },
+                        AnimationUtils.slideUpAnimation(
+                          child: _SettingRow(
+                            icon: Icons.receipt_long_outlined,
+                            iconBgColor: const Color(0xFF0891B2),
+                            title: 'Billing History',
+                            subtitle: 'View and download past invoices',
+                            cardColor: cardColor,
+                            textColor: textColor,
+                            subtitleColor: subtitleColor,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const BillingHistoryScreen(),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                         const SizedBox(height: 24),
 
                         // SECURITY
                         _buildSectionHeader('SECURITY', subtitleColor),
                         const SizedBox(height: 12),
-                        _SettingRow(
-                          icon: Icons.lock_outline,
-                          iconBgColor: const Color(0xFFDC2626),
-                          title: 'Change Password',
-                          subtitle: 'Last updated 3 months ago',
-                          cardColor: cardColor,
-                          textColor: textColor,
-                          subtitleColor: subtitleColor,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const UpdatePasswordScreen()),
+                        // 🔐 Real-time Password Update Status
+                        StreamBuilder<DocumentSnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(FirebaseAuth.instance.currentUser?.uid)
+                              .snapshots(),
+                          builder: (context, snapshot) {
+                            String passwordUpdateText = 'Never updated';
+
+                            if (snapshot.hasData && snapshot.data != null) {
+                              try {
+                                final data =
+                                    snapshot.data!.data()
+                                        as Map<String, dynamic>?;
+                                if (data != null &&
+                                    data.containsKey('passwordLastUpdated')) {
+                                  final timestamp =
+                                      data['passwordLastUpdated'] as Timestamp?;
+                                  if (timestamp != null) {
+                                    passwordUpdateText = _getPasswordUpdateTime(
+                                      timestamp,
+                                    );
+                                  }
+                                }
+                              } catch (e) {
+                                // Silently handle errors - user might not have this field yet
+                                passwordUpdateText = 'Never updated';
+                              }
+                            }
+
+                            return AnimationUtils.slideUpAnimation(
+                              child: _SettingRow(
+                                icon: Icons.lock_outline,
+                                iconBgColor: const Color(0xFFDC2626),
+                                title: 'Change Password',
+                                subtitle: 'Last updated $passwordUpdateText',
+                                cardColor: cardColor,
+                                textColor: textColor,
+                                subtitleColor: subtitleColor,
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          const UpdatePasswordScreen(),
+                                    ),
+                                  );
+                                },
+                              ),
                             );
                           },
                         ),
-                        _SettingRow(
-                          icon: Icons.security_outlined,
-                          iconBgColor: const Color(0xFF059669),
-                          title: 'Two-Factor Auth',
-                          subtitle: 'Add extra security to your account',
-                          cardColor: cardColor,
-                          textColor: textColor,
-                          subtitleColor: subtitleColor,
-                          trailing: Switch(
-                            value: _twoFactorAuth,
-                            onChanged: (val) =>
-                                setState(() => _twoFactorAuth = val),
-                            activeThumbColor: const Color(0xFFFF6B00),
-                            activeTrackColor: const Color(
-                              0xFFFF6B00,
-                            ).withValues(alpha: 0.3),
-                            inactiveThumbColor: const Color(0xFF9E9E9E),
-                            inactiveTrackColor: Theme.of(
-                              context,
-                            ).dividerColor.withValues(alpha: 0.5),
+                        AnimationUtils.slideUpAnimation(
+                          child: _SettingRow(
+                            icon: Icons.security_outlined,
+                            iconBgColor: const Color(0xFF059669),
+                            title: 'Two-Factor Auth',
+                            subtitle: 'Add extra security to your account',
+                            cardColor: cardColor,
+                            textColor: textColor,
+                            subtitleColor: subtitleColor,
+                            trailing: Switch(
+                              value: _twoFactorAuth,
+                              onChanged: (val) =>
+                                  setState(() => _twoFactorAuth = val),
+                              activeThumbColor: const Color(0xFFFF6B00),
+                              activeTrackColor: const Color(
+                                0xFFFF6B00,
+                              ).withValues(alpha: 0.3),
+                              inactiveThumbColor: const Color(0xFF9E9E9E),
+                              inactiveTrackColor: Theme.of(
+                                context,
+                              ).dividerColor.withValues(alpha: 0.5),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 40),

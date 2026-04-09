@@ -107,6 +107,7 @@ class AuthService {
         'name': name,
         'email': email.trim(),
         'createdAt': now,
+        'isFirstTimeUser': false, // User has completed signup flow
       });
 
       if (role == 'client') {

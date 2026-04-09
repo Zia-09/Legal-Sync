@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:legal_sync/model/case_Model.dart';
-
 import 'package:legal_sync/provider/case_provider.dart';
 import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/provider/hearing_provider.dart';
@@ -17,6 +16,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:legal_sync/screens/client%20panel/messages_screen.dart'; // fallback
 import 'package:legal_sync/screens/client%20panel/home_screen.dart';
 import 'package:legal_sync/screens/client%20panel/app_setting_screen.dart';
+import 'package:legal_sync/utils/animations.dart';
 import 'chat_detail_screen.dart';
 
 class CaseStatusScreen extends ConsumerStatefulWidget {
@@ -982,51 +982,53 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
               ? '${caseItem.title.substring(0, 15)}...'
               : caseItem.title;
 
-          return GestureDetector(
-            onTap: () => setState(() => _selectedCaseIndex = index),
-            child: Container(
-              margin: const EdgeInsets.only(right: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? const Color(0xFFFF6B00)
-                    : const Color(0xFF1E1E1E),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
+          return AnimationUtils.scaleAnimation(
+            child: GestureDetector(
+              onTap: () => setState(() => _selectedCaseIndex = index),
+              child: Container(
+                margin: const EdgeInsets.only(right: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
                   color: isSelected
-                      ? Colors.transparent
-                      : const Color(0xFF2A2A2A),
+                      ? const Color(0xFFFF6B00)
+                      : const Color(0xFF1E1E1E),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSelected
+                        ? Colors.transparent
+                        : const Color(0xFF2A2A2A),
+                  ),
                 ),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      caseLabel,
-                      style: TextStyle(
-                        color: isSelected
-                            ? Colors.white
-                            : const Color(0xFF9E9E9E),
-                        fontSize: 12,
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.w500,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        caseLabel,
+                        style: TextStyle(
+                          color: isSelected
+                              ? Colors.white
+                              : const Color(0xFF9E9E9E),
+                          fontSize: 12,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      caseItem.status.toUpperCase(),
-                      style: TextStyle(
-                        color: isSelected
-                            ? Colors.white70
-                            : const Color(0xFF6B6B6B),
-                        fontSize: 9,
-                        fontWeight: FontWeight.w400,
+                      Text(
+                        caseItem.status.toUpperCase(),
+                        style: TextStyle(
+                          color: isSelected
+                              ? Colors.white70
+                              : const Color(0xFF6B6B6B),
+                          fontSize: 9,
+                          fontWeight: FontWeight.w400,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

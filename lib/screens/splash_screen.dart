@@ -1,7 +1,9 @@
 // lib/screens/splash/splash_screen.dart
 import 'package:flutter/material.dart';
-import 'package:legal_sync/screens/onboarding/onboarding_screen1.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:legal_sync/widgets/brand_logo.dart';
+import 'package:legal_sync/config/routes.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -23,11 +25,43 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
 
-    // 👉 For now always go to Onboarding (UI only)
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const OnboardingPage1()),
-    );
+    // 🔍 Check authentication status
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      // ❌ Not authenticated → Go to Onboarding
+      context.navigateAndReplace(RouteNames.onboarding1);
+    } else {
+      // ✅ Authenticated → Check if first time user
+      try {
+        final uid = user.uid;
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .get();
+
+        if (userDoc.exists) {
+          final isFirstTime = userDoc.data()?['isFirstTimeUser'] ?? true;
+
+          if (!mounted) return;
+
+          if (isFirstTime) {
+            // 👉 First time → Show Onboarding
+            context.navigateAndReplace(RouteNames.onboarding1);
+          } else {
+            // 👉 Returning user → Go directly to Home
+            context.navigateAndReplace(RouteNames.clientHome);
+          }
+        } else {
+          // User doc doesn't exist → Go to Onboarding
+          context.navigateAndReplace(RouteNames.onboarding1);
+        }
+      } catch (e) {
+        // Error checking user status → Go to Home (safe default)
+        if (!mounted) return;
+        context.navigateAndReplace(RouteNames.clientHome);
+      }
+    }
   }
 
   @override

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:legal_sync/screens/client%20panel/login_screen.dart';
-import 'package:legal_sync/screens/lawyer%20panel/lawyer_login_screen.dart';
+import 'package:legal_sync/config/routes.dart';
 
 class OnboardingPage3 extends StatelessWidget {
   const OnboardingPage3({super.key});
@@ -14,7 +13,7 @@ class OnboardingPage3 extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: GestureDetector(
-          onTap: () => Navigator.pop(context),
+          onTap: () => context.goBack(),
           child: Container(
             margin: const EdgeInsets.all(8),
             padding: const EdgeInsets.all(8),
@@ -122,12 +121,7 @@ class OnboardingPage3 extends StatelessWidget {
                       height: 52,
                       child: ElevatedButton(
                         onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const LoginScreen(),
-                            ),
-                          );
+                          context.navigateTo(RouteNames.login);
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFFFB800), // yellowish
@@ -142,25 +136,6 @@ class OnboardingPage3 extends StatelessWidget {
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const LawyerLoginScreen(),
-                          ),
-                        );
-                      },
-                      child: const Text(
-                        "login as a lawyer",
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 15,
-                          decoration: TextDecoration.underline,
                         ),
                       ),
                     ),

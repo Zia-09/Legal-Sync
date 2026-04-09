@@ -2,13 +2,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/provider/auth_provider.dart';
-import 'package:legal_sync/screens/admin/admin_dashboard_screen.dart';
-import 'package:legal_sync/screens/lawyer%20panel/lawyer_dashboard_screen.dart';
-import 'package:legal_sync/screens/lawyer%20panel/lawyer_registration_screen.dart';
-import 'package:legal_sync/screens/lawyer%20panel/lawyer_forgot_password_screen.dart';
-import 'package:legal_sync/screens/lawyer%20panel/lawyer_verification_pending_screen.dart';
 import 'package:legal_sync/services/email_service.dart';
 import 'package:legal_sync/widgets/brand_logo.dart';
+import 'package:legal_sync/config/routes.dart';
 
 // ─── Static Admin Credentials ────────────────────────────────────────────────
 // Shared with client login. Not shown in UI.
@@ -54,10 +50,7 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
         );
       } catch (_) {}
       if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
-      );
+      context.navigateTo(RouteNames.adminDashboard);
       return;
     }
     // ─────────────────────────────────────────────────────────────────────────
@@ -100,17 +93,9 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
         if (!mounted) return;
 
         if (isApproved) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const LawyerDashboardScreen()),
-          );
+          context.navigateAndClearStack(RouteNames.lawyerDashboard);
         } else {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const LawyerVerificationPendingScreen(),
-            ),
-          );
+          context.navigateAndClearStack(RouteNames.lawyerVerificationPending);
           return; // Stop execution here so we don't show the success snackbar
         }
       }
@@ -396,13 +381,7 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
                       alignment: Alignment.centerRight,
                       child: GestureDetector(
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  const LawyerForgotPasswordScreen(),
-                            ),
-                          );
+                          context.navigateTo(RouteNames.lawyerForgotPassword);
                         },
                         child: const Text(
                           'Forgot Password?',
@@ -461,13 +440,7 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
                           ),
                           GestureDetector(
                             onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      const LawyerRegistrationScreen(),
-                                ),
-                              );
+                              context.navigateTo(RouteNames.lawyerRegister);
                             },
                             child: const Text(
                               'Register here',
