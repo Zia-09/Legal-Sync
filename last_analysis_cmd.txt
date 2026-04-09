@@ -1,7 +1,0 @@
-Analyzing lib...
-
-   info - screens\lawyer panel\lawyer_edit_profile_screen.dart:297:64 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
-   info - screens\lawyer panel\lawyer_edit_profile_screen.dart:298:56 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
-   info - screens\lawyer panel\lawyer_edit_profile_screen.dart:313:46 - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check. Guard a 'State.context' use with a 'mounted' check on the State, and other BuildContext use with a 'mounted' check on the BuildContext. - use_build_context_synchronously
-
-3 issues found.
