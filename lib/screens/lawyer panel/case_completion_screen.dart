@@ -261,7 +261,7 @@ class _CaseCompletionScreenState extends ConsumerState<CaseCompletionScreen> {
                       ),
                     ),
                   );
-                }).toList(),
+                }),
                 const SizedBox(height: 24),
 
                 // Outcome Notes

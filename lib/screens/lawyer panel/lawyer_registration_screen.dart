@@ -335,57 +335,84 @@ class _LawyerRegistrationScreenState
   }
 
   Widget _buildHeroCard() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: const Color(0xFF131D31), // Dark blue/black as per Figma
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.blue.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: const Text(
-              'ONBOARDING',
-              style: TextStyle(
-                color: Colors.blueAccent,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1,
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeOut,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, -20 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: const Color(0xFF131D31), // Dark blue/black as per Figma
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.blue.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Text(
+                'ONBOARDING',
+                style: TextStyle(
+                  color: Colors.blueAccent,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1,
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Lawyer Registration',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
+            const SizedBox(height: 12),
+            const Text(
+              'Lawyer Registration',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Join our elite network of legal professionals and expand your practice.',
-            style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.4),
-          ),
-        ],
+            const SizedBox(height: 8),
+            const Text(
+              'Join our elite network of legal professionals and expand your practice.',
+              style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.4),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildHorizontalStepper() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 30),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeOut,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 15 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 30),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
           _buildStepIndicator(0, 'Account'),
           _buildStepConnector(0),
           _buildStepIndicator(1, 'Practice'),
@@ -393,6 +420,7 @@ class _LawyerRegistrationScreenState
           _buildStepIndicator(2, 'Verification'),
         ],
       ),
+    ),
     );
   }
 

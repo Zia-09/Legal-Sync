@@ -441,7 +441,7 @@ class _LawyerManagementDocumentScreenState
             canvasColor: isDark ? const Color(0xFF252525) : Colors.white,
           ),
           child: DropdownButtonFormField<String>(
-            value: selectedValue,
+            initialValue: selectedValue,
             decoration: InputDecoration(
               filled: true,
               fillColor: bgColor,

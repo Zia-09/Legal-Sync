@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/provider/auth_provider.dart';
 import 'package:legal_sync/screens/client%20panel/home_screen.dart';
 import 'package:legal_sync/services/email_service.dart';
+import 'package:legal_sync/utils/animations.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -11,7 +12,8 @@ class RegisterScreen extends ConsumerStatefulWidget {
   ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends ConsumerState<RegisterScreen> {
+class _RegisterScreenState extends ConsumerState<RegisterScreen>
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -21,8 +23,52 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
 
+  late AnimationController _headerController;
+  late AnimationController _formController;
+  late Animation<double> _headerOpacity;
+  late Animation<Offset> _headerSlide;
+  late Animation<double> _formOpacity;
+  late Animation<Offset> _formSlide;
+
+  @override
+  void initState() {
+    super.initState();
+    _headerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _formController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _headerOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _headerController, curve: Curves.easeOut),
+    );
+    _headerSlide = Tween<Offset>(
+      begin: const Offset(0, -0.15),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(parent: _headerController, curve: Curves.easeOutCubic),
+    );
+    _formOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _formController, curve: Curves.easeOut),
+    );
+    _formSlide = Tween<Offset>(
+      begin: const Offset(0, 0.1),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(parent: _formController, curve: Curves.easeOutCubic),
+    );
+    _headerController.forward();
+    Future.delayed(const Duration(milliseconds: 250), () {
+      if (mounted) _formController.forward();
+    });
+  }
+
   @override
   void dispose() {
+    _headerController.dispose();
+    _formController.dispose();
     _nameController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
@@ -108,216 +154,246 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Join LegalSync',
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Create your client account in seconds.',
-                style: TextStyle(color: subtitleColor, fontSize: 14),
-              ),
-              const SizedBox(height: 28),
-
-              // Full Name
-              _fieldLabel('Full Name', labelColor),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _nameController,
-                style: TextStyle(color: textColor),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Name is required' : null,
-                decoration: _inputDecoration(
-                  hint: 'Enter your full name',
-                  icon: Icons.person_outline,
-                  isDark: isDark,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Phone
-              _fieldLabel('Phone Number', labelColor),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-                style: TextStyle(color: textColor),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) {
-                    return 'Phone number is required';
-                  }
-                  if (v.trim().length < 10) {
-                    return 'Enter a valid phone number';
-                  }
-                  return null;
-                },
-                decoration: _inputDecoration(
-                  hint: 'Enter your phone number',
-                  icon: Icons.phone_outlined,
-                  isDark: isDark,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Email
-              _fieldLabel('Email Address', labelColor),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                style: TextStyle(color: textColor),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) {
-                    return 'Email is required';
-                  }
-                  if (!RegExp(
-                    r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                  ).hasMatch(v.trim())) {
-                    return 'Enter a valid email address';
-                  }
-                  return null;
-                },
-                decoration: _inputDecoration(
-                  hint: 'Enter your email',
-                  icon: Icons.email_outlined,
-                  isDark: isDark,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Password
-              _fieldLabel('Password', labelColor),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _passwordController,
-                obscureText: _obscurePassword,
-                style: TextStyle(color: textColor),
-                validator: (v) {
-                  if (v == null || v.isEmpty) return 'Password is required';
-                  if (v.length < 6) {
-                    return 'Password must be at least 6 characters';
-                  }
-                  return null;
-                },
-                decoration: _inputDecoration(
-                  hint: 'Create a password',
-                  icon: Icons.lock_outline,
-                  isDark: isDark,
-                  suffixIcon: IconButton(
-                    onPressed: () =>
-                        setState(() => _obscurePassword = !_obscurePassword),
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined,
-                      color: subtitleColor,
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Confirm Password
-              _fieldLabel('Confirm Password', labelColor),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _confirmPasswordController,
-                obscureText: _obscureConfirm,
-                style: TextStyle(color: textColor),
-                validator: (v) {
-                  if (v == null || v.isEmpty) {
-                    return 'Please confirm your password';
-                  }
-                  if (v != _passwordController.text) {
-                    return 'Passwords do not match';
-                  }
-                  return null;
-                },
-                decoration: _inputDecoration(
-                  hint: 'Re-enter your password',
-                  icon: Icons.lock_outline,
-                  isDark: isDark,
-                  suffixIcon: IconButton(
-                    onPressed: () =>
-                        setState(() => _obscureConfirm = !_obscureConfirm),
-                    icon: Icon(
-                      _obscureConfirm
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined,
-                      color: subtitleColor,
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 28),
-
-              // Register Button
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: isLoading ? null : _register,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF6B00),
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: const Color(
-                      0xFFFF6B00,
-                    ).withValues(alpha: 0.6),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: isLoading
-                      ? const SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2.5,
-                          ),
-                        )
-                      : const Text(
-                          'Create Account',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Back to Login
-              Center(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Already have an account? ',
-                      style: TextStyle(color: subtitleColor, fontSize: 14),
-                    ),
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: const Text(
-                        'Login',
+              // ── Animated Header ──────────────────────────────────────
+              FadeTransition(
+                opacity: _headerOpacity,
+                child: SlideTransition(
+                  position: _headerSlide,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Join LegalSync',
                         style: TextStyle(
-                          color: Color(0xFFFF6B00),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                          color: textColor,
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Text(
+                        'Create your client account in seconds.',
+                        style: TextStyle(color: subtitleColor, fontSize: 14),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 28),
+
+              // ── Animated Form Fields ─────────────────────────────────
+              FadeTransition(
+                opacity: _formOpacity,
+                child: SlideTransition(
+                  position: _formSlide,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Full Name
+                      _fieldLabel('Full Name', labelColor),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _nameController,
+                        style: TextStyle(color: textColor),
+                        validator: (v) =>
+                            (v == null || v.trim().isEmpty) ? 'Name is required' : null,
+                        decoration: _inputDecoration(
+                          hint: 'Enter your full name',
+                          icon: Icons.person_outline,
+                          isDark: isDark,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Phone
+                      _fieldLabel('Phone Number', labelColor),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        style: TextStyle(color: textColor),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Phone number is required';
+                          }
+                          if (v.trim().length < 10) {
+                            return 'Enter a valid phone number';
+                          }
+                          return null;
+                        },
+                        decoration: _inputDecoration(
+                          hint: 'Enter your phone number',
+                          icon: Icons.phone_outlined,
+                          isDark: isDark,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Email
+                      _fieldLabel('Email Address', labelColor),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        style: TextStyle(color: textColor),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Email is required';
+                          }
+                          if (!RegExp(
+                            r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                          ).hasMatch(v.trim())) {
+                            return 'Enter a valid email address';
+                          }
+                          return null;
+                        },
+                        decoration: _inputDecoration(
+                          hint: 'Enter your email',
+                          icon: Icons.email_outlined,
+                          isDark: isDark,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Password
+                      _fieldLabel('Password', labelColor),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        style: TextStyle(color: textColor),
+                        validator: (v) {
+                          if (v == null || v.isEmpty) return 'Password is required';
+                          if (v.length < 6) {
+                            return 'Password must be at least 6 characters';
+                          }
+                          return null;
+                        },
+                        decoration: _inputDecoration(
+                          hint: 'Create a password',
+                          icon: Icons.lock_outline,
+                          isDark: isDark,
+                          suffixIcon: IconButton(
+                            onPressed: () =>
+                                setState(() => _obscurePassword = !_obscurePassword),
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              color: subtitleColor,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Confirm Password
+                      _fieldLabel('Confirm Password', labelColor),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _confirmPasswordController,
+                        obscureText: _obscureConfirm,
+                        style: TextStyle(color: textColor),
+                        validator: (v) {
+                          if (v == null || v.isEmpty) {
+                            return 'Please confirm your password';
+                          }
+                          if (v != _passwordController.text) {
+                            return 'Passwords do not match';
+                          }
+                          return null;
+                        },
+                        decoration: _inputDecoration(
+                          hint: 'Re-enter your password',
+                          icon: Icons.lock_outline,
+                          isDark: isDark,
+                          suffixIcon: IconButton(
+                            onPressed: () =>
+                                setState(() => _obscureConfirm = !_obscureConfirm),
+                            icon: Icon(
+                              _obscureConfirm
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              color: subtitleColor,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+
+                      // ── Register Button with AnimatedTap ──────────────
+                      AnimatedTap(
+                        onTap: null, // ElevatedButton handles tap
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton(
+                            onPressed: isLoading ? null : _register,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFF6B00),
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor: const Color(
+                                0xFFFF6B00,
+                              ).withValues(alpha: 0.6),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: isLoading
+                                ? const SizedBox(
+                                    height: 22,
+                                    width: 22,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2.5,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Create Account',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Back to Login
+                      Center(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Already have an account? ',
+                              style: TextStyle(
+                                color: subtitleColor,
+                                fontSize: 14,
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () => Navigator.pop(context),
+                              child: const Text(
+                                'Login',
+                                style: TextStyle(
+                                  color: Color(0xFFFF6B00),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         ),

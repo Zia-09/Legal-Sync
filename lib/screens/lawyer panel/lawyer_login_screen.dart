@@ -5,9 +5,9 @@ import 'package:legal_sync/provider/auth_provider.dart';
 import 'package:legal_sync/services/email_service.dart';
 import 'package:legal_sync/widgets/brand_logo.dart';
 import 'package:legal_sync/config/routes.dart';
+import 'package:legal_sync/utils/animations.dart';
 
 // ─── Static Admin Credentials ────────────────────────────────────────────────
-// Shared with client login. Not shown in UI.
 const String _adminEmail = 'admin@legalsync.com';
 const String _adminPassword = 'Admin@1234';
 
@@ -18,14 +18,56 @@ class LawyerLoginScreen extends ConsumerStatefulWidget {
   ConsumerState<LawyerLoginScreen> createState() => _LawyerLoginScreenState();
 }
 
-class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
+class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen>
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
+  late AnimationController _heroController;
+  late AnimationController _formController;
+  late Animation<double> _heroScale;
+  late Animation<double> _heroOpacity;
+  late Animation<Offset> _formSlide;
+  late Animation<double> _formOpacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _heroController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _formController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _heroScale = Tween<double>(begin: 1.1, end: 1.0).animate(
+      CurvedAnimation(parent: _heroController, curve: Curves.easeOutCubic),
+    );
+    _heroOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _heroController, curve: Curves.easeIn),
+    );
+    _formSlide = Tween<Offset>(
+      begin: const Offset(0, 0.15),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(parent: _formController, curve: Curves.easeOutCubic),
+    );
+    _formOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _formController, curve: Curves.easeOut),
+    );
+    _heroController.forward();
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (mounted) _formController.forward();
+    });
+  }
+
   @override
   void dispose() {
+    _heroController.dispose();
+    _formController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -41,7 +83,6 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
     if (email == _adminEmail && password == _adminPassword) {
       try {
         await FirebaseAuth.instance.signInAnonymously();
-        // 🔹 Trigger Admin Login Email
         emailService.sendProfessionalEmail(
           to: _adminEmail,
           subject: 'Admin Entry (via Lawyer Portal) - LegalSync',
@@ -62,7 +103,7 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
 
       if (!mounted) return;
 
-      // ─── Role Validation: Lawyer Portal Only ────────────────────────────────
+      // ─── Role Validation: Lawyer Portal Only ──────────────────────────────
       if (role != 'lawyer') {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -81,28 +122,26 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
             margin: const EdgeInsets.all(16),
           ),
         );
-        return; // Don't proceed with navigation
+        return;
       }
-      // ────────────────────────────────────────────────────────────────────────
+      // ──────────────────────────────────────────────────────────────────────
 
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid != null) {
-        final isApproved = await ref
-            .read(authServiceProvider)
-            .checkLawyerApproval(uid);
+        final isApproved =
+            await ref.read(authServiceProvider).checkLawyerApproval(uid);
         if (!mounted) return;
 
         if (isApproved) {
           context.navigateAndClearStack(RouteNames.lawyerDashboard);
         } else {
           context.navigateAndClearStack(RouteNames.lawyerVerificationPending);
-          return; // Stop execution here so we don't show the success snackbar
+          return;
         }
       }
 
       if (!mounted) return;
 
-      // 🔹 Professional Success Feedback
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -162,9 +201,8 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final scaffoldBg = isDark
-        ? const Color(0xFF121212)
-        : const Color(0xFFF7F9FC);
+    final scaffoldBg =
+        isDark ? const Color(0xFF121212) : const Color(0xFFF7F9FC);
     final textColor = isDark ? Colors.white : Colors.black87;
     final subtitleColor = isDark ? Colors.white70 : Colors.grey.shade600;
 
@@ -173,288 +211,310 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Hero section with overlaid text
-            Stack(
-              children: [
-                Container(
-                  height: 250,
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF131D31), // Dark fallback color
-                    image: DecorationImage(
-                      image: AssetImage(
-                        'images/lawyer_login_bg.jpg',
-                      ), // Placeholder
-                      fit: BoxFit.cover,
-                      colorFilter: ColorFilter.mode(
-                        Colors.black54,
-                        BlendMode.darken,
-                      ),
-                    ),
-                  ),
-                ),
-                Container(
-                  height: 250,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.black.withValues(alpha: 1),
-                        Colors.transparent,
-                      ],
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                    ),
-                  ),
-                ),
-                const Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 30,
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        BrandLogo(fontSize: 32, showImage: true, imageSize: 60),
-                        SizedBox(height: 8),
-                        Text(
-                          'Lawyer Portal',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            // ── Animated Hero ──────────────────────────────────────────────
+            FadeTransition(
+              opacity: _heroOpacity,
+              child: ScaleTransition(
+                scale: _heroScale,
+                child: Stack(
                   children: [
-                    // Email Field
-                    Text(
-                      'Email',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: textColor,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      style: TextStyle(color: textColor),
-                      decoration: InputDecoration(
-                        hintText: 'Enter your email',
-                        hintStyle: TextStyle(
-                          color: subtitleColor.withValues(alpha: 0.5),
-                        ),
-                        filled: true,
-                        fillColor: isDark
-                            ? Colors.white.withValues(alpha: 0.05)
-                            : Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(
-                            color: isDark
-                                ? Colors.white12
-                                : Colors.grey.shade200,
+                    Container(
+                      height: 250,
+                      width: double.infinity,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF131D31),
+                        image: DecorationImage(
+                          image: AssetImage('images/lawyer_login_bg.jpg'),
+                          fit: BoxFit.cover,
+                          colorFilter: ColorFilter.mode(
+                            Colors.black54,
+                            BlendMode.darken,
                           ),
                         ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFDC2626),
-                          ),
-                        ),
-                        errorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Colors.red),
-                        ),
-                        focusedErrorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Colors.red),
+                      ),
+                    ),
+                    Container(
+                      height: 250,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.black.withValues(alpha: 1),
+                            Colors.transparent,
+                          ],
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
                         ),
                       ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Email is required';
-                        }
-                        if (!RegExp(
-                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                        ).hasMatch(value)) {
-                          return 'Enter a valid email address';
-                        }
-                        return null;
-                      },
                     ),
-                    const SizedBox(height: 20),
+                    const Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 30,
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            BrandLogo(
+                              fontSize: 32,
+                              showImage: true,
+                              imageSize: 60,
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              'Lawyer Portal',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
-                    // Password Field
-                    Text(
-                      'Password',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: textColor,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      style: TextStyle(color: textColor),
-                      decoration: InputDecoration(
-                        hintText: 'Enter your password',
-                        hintStyle: TextStyle(
-                          color: subtitleColor.withValues(alpha: 0.5),
-                        ),
-                        filled: true,
-                        fillColor: isDark
-                            ? Colors.white.withValues(alpha: 0.05)
-                            : Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                            color: subtitleColor.withValues(alpha: 0.5),
+            const SizedBox(height: 32),
+
+            // ── Animated Form ──────────────────────────────────────────────
+            FadeTransition(
+              opacity: _formOpacity,
+              child: SlideTransition(
+                position: _formSlide,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Email Field
+                        Text(
+                          'Email',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: textColor,
                           ),
-                          onPressed: () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          style: TextStyle(color: textColor),
+                          decoration: InputDecoration(
+                            hintText: 'Enter your email',
+                            hintStyle: TextStyle(
+                              color: subtitleColor.withValues(alpha: 0.5),
+                            ),
+                            filled: true,
+                            fillColor: isDark
+                                ? Colors.white.withValues(alpha: 0.05)
+                                : Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(
+                                color: isDark
+                                    ? Colors.white12
+                                    : Colors.grey.shade200,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFDC2626),
+                              ),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(color: Colors.red),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(color: Colors.red),
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Email is required';
+                            }
+                            if (!RegExp(
+                              r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                            ).hasMatch(value)) {
+                              return 'Enter a valid email address';
+                            }
+                            return null;
                           },
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(
-                            color: isDark
-                                ? Colors.white12
-                                : Colors.grey.shade200,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFDC2626),
-                          ),
-                        ),
-                        errorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Colors.red),
-                        ),
-                        focusedErrorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Colors.red),
-                        ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Password is required';
-                        }
-                        if (value.length < 6) {
-                          return 'Password must be at least 6 characters';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: GestureDetector(
-                        onTap: () {
-                          context.navigateTo(RouteNames.lawyerForgotPassword);
-                        },
-                        child: const Text(
-                          'Forgot Password?',
-                          style: TextStyle(
-                            color: Color(0xFFDC2626),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
+                        const SizedBox(height: 20),
 
-                    SizedBox(
-                      width: double.infinity,
-                      height: 54,
-                      child: Consumer(
-                        builder: (context, ref, child) {
-                          final authState = ref.watch(authNotifierProvider);
-                          final isLoading = authState is AsyncLoading;
-                          return ElevatedButton(
-                            onPressed: isLoading ? null : _login,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFDC2626),
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                        // Password Field
+                        Text(
+                          'Password',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: textColor,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _passwordController,
+                          obscureText: _obscurePassword,
+                          style: TextStyle(color: textColor),
+                          decoration: InputDecoration(
+                            hintText: 'Enter your password',
+                            hintStyle: TextStyle(
+                              color: subtitleColor.withValues(alpha: 0.5),
+                            ),
+                            filled: true,
+                            fillColor: isDark
+                                ? Colors.white.withValues(alpha: 0.05)
+                                : Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                                color: subtitleColor.withValues(alpha: 0.5),
+                              ),
+                              onPressed: () => setState(
+                                () => _obscurePassword = !_obscurePassword,
                               ),
                             ),
-                            child: isLoading
-                                ? const CircularProgressIndicator(
-                                    color: Colors.white,
-                                  )
-                                : const Text(
-                                    'Login',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Register Link
-                    Center(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            "Don't have an account? ",
-                            style: TextStyle(color: subtitleColor),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(
+                                color: isDark
+                                    ? Colors.white12
+                                    : Colors.grey.shade200,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFDC2626),
+                              ),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(color: Colors.red),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(color: Colors.red),
+                            ),
                           ),
-                          GestureDetector(
-                            onTap: () {
-                              context.navigateTo(RouteNames.lawyerRegister);
-                            },
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Password is required';
+                            }
+                            if (value.length < 6) {
+                              return 'Password must be at least 6 characters';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Forgot Password
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: GestureDetector(
+                            onTap: () => context.navigateTo(
+                              RouteNames.lawyerForgotPassword,
+                            ),
                             child: const Text(
-                              'Register here',
+                              'Forgot Password?',
                               style: TextStyle(
                                 color: Color(0xFFDC2626),
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
                               ),
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 32),
+
+                        // ── Login Button with AnimatedTap ──────────────────
+                        AnimatedTap(
+                          onTap: null,
+                          child: SizedBox(
+                            width: double.infinity,
+                            height: 54,
+                            child: Consumer(
+                              builder: (context, ref, child) {
+                                final authState =
+                                    ref.watch(authNotifierProvider);
+                                final isLoading = authState is AsyncLoading;
+                                return ElevatedButton(
+                                  onPressed: isLoading ? null : _login,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFDC2626),
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: isLoading
+                                      ? const CircularProgressIndicator(
+                                          color: Colors.white,
+                                        )
+                                      : const Text(
+                                          'Login',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Register Link
+                        Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                "Don't have an account? ",
+                                style: TextStyle(color: subtitleColor),
+                              ),
+                              GestureDetector(
+                                onTap: () => context.navigateTo(
+                                  RouteNames.lawyerRegister,
+                                ),
+                                child: const Text(
+                                  'Register here',
+                                  style: TextStyle(
+                                    color: Color(0xFFDC2626),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 40),
+                      ],
                     ),
-                    const SizedBox(height: 40),
-                  ],
+                  ),
                 ),
               ),
             ),

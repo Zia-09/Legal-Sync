@@ -46,7 +46,7 @@ class BrandLogo extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Image.asset('images/logo_red.png', width: imageSize, height: imageSize),
+        Image.asset('images/logo.png', width: imageSize, height: imageSize),
         const SizedBox(width: 12),
         RichText(
           text: TextSpan(

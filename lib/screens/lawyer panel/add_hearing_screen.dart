@@ -520,7 +520,7 @@ class _AddHearingScreenState extends ConsumerState<AddHearingScreen> {
     return Theme(
       data: Theme.of(context).copyWith(canvasColor: inputBgColor),
       child: DropdownButtonFormField<String>(
-        value: _hearingType,
+        initialValue: _hearingType,
         decoration: InputDecoration(
           filled: true,
           fillColor: inputBgColor,

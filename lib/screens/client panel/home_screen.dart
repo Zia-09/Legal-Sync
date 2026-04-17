@@ -22,11 +22,15 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with SingleTickerProviderStateMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _currentIndex = 0;
   final TextEditingController _searchCtrl = TextEditingController();
   Map<String, dynamic>? _activeFilters;
+  late AnimationController _pageController;
+  late Animation<double> _fadeAnim;
+  late Animation<Offset> _slideAnim;
 
   final List<Map<String, dynamic>> _categories = [
     {'icon': Icons.gavel, 'label': 'Civil', 'color': const Color(0xFFFF6B00)},
@@ -68,7 +72,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _pageController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _fadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _pageController, curve: Curves.easeOut),
+    );
+    _slideAnim = Tween<Offset>(
+      begin: const Offset(0, -0.12),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(parent: _pageController, curve: Curves.easeOutCubic),
+    );
+    _pageController.forward();
+  }
+
+  @override
   void dispose() {
+    _pageController.dispose();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -98,11 +122,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         body: SafeArea(
           child: Column(
             children: [
-              // App Bar
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              // ── Animated App Bar ─────────────────────────────────────────
+              FadeTransition(
+                opacity: _fadeAnim,
+                child: SlideTransition(
+                  position: _slideAnim,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     GestureDetector(
                       onTap: () => _scaffoldKey.currentState?.openDrawer(),
@@ -209,7 +237,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+            ),
+          ),
+          const SizedBox(height: 20),
 
               Expanded(
                 child: SingleChildScrollView(
@@ -684,6 +714,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           return GestureDetector(
             onTap: () {
               setState(() => _currentIndex = index);
+              // Micro feedback
               if (index == 1) {
                 Navigator.push(
                   context,
