@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:legal_sync/screens/splash_screen.dart';
 import 'package:legal_sync/screens/onboarding/onboarding_screen1.dart';
 import 'package:legal_sync/screens/onboarding/onboarding_screen2.dart';
 import 'package:legal_sync/screens/onboarding/onboarding_screen3.dart';
@@ -18,8 +17,7 @@ import 'package:legal_sync/utils/animations.dart';
 
 /// 🔹 Route names for named navigation
 class RouteNames {
-  // Splash & Onboarding
-  static const String splash = '/';
+  // Onboarding
   static const String welcome = '/welcome';
   static const String onboarding1 = '/onboarding/1';
   static const String onboarding2 = '/onboarding/2';
@@ -47,10 +45,7 @@ class RouteNames {
 class AppRouter {
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
-      // Splash & Onboarding
-      case RouteNames.splash:
-        return _buildRoute(const SplashScreen(), settings);
-
+      // Onboarding
       case RouteNames.welcome:
         return _buildRoute(const WelcomeScreen(), settings);
 
@@ -96,20 +91,18 @@ class AppRouter {
       case RouteNames.adminDashboard:
         return _buildRoute(const AdminDashboardScreen(), settings);
 
-      // Default - Splash
+      // Default - Onboarding
       default:
-        return _buildRoute(const SplashScreen(), settings);
+        return _buildRoute(const OnboardingPage1(), settings);
     }
   }
 
   /// Build a route with professional animations based on route type
   static PageRoute<dynamic> _buildRoute(Widget page, RouteSettings settings) {
     // Determine animation type based on route name
-    if (settings.name == RouteNames.splash) {
-      // Splash screen - fade transition
-      return AnimationUtils.fadeTransition(page, settings: settings);
-    } else if (settings.name!.contains('onboarding') ||
-        settings.name == RouteNames.welcome) {
+    if (settings.name != null &&
+        (settings.name!.contains('onboarding') ||
+         settings.name == RouteNames.welcome)) {
       // Onboarding - slide from right
       return AnimationUtils.slideFromRightTransition(page, settings: settings);
     } else if (settings.name!.contains('login') ||

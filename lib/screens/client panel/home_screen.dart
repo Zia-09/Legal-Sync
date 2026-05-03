@@ -109,11 +109,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
         // 🚪 Exit app when back button is pressed
         SystemNavigator.pop();
-        return false;
       },
       child: Scaffold(
         key: _scaffoldKey,

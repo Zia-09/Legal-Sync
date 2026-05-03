@@ -3,15 +3,15 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'firebase_options.dart';
-import 'screens/splash_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'provider/theme_provider.dart';
-import 'provider/auth_provider.dart';
 import 'config/routes.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Supabase from environment or use fallback
   const supabaseUrl = String.fromEnvironment(
     'SUPABASE_URL',
     defaultValue: 'https://agzqautnshxgactnthxx.supabase.co',
@@ -23,7 +23,6 @@ void main() async {
   );
 
   await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
-
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const ProviderScope(child: MyApp()));
 }
@@ -34,49 +33,16 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeModeAsync = ref.watch(themeModeProvider);
-    final authStateAsync = ref.watch(authStateProvider);
+    // Silently fall back to light until the provider resolves
+    final themeMode = themeModeAsync.whenData((v) => v).value ?? ThemeMode.light;
 
-    // Check if user is authenticated
-    final isAuthenticated =
-        authStateAsync.whenData((user) => user != null).value ?? false;
-
-    return themeModeAsync.when(
-      data: (themeMode) {
-        // Use light theme for auth screens, user-selected theme after auth
-        final effectiveTheme = isAuthenticated ? themeMode : ThemeMode.light;
-        return _buildMaterialApp(effectiveTheme);
-      },
-      loading: () => MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'LegalSync',
-        theme: _buildThemeData(Brightness.light),
-        darkTheme: _buildThemeData(Brightness.dark),
-        themeMode: ThemeMode.light,
-        home: const Scaffold(body: Center(child: CircularProgressIndicator())),
-        onGenerateRoute: AppRouter.generateRoute,
-        onUnknownRoute: AppRouter.onUnknownRoute,
-      ),
-      error: (_, _) => MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'LegalSync',
-        theme: _buildThemeData(Brightness.light),
-        darkTheme: _buildThemeData(Brightness.dark),
-        themeMode: ThemeMode.light,
-        home: const SplashScreen(),
-        onGenerateRoute: AppRouter.generateRoute,
-        onUnknownRoute: AppRouter.onUnknownRoute,
-      ),
-    );
-  }
-
-  MaterialApp _buildMaterialApp(ThemeMode themeMode) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'LegalSync',
       themeMode: themeMode,
       theme: _buildThemeData(Brightness.light),
       darkTheme: _buildThemeData(Brightness.dark),
-      home: const SplashScreen(),
+      home: const AuthGate(),
       onGenerateRoute: AppRouter.generateRoute,
       onUnknownRoute: AppRouter.onUnknownRoute,
     );
@@ -111,7 +77,6 @@ class MyApp extends ConsumerWidget {
         bodyLarge: TextStyle(color: isDark ? Colors.white : Colors.black87),
         bodyMedium: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
       ),
-      // ✅ FIX: InputDecorationTheme for dark mode TextFields
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF5F5F5),
@@ -138,12 +103,83 @@ class MyApp extends ConsumerWidget {
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: Color(0xFFFF6B00), width: 2),
         ),
-        // ✅ FIX: Text color in TextField for dark mode
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 12,
         ),
       ),
+    );
+  }
+}
+
+/// Auth gate — determines the initial route after app start.
+///
+/// KEY FIX: Uses [WidgetsBinding.addPostFrameCallback] so navigation is
+/// deferred until after the first frame is fully rendered. This resolves the
+/// Flutter assertion: "!_debugLocked is not true" (navigator.dart:5893).
+///
+/// The [_navigated] flag prevents double-navigation on provider-triggered
+/// rebuilds of the parent [MyApp] widget.
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  bool _navigated = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Wait for the first frame before navigating — Navigator is not available
+    // during initState / build phase.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _route());
+  }
+
+  Future<void> _route() async {
+    if (_navigated || !mounted) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      _navigated = true;
+      Navigator.of(context).pushReplacementNamed(RouteNames.onboarding1);
+      return;
+    }
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (!mounted || _navigated) return;
+
+      final isFirstTime = doc.exists
+          ? (doc.data()?['isFirstTimeUser'] ?? true)
+          : true;
+
+      _navigated = true;
+      if (isFirstTime) {
+        Navigator.of(context).pushReplacementNamed(RouteNames.onboarding1);
+      } else {
+        Navigator.of(context).pushReplacementNamed(RouteNames.clientHome);
+      }
+    } catch (_) {
+      if (!mounted || _navigated) return;
+      _navigated = true;
+      Navigator.of(context).pushReplacementNamed(RouteNames.clientHome);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Shown for one frame only before routing completes
+    return const Scaffold(
+      backgroundColor: Color(0xFFF7F9FC),
+      body: SizedBox.shrink(),
     );
   }
 }
