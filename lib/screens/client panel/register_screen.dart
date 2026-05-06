@@ -44,21 +44,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     _headerOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _headerController, curve: Curves.easeOut),
     );
-    _headerSlide = Tween<Offset>(
-      begin: const Offset(0, -0.15),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _headerController, curve: Curves.easeOutCubic),
-    );
-    _formOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _formController, curve: Curves.easeOut),
-    );
-    _formSlide = Tween<Offset>(
-      begin: const Offset(0, 0.1),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _formController, curve: Curves.easeOutCubic),
-    );
+    _headerSlide =
+        Tween<Offset>(begin: const Offset(0, -0.15), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _headerController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
+    _formOpacity = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _formController, curve: Curves.easeOut));
+    _formSlide = Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero)
+        .animate(
+          CurvedAnimation(parent: _formController, curve: Curves.easeOutCubic),
+        );
     _headerController.forward();
     Future.delayed(const Duration(milliseconds: 250), () {
       if (mounted) _formController.forward();
@@ -131,9 +131,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     final authState = ref.watch(authNotifierProvider);
     final isLoading = authState is AsyncLoading;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final scaffoldBg = isDark ? const Color(0xFF0F0F0F) : const Color(0xFFF7F9FC);
+    final scaffoldBg = isDark
+        ? const Color(0xFF0F0F0F)
+        : const Color(0xFFF7F9FC);
     final textColor = isDark ? Colors.white : Colors.black87;
-    final subtitleColor = isDark ? const Color(0xFF9E9E9E) : Colors.grey.shade600;
+    final subtitleColor = isDark
+        ? const Color(0xFF9E9E9E)
+        : Colors.grey.shade600;
     final labelColor = isDark ? const Color(0xFFCCCCCC) : Colors.grey.shade700;
 
     return Scaffold(
@@ -195,8 +199,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                       TextFormField(
                         controller: _nameController,
                         style: TextStyle(color: textColor),
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty) ? 'Name is required' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Name is required'
+                            : null,
                         decoration: _inputDecoration(
                           hint: 'Enter your full name',
                           icon: Icons.person_outline,
@@ -263,7 +268,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                         obscureText: _obscurePassword,
                         style: TextStyle(color: textColor),
                         validator: (v) {
-                          if (v == null || v.isEmpty) return 'Password is required';
+                          if (v == null || v.isEmpty)
+                            return 'Password is required';
                           if (v.length < 6) {
                             return 'Password must be at least 6 characters';
                           }
@@ -274,8 +280,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                           icon: Icons.lock_outline,
                           isDark: isDark,
                           suffixIcon: IconButton(
-                            onPressed: () =>
-                                setState(() => _obscurePassword = !_obscurePassword),
+                            onPressed: () => setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
                             icon: Icon(
                               _obscurePassword
                                   ? Icons.visibility_off_outlined
@@ -309,8 +316,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                           icon: Icons.lock_outline,
                           isDark: isDark,
                           suffixIcon: IconButton(
-                            onPressed: () =>
-                                setState(() => _obscureConfirm = !_obscureConfirm),
+                            onPressed: () => setState(
+                              () => _obscureConfirm = !_obscureConfirm,
+                            ),
                             icon: Icon(
                               _obscureConfirm
                                   ? Icons.visibility_off_outlined
@@ -403,11 +411,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
 
   Widget _fieldLabel(String label, Color color) => Text(
     label,
-    style: TextStyle(
-      color: color,
-      fontSize: 13,
-      fontWeight: FontWeight.w500,
-    ),
+    style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w500),
   );
 
   InputDecoration _inputDecoration({
@@ -416,12 +420,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     required bool isDark,
     Widget? suffixIcon,
   }) {
-    final borderSide = BorderSide(color: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade300);
+    final borderSide = BorderSide(
+      color: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade300,
+    );
     final radius = BorderRadius.circular(12);
     return InputDecoration(
       hintText: hint,
-      hintStyle: TextStyle(color: isDark ? const Color(0xFF5A5A5A) : Colors.grey.shade400),
-      prefixIcon: Icon(icon, color: isDark ? const Color(0xFF9E9E9E) : Colors.grey.shade500, size: 20),
+      hintStyle: TextStyle(
+        color: isDark ? const Color(0xFF5A5A5A) : Colors.grey.shade400,
+      ),
+      prefixIcon: Icon(
+        icon,
+        color: isDark ? const Color(0xFF9E9E9E) : Colors.grey.shade500,
+        size: 20,
+      ),
       suffixIcon: suffixIcon,
       filled: true,
       fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,

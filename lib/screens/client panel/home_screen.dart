@@ -78,15 +78,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
-    _fadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _pageController, curve: Curves.easeOut),
-    );
-    _slideAnim = Tween<Offset>(
-      begin: const Offset(0, -0.12),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _pageController, curve: Curves.easeOutCubic),
-    );
+    _fadeAnim = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _pageController, curve: Curves.easeOut));
+    _slideAnim = Tween<Offset>(begin: const Offset(0, -0.12), end: Offset.zero)
+        .animate(
+          CurvedAnimation(parent: _pageController, curve: Curves.easeOutCubic),
+        );
     _pageController.forward();
   }
 
@@ -132,115 +131,121 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    GestureDetector(
-                      onTap: () => _scaffoldKey.currentState?.openDrawer(),
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).cardColor,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: Theme.of(context).dividerColor,
+                      children: [
+                        GestureDetector(
+                          onTap: () => _scaffoldKey.currentState?.openDrawer(),
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).cardColor,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: Theme.of(context).dividerColor,
+                              ),
+                            ),
+                            child: Icon(
+                              Icons.menu,
+                              color: Theme.of(context).iconTheme.color,
+                              size: 20,
+                            ),
                           ),
                         ),
-                        child: Icon(
-                          Icons.menu,
-                          color: Theme.of(context).iconTheme.color,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                    const BrandLogo(fontSize: 20),
-                    Row(
-                      children: [
-                        _buildNotificationBell(context, ref),
-                        const SizedBox(width: 12),
-                        Consumer(
-                          builder: (context, ref, child) {
-                            final clientAsync = ref.watch(
-                              currentClientProvider,
-                            );
-                            return clientAsync.when(
-                              data: (client) => GestureDetector(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const AppSettingScreen(),
-                                    ),
-                                  );
-                                },
-                                child: Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context).cardColor,
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: const Color(
-                                        0xFFFF6B00,
-                                      ).withValues(alpha: 0.3),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(10),
-                                    child:
-                                        (client?.profileImage != null &&
-                                            client!.profileImage!.isNotEmpty)
-                                        ? Image.network(
-                                            client.profileImage!,
-                                            fit: BoxFit.cover,
-                                            errorBuilder:
-                                                (context, error, stackTrace) =>
-                                                    Image.asset(
+                        const BrandLogo(fontSize: 20),
+                        Row(
+                          children: [
+                            _buildNotificationBell(context, ref),
+                            const SizedBox(width: 12),
+                            Consumer(
+                              builder: (context, ref, child) {
+                                final clientAsync = ref.watch(
+                                  currentClientProvider,
+                                );
+                                return clientAsync.when(
+                                  data: (client) => GestureDetector(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              const AppSettingScreen(),
+                                        ),
+                                      );
+                                    },
+                                    child: Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context).cardColor,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: const Color(
+                                            0xFFFF6B00,
+                                          ).withValues(alpha: 0.3),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(10),
+                                        child:
+                                            (client?.profileImage != null &&
+                                                client!
+                                                    .profileImage!
+                                                    .isNotEmpty)
+                                            ? Image.network(
+                                                client.profileImage!,
+                                                fit: BoxFit.cover,
+                                                errorBuilder:
+                                                    (
+                                                      context,
+                                                      error,
+                                                      stackTrace,
+                                                    ) => Image.asset(
                                                       'images/profile.jpg',
                                                       fit: BoxFit.cover,
                                                     ),
-                                          )
-                                        : Image.asset(
-                                            'images/profile.jpg',
-                                            fit: BoxFit.cover,
-                                          ),
-                                  ),
-                                ),
-                              ),
-                              loading: () => Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).cardColor,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: const Center(
-                                  child: SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Color(0xFFFF6B00),
+                                              )
+                                            : Image.asset(
+                                                'images/profile.jpg',
+                                                fit: BoxFit.cover,
+                                              ),
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ),
-                              error: (_, _) => Icon(
-                                Icons.account_circle,
-                                color: Theme.of(context).iconTheme.color,
-                                size: 40,
-                              ),
-                            );
-                          },
+                                  loading: () => Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).cardColor,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Center(
+                                      child: SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Color(0xFFFF6B00),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  error: (_, _) => Icon(
+                                    Icons.account_circle,
+                                    color: Theme.of(context).iconTheme.color,
+                                    size: 40,
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
               Expanded(
                 child: SingleChildScrollView(

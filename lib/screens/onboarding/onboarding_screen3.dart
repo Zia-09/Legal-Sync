@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:legal_sync/config/routes.dart';
 import 'package:legal_sync/utils/animations.dart';
+import 'package:legal_sync/utils/onboarding_helper.dart';
+import 'package:legal_sync/utils/analytics_manager.dart';
 
 class OnboardingPage3 extends StatefulWidget {
   const OnboardingPage3({super.key});
@@ -26,6 +28,7 @@ class _OnboardingPage3State extends State<OnboardingPage3>
   @override
   void initState() {
     super.initState();
+    AnalyticsManager.logScreenView('Onboarding Page 3');
 
     _textController = AnimationController(
       vsync: this,
@@ -84,6 +87,15 @@ class _OnboardingPage3State extends State<OnboardingPage3>
     Future.delayed(const Duration(milliseconds: 600), () {
       if (mounted) _buttonController.forward();
     });
+  }
+
+  /// Marks onboarding as seen, then navigates to login (clears stack).
+  Future<void> _onGetStarted() async {
+    AnalyticsManager.logButtonClick('Get Started',
+        screenName: 'Onboarding Page 3');
+    await OnboardingHelper.markSeen();
+    if (!mounted) return;
+    context.navigateAndClearStack(RouteNames.login);
   }
 
   @override
@@ -198,7 +210,7 @@ class _OnboardingPage3State extends State<OnboardingPage3>
                     ),
                     child: const CircleAvatar(
                       radius: 135,
-                      backgroundImage: AssetImage('images/onbaording2.png'),
+                      backgroundImage: AssetImage('images/onboarding2.png'),
                     ),
                   ),
                 ),
@@ -218,13 +230,12 @@ class _OnboardingPage3State extends State<OnboardingPage3>
                     child: Column(
                       children: [
                         AnimatedTap(
-                          onTap: () => context.navigateTo(RouteNames.login),
+                          onTap: _onGetStarted,
                           child: SizedBox(
                             width: double.infinity,
                             height: 52,
                             child: ElevatedButton(
-                              onPressed: () =>
-                                  context.navigateTo(RouteNames.login),
+                              onPressed: _onGetStarted,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFFFFB800),
                                 foregroundColor: Colors.black,

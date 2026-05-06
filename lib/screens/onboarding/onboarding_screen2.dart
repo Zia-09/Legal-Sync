@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:legal_sync/config/routes.dart';
 import 'package:legal_sync/utils/animations.dart';
+import 'package:legal_sync/utils/analytics_manager.dart';
+import 'package:legal_sync/utils/onboarding_helper.dart';
 
 class OnboardingPage2 extends StatefulWidget {
   const OnboardingPage2({super.key});
@@ -26,6 +28,7 @@ class _OnboardingPage2State extends State<OnboardingPage2>
   @override
   void initState() {
     super.initState();
+    AnalyticsManager.logScreenView('Onboarding Page 2');
 
     _textController = AnimationController(
       vsync: this,
@@ -198,7 +201,7 @@ class _OnboardingPage2State extends State<OnboardingPage2>
                     ),
                     child: const CircleAvatar(
                       radius: 135,
-                      backgroundImage: AssetImage('images/onbaording1.png'),
+                      backgroundImage: AssetImage('images/onboarding1.png'),
                     ),
                   ),
                 ),
@@ -219,11 +222,23 @@ class _OnboardingPage2State extends State<OnboardingPage2>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         AnimatedTap(
-                          onTap: () =>
-                              context.navigateTo(RouteNames.onboarding3),
+                          onTap: () async {
+                            AnalyticsManager.logButtonClick('Skip',
+                                screenName: 'Onboarding Page 2');
+                            await OnboardingHelper.markSeen();
+                            if (mounted) {
+                              context.navigateAndClearStack(RouteNames.login);
+                            }
+                          },
                           child: TextButton(
-                            onPressed: () =>
-                                context.navigateTo(RouteNames.onboarding3),
+                            onPressed: () async {
+                              AnalyticsManager.logButtonClick('Skip',
+                                  screenName: 'Onboarding Page 2');
+                              await OnboardingHelper.markSeen();
+                              if (mounted) {
+                                context.navigateAndClearStack(RouteNames.login);
+                              }
+                            },
                             child: const Text(
                               "Skip",
                               style: TextStyle(
@@ -234,11 +249,17 @@ class _OnboardingPage2State extends State<OnboardingPage2>
                           ),
                         ),
                         AnimatedTap(
-                          onTap: () =>
-                              context.navigateTo(RouteNames.onboarding3),
+                          onTap: () {
+                            AnalyticsManager.logButtonClick('Next',
+                                screenName: 'Onboarding Page 2');
+                            context.navigateTo(RouteNames.onboarding3);
+                          },
                           child: ElevatedButton(
-                            onPressed: () =>
-                                context.navigateTo(RouteNames.onboarding3),
+                            onPressed: () {
+                              AnalyticsManager.logButtonClick('Next',
+                                  screenName: 'Onboarding Page 2');
+                              context.navigateTo(RouteNames.onboarding3);
+                            },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFFFB800),
                               foregroundColor: Colors.black,

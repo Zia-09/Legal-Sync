@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/provider/lawyer_provider.dart';
 import 'package:legal_sync/screens/client%20panel/case_status_view.dart';

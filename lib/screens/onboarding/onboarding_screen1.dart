@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:legal_sync/config/routes.dart';
 import 'package:legal_sync/utils/animations.dart';
+import 'package:legal_sync/utils/analytics_manager.dart';
+import 'package:legal_sync/utils/onboarding_helper.dart';
 
 class OnboardingPage1 extends StatefulWidget {
   const OnboardingPage1({super.key});
@@ -27,6 +29,7 @@ class _OnboardingPage1State extends State<OnboardingPage1>
   @override
   void initState() {
     super.initState();
+    AnalyticsManager.logScreenView('Onboarding Page 1');
 
     _textController = AnimationController(
       vsync: this,
@@ -116,22 +119,8 @@ class _OnboardingPage1State extends State<OnboardingPage1>
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: GestureDetector(
-          onTap: () => context.goBack(),
-          child: Container(
-            margin: const EdgeInsets.all(8),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.grey.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(
-              Icons.arrow_back_ios_new,
-              color: Colors.black87,
-              size: 18,
-            ),
-          ),
-        ),
+        leading: null,
+        automaticallyImplyLeading: false,
       ),
       body: Stack(
         children: [
@@ -245,11 +234,23 @@ class _OnboardingPage1State extends State<OnboardingPage1>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         AnimatedTap(
-                          onTap: () =>
-                              context.navigateTo(RouteNames.onboarding3),
+                          onTap: () async {
+                            AnalyticsManager.logButtonClick('Skip',
+                                screenName: 'Onboarding Page 1');
+                            await OnboardingHelper.markSeen();
+                            if (mounted) {
+                              context.navigateAndClearStack(RouteNames.login);
+                            }
+                          },
                           child: TextButton(
-                            onPressed: () =>
-                                context.navigateTo(RouteNames.onboarding3),
+                            onPressed: () async {
+                              AnalyticsManager.logButtonClick('Skip',
+                                  screenName: 'Onboarding Page 1');
+                              await OnboardingHelper.markSeen();
+                              if (mounted) {
+                                context.navigateAndClearStack(RouteNames.login);
+                              }
+                            },
                             child: const Text(
                               "Skip",
                               style: TextStyle(
@@ -260,11 +261,17 @@ class _OnboardingPage1State extends State<OnboardingPage1>
                           ),
                         ),
                         AnimatedTap(
-                          onTap: () =>
-                              context.navigateTo(RouteNames.onboarding2),
+                          onTap: () {
+                            AnalyticsManager.logButtonClick('Next',
+                                screenName: 'Onboarding Page 1');
+                            context.navigateTo(RouteNames.onboarding2);
+                          },
                           child: ElevatedButton(
-                            onPressed: () =>
-                                context.navigateTo(RouteNames.onboarding2),
+                            onPressed: () {
+                              AnalyticsManager.logButtonClick('Next',
+                                  screenName: 'Onboarding Page 1');
+                              context.navigateTo(RouteNames.onboarding2);
+                            },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFFFB800),
                               foregroundColor: Colors.black,

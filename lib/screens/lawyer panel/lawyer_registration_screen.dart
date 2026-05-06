@@ -386,7 +386,11 @@ class _LawyerRegistrationScreenState
             const SizedBox(height: 8),
             const Text(
               'Join our elite network of legal professionals and expand your practice.',
-              style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.4),
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+                height: 1.4,
+              ),
             ),
           ],
         ),
@@ -413,14 +417,14 @@ class _LawyerRegistrationScreenState
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-          _buildStepIndicator(0, 'Account'),
-          _buildStepConnector(0),
-          _buildStepIndicator(1, 'Practice'),
-          _buildStepConnector(1),
-          _buildStepIndicator(2, 'Verification'),
-        ],
+            _buildStepIndicator(0, 'Account'),
+            _buildStepConnector(0),
+            _buildStepIndicator(1, 'Practice'),
+            _buildStepConnector(1),
+            _buildStepIndicator(2, 'Verification'),
+          ],
+        ),
       ),
-    ),
     );
   }
 

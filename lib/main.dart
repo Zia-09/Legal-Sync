@@ -2,29 +2,84 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'firebase_options.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-
-import 'provider/theme_provider.dart';
+import 'firebase_options.dart';import 'provider/theme_provider.dart';
 import 'config/routes.dart';
+import 'config/app_config.dart';
+import 'utils/error_handler.dart';
+import 'utils/cache_manager.dart';
+import 'utils/security_manager.dart';
+import 'utils/analytics_manager.dart';
+import 'screens/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  const supabaseUrl = String.fromEnvironment(
-    'SUPABASE_URL',
-    defaultValue: 'https://agzqautnshxgactnthxx.supabase.co',
-  );
-  const supabaseAnonKey = String.fromEnvironment(
-    'SUPABASE_ANON_KEY',
-    defaultValue:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFnenFhdXRuc2h4Z2FjdG50aHh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1NDk3MTYsImV4cCI6MjA4ODEyNTcxNn0.fi_GSGQCFzP5Ki7qI_1VnJ2oPPRYMhIHIVA9krJmSrE',
-  );
+  // Initialize utilities
+  await CacheManager.initialize();
+  await SecurityManager.initialize();
 
-  await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(const ProviderScope(child: MyApp()));
+  // Initialize Firebase
+  try {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    AppLogger.info('Firebase initialized successfully', tag: 'Startup');
+  } catch (e) {
+    AppLogger.error('Failed to initialize Firebase', tag: 'Startup', error: e);
+  }
+
+  // Initialize Supabase
+  try {
+    await Supabase.initialize(
+      url: AppConfig.supabaseUrl,
+      anonKey: AppConfig.supabaseAnonKey,
+    );
+    AppLogger.info('Supabase initialized successfully', tag: 'Startup');
+  } catch (e) {
+    AppLogger.error('Failed to initialize Supabase', tag: 'Startup', error: e);
+  }
+
+  // Log app launch
+  AnalyticsManager.logEvent(AnalyticsEvent.appLaunched);
+
+  // Run app with error boundary
+  runApp(
+    ErrorBoundary(
+      child: const ProviderScope(child: MyApp()),
+    ),
+  );
+}
+
+/// Error boundary widget to catch uncaught exceptions
+class ErrorBoundary extends StatefulWidget {
+  final Widget child;
+
+  const ErrorBoundary({required this.child, super.key});
+
+  @override
+  State<ErrorBoundary> createState() => _ErrorBoundaryState();
+}
+
+class _ErrorBoundaryState extends State<ErrorBoundary> {
+  @override
+  void initState() {
+    super.initState();
+    FlutterError.onError = (FlutterErrorDetails details) {
+      AppLogger.error(
+        'Flutter Error',
+        tag: 'ErrorBoundary',
+        error: details.exception,
+        stackTrace: details.stack,
+      );
+      CrashReporter.reportCrash(
+        error: details.exception.toString(),
+        stackTrace: details.stack ?? StackTrace.current,
+      );
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.child;
+  }
 }
 
 class MyApp extends ConsumerWidget {
@@ -42,7 +97,7 @@ class MyApp extends ConsumerWidget {
       themeMode: themeMode,
       theme: _buildThemeData(Brightness.light),
       darkTheme: _buildThemeData(Brightness.dark),
-      home: const AuthGate(),
+      home: const SplashScreen(),
       onGenerateRoute: AppRouter.generateRoute,
       onUnknownRoute: AppRouter.onUnknownRoute,
     );
@@ -108,78 +163,6 @@ class MyApp extends ConsumerWidget {
           vertical: 12,
         ),
       ),
-    );
-  }
-}
-
-/// Auth gate — determines the initial route after app start.
-///
-/// KEY FIX: Uses [WidgetsBinding.addPostFrameCallback] so navigation is
-/// deferred until after the first frame is fully rendered. This resolves the
-/// Flutter assertion: "!_debugLocked is not true" (navigator.dart:5893).
-///
-/// The [_navigated] flag prevents double-navigation on provider-triggered
-/// rebuilds of the parent [MyApp] widget.
-class AuthGate extends StatefulWidget {
-  const AuthGate({super.key});
-
-  @override
-  State<AuthGate> createState() => _AuthGateState();
-}
-
-class _AuthGateState extends State<AuthGate> {
-  bool _navigated = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // Wait for the first frame before navigating — Navigator is not available
-    // during initState / build phase.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _route());
-  }
-
-  Future<void> _route() async {
-    if (_navigated || !mounted) return;
-
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      _navigated = true;
-      Navigator.of(context).pushReplacementNamed(RouteNames.onboarding1);
-      return;
-    }
-
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-
-      if (!mounted || _navigated) return;
-
-      final isFirstTime = doc.exists
-          ? (doc.data()?['isFirstTimeUser'] ?? true)
-          : true;
-
-      _navigated = true;
-      if (isFirstTime) {
-        Navigator.of(context).pushReplacementNamed(RouteNames.onboarding1);
-      } else {
-        Navigator.of(context).pushReplacementNamed(RouteNames.clientHome);
-      }
-    } catch (_) {
-      if (!mounted || _navigated) return;
-      _navigated = true;
-      Navigator.of(context).pushReplacementNamed(RouteNames.clientHome);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Shown for one frame only before routing completes
-    return const Scaffold(
-      backgroundColor: Color(0xFFF7F9FC),
-      body: SizedBox.shrink(),
     );
   }
 }
