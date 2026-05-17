@@ -94,8 +94,8 @@ class _AdminCasesScreenState extends ConsumerState<AdminCasesScreen> {
 
                   if (casesAsync.value != null) {
                     for (var c in casesAsync.value!) {
-                      final status = c.status.toLowerCase();
-                      if (status == 'active' || status == 'in_progress') {
+                      final status = c.status.toLowerCase().trim();
+                      if (status == 'active' || status == 'in_progress' || status == 'ongoing') {
                         activeCount++;
                       } else if (status == 'resolved' ||
                           status == 'closed' ||
@@ -414,9 +414,9 @@ class _AdminCasesScreenState extends ConsumerState<AdminCasesScreen> {
         return false;
       }
 
-      final status = c.status.toLowerCase();
+      final status = c.status.toLowerCase().trim();
       if (_selectedTabIndex == 0 &&
-          !(status == 'active' || status == 'in_progress')) {
+          !(status == 'active' || status == 'in_progress' || status == 'ongoing')) {
         return false;
       }
       if (_selectedTabIndex == 1 &&

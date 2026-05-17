@@ -336,11 +336,17 @@ class _LawyerHomeContent extends ConsumerWidget {
   Widget _buildSummaryCards(List<dynamic> cases) {
     final total = cases.length;
     final active = cases
-        .where((c) => c.status == 'active' || c.status == 'in_progress')
+        .where((c) {
+          final s = c.status.toLowerCase().trim();
+          return s == 'active' || s == 'ongoing' || s == 'in_progress';
+        })
         .length;
-    final pending = cases.where((c) => c.status == 'pending').length;
+    final pending = cases.where((c) => c.status.toLowerCase().trim() == 'pending').length;
     final closed = cases
-        .where((c) => c.status == 'closed' || c.status == 'completed')
+        .where((c) {
+          final s = c.status.toLowerCase().trim();
+          return s == 'closed' || s == 'completed' || s == 'resolved';
+        })
         .length;
 
     // Simple percentage calculation relative to total
@@ -752,7 +758,6 @@ class _LawyerHomeContent extends ConsumerWidget {
             )
           else
             ...hearings
-                .take(3)
                 .map(
                   (hearing) => Padding(
                     padding: const EdgeInsets.only(bottom: 12),
@@ -764,17 +769,49 @@ class _LawyerHomeContent extends ConsumerWidget {
                           'Room: ${hearing.courtName ?? 'TBD'} | ${hearing.modeOfConduct ?? 'Offline'}',
                       iconColor: const Color(0xFFFF6B00),
                       onSendReminder: hearing.clientId != null
-                          ? () {
-                              ref
+                          ? () async {
+                              // Show loading feedback
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Row(
+                                    children: [
+                                      SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      SizedBox(width: 12),
+                                      Text('Sending reminder...'),
+                                    ],
+                                  ),
+                                  duration: Duration(seconds: 10),
+                                  backgroundColor: Colors.blueGrey,
+                                ),
+                              );
+
+                              final success = await ref
                                   .read(hearingStateNotifierProvider.notifier)
                                   .sendManualReminder(
                                     hearing: hearing,
                                     clientId: hearing.clientId ?? '',
                                   );
+
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context)
+                                  .hideCurrentSnackBar();
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Reminder sent to client'),
-                                  backgroundColor: Colors.green,
+                                SnackBar(
+                                  content: Text(
+                                    success
+                                        ? '🔔 Push notification sent to client!'
+                                        : '❌ Failed to send notification. Is the client registered?',
+                                  ),
+                                  backgroundColor:
+                                      success ? Colors.green : Colors.red,
+                                  duration: const Duration(seconds: 4),
                                 ),
                               );
                             }

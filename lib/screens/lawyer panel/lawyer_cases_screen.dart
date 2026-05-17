@@ -5,6 +5,10 @@ import 'package:legal_sync/provider/case_provider.dart';
 import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/provider/auth_provider.dart';
 import 'package:intl/intl.dart';
+import 'package:legal_sync/screens/lawyer panel/case_completion_screen.dart';
+import 'package:legal_sync/presentation/common_widgets/empty_state_widget.dart';
+
+import 'package:legal_sync/screens/lawyer panel/create_case_screen.dart';
 
 class LawyerCasesScreen extends ConsumerStatefulWidget {
   const LawyerCasesScreen({super.key});
@@ -89,8 +93,8 @@ class _LawyerCasesScreenState extends ConsumerState<LawyerCasesScreen> {
 
                   if (casesAsync.value != null) {
                     for (var c in casesAsync.value!) {
-                      final status = c.status.toLowerCase();
-                      if (status == 'active' || status == 'in_progress') {
+                      final status = c.status.toLowerCase().trim();
+                      if (status == 'active' || status == 'ongoing') {
                         activeCount++;
                       } else if (status == 'resolved' ||
                           status == 'closed' ||
@@ -324,20 +328,17 @@ class _LawyerCasesScreenState extends ConsumerState<LawyerCasesScreen> {
       if (_selectedCategory != 'All' && c.caseType != _selectedCategory) {
         return false;
       }
-
-      final status = c.status.toLowerCase();
-      if (_selectedTabIndex == 0 &&
-          !(status == 'active' || status == 'in_progress')) {
+      final status = c.status.toLowerCase().trim();
+      if (_selectedTabIndex == 0 && !(status == 'active' || status == 'ongoing')) {
         return false;
       }
       if (_selectedTabIndex == 1 &&
-          !(status == 'resolved' ||
-              status == 'closed' ||
-              status == 'completed')) {
+          !(status == 'completed' || status == 'resolved' || status == 'closed')) {
         return false;
       }
-      if (_selectedTabIndex == 2 && status != 'pending') return false;
-
+      if (_selectedTabIndex == 2 && !(status == 'pending')) {
+        return false;
+      }
       return true;
     }).toList();
   }
@@ -350,7 +351,22 @@ class _LawyerCasesScreenState extends ConsumerState<LawyerCasesScreen> {
       data: (cases) {
         final filtered = _filterCases(cases);
         if (filtered.isEmpty) {
-          return const Center(child: Text('No cases found.'));
+          return EmptyStateWidget(
+            icon: Icons.folder_open_outlined,
+            title: 'No cases yet',
+            subtitle: _selectedTabIndex == 0
+                ? 'You have no active cases.\nTap below to create your first case.'
+                : _selectedTabIndex == 1
+                ? 'No resolved cases yet.'
+                : 'No pending cases at the moment.',
+            buttonText: _selectedTabIndex == 0 ? 'Add Your First Case' : null,
+            onButtonTap: _selectedTabIndex == 0
+                ? () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CreateCaseScreen()),
+                  )
+                : null,
+          );
         }
         return ListView.builder(
           padding: const EdgeInsets.only(bottom: 20),
@@ -467,7 +483,37 @@ class _CaseItem extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox.shrink(),
+              if (caseModel.status.toLowerCase() == 'active' ||
+                  caseModel.status.toLowerCase() == 'pending')
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            CaseCompletionScreen(caseId: caseModel.caseId),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF6B00),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    minimumSize: const Size(0, 32),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    'Complete',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                )
+              else
+                const SizedBox.shrink(),
             ],
           ),
         ],
