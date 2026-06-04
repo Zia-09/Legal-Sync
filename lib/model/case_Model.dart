@@ -41,6 +41,12 @@ class CaseModel {
   final int completedHearings; // Count of completed hearings
   final List<String> completedHearingIds; // IDs of finished hearings
 
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // PAYMENT FIELDS
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  final double totalPaid; // Sum of all recorded payments
+  final String paymentStatus; // 'unpaid', 'partial', 'paid'
+
   const CaseModel({
     required this.caseId,
     required this.clientId,
@@ -75,6 +81,8 @@ class CaseModel {
     this.completedAt,
     this.completedHearings = 0,
     this.completedHearingIds = const [],
+    this.totalPaid = 0.0,
+    this.paymentStatus = 'unpaid',
   });
 
   // AI Prediction Fields comment (for clarity)
@@ -130,6 +138,9 @@ class CaseModel {
           : null,
       'completedHearings': completedHearings,
       'completedHearingIds': completedHearingIds,
+      // Payment Fields
+      'totalPaid': totalPaid,
+      'paymentStatus': paymentStatus,
     };
   }
 
@@ -176,6 +187,9 @@ class CaseModel {
           : null,
       'completedHearings': completedHearings,
       'completedHearingIds': completedHearingIds,
+      // Payment Fields
+      'totalPaid': totalPaid,
+      'paymentStatus': paymentStatus,
     };
   }
 
@@ -225,6 +239,10 @@ class CaseModel {
       completedHearings: (json['completedHearings'] as num?)?.toInt() ?? 0,
       completedHearingIds:
           (json['completedHearingIds'] as List?)?.cast<String>() ?? const [],
+      totalPaid: (json['totalPaid'] is num)
+          ? (json['totalPaid'] as num).toDouble()
+          : 0.0,
+      paymentStatus: json['paymentStatus']?.toString() ?? 'unpaid',
     );
   }
 
@@ -273,6 +291,10 @@ class CaseModel {
       completedHearings: (map['completedHearings'] as num?)?.toInt() ?? 0,
       completedHearingIds:
           (map['completedHearingIds'] as List?)?.cast<String>() ?? const [],
+      totalPaid: (map['totalPaid'] is num)
+          ? (map['totalPaid'] as num).toDouble()
+          : 0.0,
+      paymentStatus: map['paymentStatus']?.toString() ?? 'unpaid',
     );
   }
 
@@ -306,6 +328,8 @@ class CaseModel {
     DateTime? completedAt,
     int? completedHearings,
     List<String>? completedHearingIds,
+    double? totalPaid,
+    String? paymentStatus,
   }) {
     return CaseModel(
       caseId: caseId,
@@ -341,6 +365,8 @@ class CaseModel {
       completedAt: completedAt ?? this.completedAt,
       completedHearings: completedHearings ?? this.completedHearings,
       completedHearingIds: completedHearingIds ?? this.completedHearingIds,
+      totalPaid: totalPaid ?? this.totalPaid,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
     );
   }
 }

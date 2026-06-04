@@ -58,8 +58,9 @@ class HearingStateNotifier
   Future<void> addHearing(HearingModel hearing) async {
     try {
       state = const AsyncValue.loading();
-      await _service.addHearing(hearing);
-      state = const AsyncValue.data(<HearingModel>[]);
+      await _service.createHearing(hearing);
+      // State will be updated by the StreamProvider watching Firestore
+      state = const AsyncValue.data([]); 
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -111,14 +112,16 @@ class HearingStateNotifier
   }
 
   /// Send manual reminder to client
-  Future<void> sendManualReminder({
+  Future<bool> sendManualReminder({
     required HearingModel hearing,
     required String clientId,
   }) async {
     try {
-      await _service.sendManualReminder(hearing: hearing, clientId: clientId);
+      return await _service.sendManualReminder(
+          hearing: hearing, clientId: clientId);
     } catch (e) {
       print('Error sending manual reminder: $e');
+      return false;
     }
   }
 }

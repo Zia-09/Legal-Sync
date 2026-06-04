@@ -4,6 +4,8 @@ class ReviewModel {
   final String reviewId;
   final String lawyerId;
   final String clientId;
+  final String? clientName; // 🔹 Added
+  final String? clientImageUrl; // 🔹 Added
   final double rating;
   final String? comment;
   final DateTime createdAt;
@@ -23,6 +25,8 @@ class ReviewModel {
     required this.reviewId,
     required this.lawyerId,
     required this.clientId,
+    this.clientName,
+    this.clientImageUrl,
     required this.rating,
     this.comment,
     required this.createdAt,
@@ -43,6 +47,8 @@ class ReviewModel {
       reviewId: json['reviewId'] ?? '',
       lawyerId: json['lawyerId'] ?? '',
       clientId: json['clientId'] ?? '',
+      clientName: json['clientName'],
+      clientImageUrl: json['clientImageUrl'],
       rating: (json['rating'] ?? 0).toDouble(),
       comment: json['comment'],
       createdAt: json['createdAt'] is Timestamp
@@ -74,6 +80,8 @@ class ReviewModel {
       'reviewId': reviewId,
       'lawyerId': lawyerId,
       'clientId': clientId,
+      if (clientName != null) 'clientName': clientName,
+      if (clientImageUrl != null) 'clientImageUrl': clientImageUrl,
       'rating': rating,
       'comment': comment,
       'createdAt': Timestamp.fromDate(createdAt),
@@ -102,6 +110,8 @@ class ReviewModel {
     String? reviewId,
     String? lawyerId,
     String? clientId,
+    String? clientName,
+    String? clientImageUrl,
     double? rating,
     String? comment,
     DateTime? createdAt,
@@ -119,6 +129,8 @@ class ReviewModel {
       reviewId: reviewId ?? this.reviewId,
       lawyerId: lawyerId ?? this.lawyerId,
       clientId: clientId ?? this.clientId,
+      clientName: clientName ?? this.clientName,
+      clientImageUrl: clientImageUrl ?? this.clientImageUrl,
       rating: rating ?? this.rating,
       comment: comment ?? this.comment,
       createdAt: createdAt ?? this.createdAt,

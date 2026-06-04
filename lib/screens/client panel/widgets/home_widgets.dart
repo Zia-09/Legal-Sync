@@ -275,7 +275,10 @@ class HomeDrawer extends ConsumerWidget {
                   (client?.profileImage != null &&
                       client!.profileImage!.isNotEmpty)
                   ? NetworkImage(client.profileImage!)
-                  : const AssetImage('images/profile.jpg') as ImageProvider,
+                  : null,
+              child: (client?.profileImage == null || client!.profileImage!.isEmpty)
+                  ? const Icon(Icons.person, size: 30, color: Colors.grey)
+                  : null,
             ),
             const SizedBox(width: 14),
             Expanded(

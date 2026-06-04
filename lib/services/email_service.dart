@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:convert';
 
 /// Email Service for LegalSync
@@ -13,10 +14,9 @@ class EmailService {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // NEW: Configuration Constants for Edge Function
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  static const String _supabaseProjectRef = 'agzqautnshxgactnthxx';
-  static const String _supabaseAnonKey =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFnenFhdXRuc2h4Z2FjdG50aHh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1NDk3MTYsImV4cCI6MjA4ODEyNTcxNn0.fi_GSGQCFzP5Ki7qI_1VnJ2oPPRYMhIHIVA9krJmSrE';
-  static const String _edgeFunctionUrl =
+  static String get _supabaseProjectRef => dotenv.env['SUPABASE_PROJECT_REF'] ?? '';
+  static String get _supabaseAnonKey => dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+  static String get _edgeFunctionUrl =>
       'https://$_supabaseProjectRef.supabase.co/functions/v1/send-email';
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -292,7 +292,12 @@ class EmailService {
     try {
       await _supabase.functions.invoke(
         'send-email',
-        body: {'to': to, 'subject': subject, 'html': htmlContent},
+        body: {
+          'to': to,
+          'subject': subject,
+          'html': htmlContent,
+          'scheduled_at': scheduledAt.toIso8601String(),
+        },
       );
       print('✅ Scheduled email sent to $to');
     } catch (e) {

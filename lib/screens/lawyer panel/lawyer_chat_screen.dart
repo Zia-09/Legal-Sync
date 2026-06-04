@@ -218,14 +218,12 @@ class _LawyerChatScreenState extends ConsumerState<LawyerChatScreen> {
     );
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final scaffoldBg = isDark
-        ? const Color(0xFF121212)
-        : const Color(0xFFF7F9FC);
+
     final cardColor = isDark ? const Color(0xFF1A1A1A) : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black87;
 
     return Scaffold(
-      backgroundColor: scaffoldBg,
+      backgroundColor: isDark ? const Color(0xFF0B141A) : const Color(0xFFEFEAE2),
       appBar: AppBar(
         backgroundColor: cardColor,
         elevation: 1,
@@ -249,7 +247,7 @@ class _LawyerChatScreenState extends ConsumerState<LawyerChatScreen> {
                       backgroundImage: img.isNotEmpty
                           ? NetworkImage(img)
                           : null,
-                      child: img.isEmpty ? Text(name[0]) : null,
+                      child: img.isEmpty ? const Icon(Icons.person, size: 18) : null,
                     ),
                     const SizedBox(width: 12),
                     Column(
@@ -369,197 +367,162 @@ class _LawyerChatScreenState extends ConsumerState<LawyerChatScreen> {
     Color textColor,
   ) {
     final time = DateFormat('h:mm a').format(msg.sentAt);
+
+    // WhatsApp style bubble colors
+    final myBubbleColor = isDark ? const Color(0xFF005C4B) : const Color(0xFFE7FFDB);
+    final theirBubbleColor = isDark ? const Color(0xFF202C33) : Colors.white;
+    final bubbleColor = isMe ? myBubbleColor : theirBubbleColor;
+    
+    // WhatsApp style text colors
+    final msgTextColor = isDark ? Colors.white : Colors.black87;
+    final timeColor = isDark ? Colors.white54 : Colors.black54;
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
+      padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
-        mainAxisAlignment: isMe
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
+        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (!isMe) ...[
-            CircleAvatar(
-              radius: 14,
-              backgroundImage: NetworkImage(widget.avatarUrl),
-            ),
-            const SizedBox(width: 8),
-          ],
           Flexible(
-            child: Column(
-              crossAxisAlignment: isMe
-                  ? CrossAxisAlignment.end
-                  : CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
+            child: Container(
+              margin: EdgeInsets.only(
+                left: isMe ? 60 : 0,
+                right: isMe ? 0 : 60,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: bubbleColor,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(12),
+                  topRight: const Radius.circular(12),
+                  bottomLeft: Radius.circular(isMe ? 12 : 0),
+                  bottomRight: Radius.circular(isMe ? 0 : 12),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 1,
+                    offset: const Offset(0, 1),
                   ),
-                  decoration: BoxDecoration(
-                    color: isMe
-                        ? const Color(0xFFFF6B00)
-                        : (isDark
-                              ? const Color(0xFF2A2A2A)
-                              : Colors.grey.shade100),
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(16),
-                      topRight: const Radius.circular(16),
-                      bottomLeft: isMe
-                          ? const Radius.circular(16)
-                          : const Radius.circular(0),
-                      bottomRight: isMe
-                          ? const Radius.circular(0)
-                          : const Radius.circular(16),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (msg.messageType == 'image' && msg.fileUrl != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4.0),
+                      child: GestureDetector(
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (_) => FullScreenImageViewer(
+                              imageUrl: msg.fileUrl!,
+                              heroTag: 'lawyer_chat_img_${msg.sentAt.millisecondsSinceEpoch}',
+                            ),
+                          );
+                        },
+                        child: Hero(
+                          tag: 'lawyer_chat_img_${msg.sentAt.millisecondsSinceEpoch}',
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(
+                              msg.fileUrl!,
+                              fit: BoxFit.cover,
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Container(
+                                  width: 200,
+                                  height: 200,
+                                  color: Colors.grey.shade300,
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                      color: Color(0xFFFF6B00),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: isMe
-                        ? CrossAxisAlignment.end
-                        : CrossAxisAlignment.start,
-                    children: [
-                      if (msg.messageType == 'image' && msg.fileUrl != null)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8.0),
-                          child: GestureDetector(
-                            onTap: () {
-                              showDialog(
-                                context: context,
-                                builder: (_) => FullScreenImageViewer(
-                                  imageUrl: msg.fileUrl!,
-                                  heroTag:
-                                      'lawyer_chat_img_${msg.sentAt.millisecondsSinceEpoch}',
+                  if (msg.messageType == 'file' && msg.fileUrl != null)
+                    GestureDetector(
+                      onTap: () async {
+                        final url = Uri.parse(msg.fileUrl!);
+                        if (await canLaunchUrl(url)) {
+                          await launchUrl(url, mode: LaunchMode.externalApplication);
+                        }
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 4),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.black26 : Colors.black12,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.insert_drive_file, color: msgTextColor, size: 24),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                msg.message.replaceFirst('Shared a file: ', ''),
+                                style: TextStyle(
+                                  color: msgTextColor,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
                                 ),
-                              );
-                            },
-                            child: Hero(
-                              tag:
-                                  'lawyer_chat_img_${msg.sentAt.millisecondsSinceEpoch}',
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: Image.network(
-                                  msg.fileUrl!,
-                                  fit: BoxFit.cover,
-                                  loadingBuilder:
-                                      (context, child, loadingProgress) {
-                                        if (loadingProgress == null) {
-                                          return child;
-                                        }
-                                        return Container(
-                                          width: 200,
-                                          height: 200,
-                                          color: Colors.grey.shade200,
-                                          child: Center(
-                                            child: CircularProgressIndicator(
-                                              value:
-                                                  loadingProgress
-                                                          .expectedTotalBytes !=
-                                                      null
-                                                  ? loadingProgress
-                                                            .cumulativeBytesLoaded /
-                                                        loadingProgress
-                                                            .expectedTotalBytes!
-                                                  : null,
-                                              color: const Color(0xFFFF6B00),
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                          ),
+                          ],
                         ),
-                      if (msg.messageType == 'file' && msg.fileUrl != null)
-                        GestureDetector(
-                          onTap: () async {
-                            final url = Uri.parse(msg.fileUrl!);
-                            if (await canLaunchUrl(url)) {
-                              await launchUrl(
-                                url,
-                                mode: LaunchMode.externalApplication,
-                              );
-                            }
-                          },
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: isMe
-                                  ? Colors.white.withValues(alpha: 0.1)
-                                  : (isDark
-                                        ? const Color(0xFF333333)
-                                        : Colors.white),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.insert_drive_file,
-                                  color: isMe
-                                      ? Colors.white
-                                      : const Color(0xFFFF6B00),
-                                  size: 30,
-                                ),
-                                const SizedBox(width: 10),
-                                Flexible(
-                                  child: Text(
-                                    msg.message.replaceFirst(
-                                      'Shared a file: ',
-                                      '',
-                                    ),
-                                    style: TextStyle(
-                                      color: isMe ? Colors.white : textColor,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Icon(
-                                  Icons.open_in_new,
-                                  size: 16,
-                                  color: isMe ? Colors.white70 : Colors.grey,
-                                ),
-                              ],
+                      ),
+                    ),
+                  Wrap(
+                    alignment: WrapAlignment.end,
+                    crossAxisAlignment: WrapCrossAlignment.end,
+                    children: [
+                      if (msg.messageType == 'text' || (msg.messageType != 'image' && msg.messageType != 'file'))
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8.0, bottom: 2.0),
+                          child: Text(
+                            msg.message,
+                            style: TextStyle(
+                              color: msgTextColor,
+                              fontSize: 15,
+                              height: 1.3,
                             ),
                           ),
                         ),
-                      Text(
-                        msg.message,
-                        style: TextStyle(
-                          color: isMe ? Colors.white : textColor,
-                          fontSize: 14,
-                          height: 1.4,
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            time,
+                            style: TextStyle(
+                              color: timeColor,
+                              fontSize: 11,
+                            ),
+                          ),
+                          if (isMe) ...[
+                            const SizedBox(width: 4),
+                            Icon(
+                              msg.isRead ? Icons.done_all : Icons.done,
+                              size: 15,
+                              color: msg.isRead ? Colors.blue : timeColor,
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      time,
-                      style: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 11,
-                      ),
-                    ),
-                    if (isMe) ...[
-                      const SizedBox(width: 4),
-                      Icon(
-                        msg.isRead ? Icons.done_all : Icons.done,
-                        size: 14,
-                        color: msg.isRead ? Colors.blue : Colors.grey.shade400,
-                      ),
-                    ],
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -574,79 +537,72 @@ class _LawyerChatScreenState extends ConsumerState<LawyerChatScreen> {
     Color textColor,
   ) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: cardColor,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.all(8),
+      color: Colors.transparent, // Background of input area matches chat background
       child: SafeArea(
         child: Row(
           children: [
-            Container(
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade100,
-                shape: BoxShape.circle,
-              ),
-              child: IconButton(
-                icon: Icon(
-                  Icons.attach_file,
-                  color: isDark ? Colors.white : Colors.black54,
-                ),
-                onPressed: () => _pickAndSendFile(user.uid),
-              ),
-            ),
-            const SizedBox(width: 12),
             Expanded(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
-                  color: isDark
-                      ? const Color(0xFF2A2A2A)
-                      : Colors.grey.shade100,
+                  color: isDark ? const Color(0xFF202C33) : Colors.white,
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: TextField(
-                  style: TextStyle(color: textColor),
-                  controller: _ctrl,
-                  onChanged: (val) {
-                    final user = ref.read(authStateProvider).value;
-                    if (user != null) {
-                      ref
-                          .read(chatStateNotifierProvider.notifier)
-                          .setTypingStatus(
-                            senderId: user.uid,
-                            receiverId: widget.receiverId,
-                            isTyping: val.isNotEmpty,
-                          );
-                    }
-                  },
-
-                  onSubmitted: (_) => _sendMessage(),
-                  decoration: InputDecoration(
-                    hintText: 'Type a message...',
-                    border: InputBorder.none,
-                    hintStyle: TextStyle(
-                      color: isDark ? Colors.white54 : Colors.black38,
-                      fontSize: 14,
+                child: Row(
+                  children: [
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: Icon(
+                        Icons.attach_file,
+                        color: isDark ? Colors.white54 : Colors.black54,
+                      ),
+                      onPressed: () => _pickAndSendFile(user.uid),
                     ),
-                  ),
+                    Expanded(
+                      child: TextField(
+                        textCapitalization: TextCapitalization.sentences,
+                        minLines: 1,
+                        maxLines: 5,
+                        style: TextStyle(color: textColor, fontSize: 16),
+                        controller: _ctrl,
+                        onChanged: (val) {
+                          final user = ref.read(authStateProvider).value;
+                          if (user != null) {
+                            ref
+                                .read(chatStateNotifierProvider.notifier)
+                                .setTypingStatus(
+                                  senderId: user.uid,
+                                  receiverId: widget.receiverId,
+                                  isTyping: val.isNotEmpty,
+                                );
+                          }
+                        },
+                        onSubmitted: (_) => _sendMessage(),
+                        decoration: InputDecoration(
+                          hintText: 'Message',
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                          hintStyle: TextStyle(
+                            color: isDark ? Colors.white54 : Colors.black54,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             Container(
               decoration: const BoxDecoration(
-                color: Color(0xFFFF6B00), // Orange
+                color: Color(0xFF00A884), // WhatsApp green accent for send button
                 shape: BoxShape.circle,
               ),
               child: IconButton(
-                icon: const Icon(Icons.send, color: Colors.white, size: 20),
+                icon: const Icon(Icons.send, color: Colors.white, size: 22),
                 onPressed: _sendMessage,
               ),
             ),

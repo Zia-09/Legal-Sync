@@ -19,20 +19,20 @@ class LegalWorkflowService {
     HearingService? hearingService,
     TimeTrackingService? timeTrackingService,
     InvoiceService? invoiceService,
-    NotificationService? notificationService,
+    FirestoreNotificationService? notificationService,
   }) : _caseService = caseService ?? CaseService(),
        _documentService = documentService ?? DocumentService(),
        _hearingService = hearingService ?? HearingService(),
        _timeTrackingService = timeTrackingService ?? TimeTrackingService(),
        _invoiceService = invoiceService ?? InvoiceService(),
-       _notificationService = notificationService ?? NotificationService();
+       _notificationService = notificationService ?? FirestoreNotificationService();
 
   final CaseService _caseService;
   final DocumentService _documentService;
   final HearingService _hearingService;
   final TimeTrackingService _timeTrackingService;
   final InvoiceService _invoiceService;
-  final NotificationService _notificationService;
+  final FirestoreNotificationService _notificationService;
 
   /// Step 1 from proposal: create case + optionally upload first document.
   Future<String> createCaseWithInitialDocument({

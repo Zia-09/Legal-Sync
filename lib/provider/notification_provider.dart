@@ -6,7 +6,7 @@ import '../services/notification_services.dart';
 // ===============================
 // Notification Service Provider
 // ===============================
-final notificationServiceProvider = Provider((ref) => NotificationService());
+final notificationServiceProvider = Provider((ref) => FirestoreNotificationService());
 
 // ===============================
 // All Notifications Provider
@@ -61,7 +61,7 @@ final getNotificationByIdProvider =
 // Notification Notifier
 // ===============================
 class NotificationNotifier extends StateNotifier<NotificationModel?> {
-  final NotificationService _service;
+  final FirestoreNotificationService _service;
 
   NotificationNotifier(this._service) : super(null);
 

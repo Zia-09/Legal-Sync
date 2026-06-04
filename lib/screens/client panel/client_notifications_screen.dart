@@ -4,6 +4,7 @@ import 'package:legal_sync/provider/auth_provider.dart';
 import 'package:legal_sync/provider/notification_provider.dart';
 import 'package:legal_sync/model/notification_model.dart';
 import 'package:intl/intl.dart';
+import 'package:legal_sync/presentation/common_widgets/empty_state_widget.dart';
 
 class ClientNotificationsScreen extends ConsumerStatefulWidget {
   const ClientNotificationsScreen({super.key});
@@ -83,22 +84,14 @@ class _ClientNotificationsScreenState
                 }).toList();
 
                 if (filteredNotifications.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.notifications_none,
-                          color: subtitleColor.withValues(alpha: 0.3),
-                          size: 64,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No notifications found',
-                          style: TextStyle(color: subtitleColor, fontSize: 16),
-                        ),
-                      ],
-                    ),
+                  return EmptyStateWidget(
+                    icon: Icons.notifications_outlined,
+                    title: _selectedFilter == 'Unread'
+                        ? 'All caught up!'
+                        : 'No notifications yet',
+                    subtitle: _selectedFilter == 'Unread'
+                        ? 'You have no unread notifications.'
+                        : 'You\'ll see case updates, hearing reminders,\nand messages here.',
                   );
                 }
 

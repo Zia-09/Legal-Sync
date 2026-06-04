@@ -1,4 +1,4 @@
-// lib/model/client_model.dart
+// lib/model/client_Model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ClientModel {
@@ -204,4 +204,14 @@ class ClientModel {
     final fiveMinutesAgo = DateTime.now().subtract(const Duration(minutes: 5));
     return lastActive!.toDate().isAfter(fiveMinutesAgo);
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ClientModel &&
+          runtimeType == other.runtimeType &&
+          clientId == other.clientId;
+
+  @override
+  int get hashCode => clientId.hashCode;
 }

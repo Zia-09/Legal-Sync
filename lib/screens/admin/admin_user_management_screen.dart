@@ -6,6 +6,7 @@ import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/provider/lawyer_provider.dart';
 import 'package:legal_sync/services/client_services.dart';
 import 'package:legal_sync/services/lawyer_services.dart';
+import 'package:legal_sync/config/admin_theme.dart';
 
 class AdminUserManagementScreen extends ConsumerStatefulWidget {
   final String? initialSearch;
@@ -40,39 +41,17 @@ class _AdminUserManagementScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text(
-          'User Management',
-          style: TextStyle(
-            color: Color(0xFF1F2937),
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading:
-            null, // Removed back arrow because this is part of IndexedStack bottom nav
-        actions: [
-          if (_searchQuery.isEmpty)
-            IconButton(
-              icon: const Icon(Icons.search, color: Color(0xFF1F2937)),
-              onPressed: () {
-                // Focus search bar logic could be here
-              },
-            ),
-        ],
-      ),
+      backgroundColor: AdminTheme.primaryDark,
+      appBar: _buildAppBar(),
       body: Column(
         children: [
           // Segmented Control Tabs
           Container(
-            color: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            color: AdminTheme.cardDark,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Container(
               decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6),
+                color: AdminTheme.surfaceDark,
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Row(
@@ -94,31 +73,30 @@ class _AdminUserManagementScreenState
 
           // Search Bar
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             child: Container(
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
+              decoration: AdminTheme.searchBarDecoration(),
               child: TextField(
                 controller: _searchCtrl,
                 onChanged: (val) =>
                     setState(() => _searchQuery = val.toLowerCase()),
+                style: const TextStyle(color: AdminTheme.textPrimary),
                 decoration: InputDecoration(
                   hintText: 'Search by name or email...',
-                  hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
+                  hintStyle: const TextStyle(
+                    color: AdminTheme.textTertiary,
+                    fontSize: 14,
+                  ),
                   prefixIcon: const Icon(
                     Icons.search,
-                    color: Colors.grey,
+                    color: AdminTheme.textTertiary,
                     size: 20,
                   ),
                   suffixIcon: _searchCtrl.text.isNotEmpty
                       ? IconButton(
                           icon: const Icon(
                             Icons.close,
-                            color: Colors.grey,
+                            color: AdminTheme.textTertiary,
                             size: 18,
                           ),
                           onPressed: () {
@@ -136,7 +114,7 @@ class _AdminUserManagementScreenState
 
           // List Header / Filters
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -145,13 +123,14 @@ class _AdminUserManagementScreenState
                     value: _filterStatus,
                     icon: const Icon(
                       Icons.arrow_drop_down,
-                      color: Color(0xFF1E3A8A),
+                      color: AdminTheme.primary,
                     ),
                     style: const TextStyle(
-                      color: Color(0xFF1E3A8A),
+                      color: AdminTheme.primary,
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
                     ),
+                    dropdownColor: AdminTheme.cardDark,
                     items: ['All', 'Active', 'Suspended', 'Pending']
                         .map((s) => DropdownMenuItem(value: s, child: Text(s)))
                         .toList(),
@@ -171,12 +150,8 @@ class _AdminUserManagementScreenState
                       if (d != null) count = _filterClients(d).length;
                     }
                     return Text(
-                      'SHOWING $count RESULTS',
-                      style: const TextStyle(
-                        color: Colors.grey,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      'SHOWING $count',
+                      style: AdminTheme.sectionHeaderStyle(),
                     );
                   },
                 ),
@@ -184,30 +159,7 @@ class _AdminUserManagementScreenState
             ),
           ),
 
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
-                Text(
-                  'USER INFORMATION',
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  'ACTION',
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          const Divider(color: AdminTheme.accentDark, height: 1),
 
           // User List
           Expanded(
@@ -217,6 +169,23 @@ class _AdminUserManagementScreenState
           ),
         ],
       ),
+    );
+  }
+
+  AppBar _buildAppBar() {
+    return AppBar(
+      backgroundColor: AdminTheme.cardDark,
+      elevation: 0,
+      title: const Text(
+        'User Management',
+        style: TextStyle(
+          color: AdminTheme.textPrimary,
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      leading: null,
+      centerTitle: false,
     );
   }
 
@@ -231,27 +200,34 @@ class _AdminUserManagementScreenState
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? Colors.white : Colors.transparent,
+            color: isSelected ? AdminTheme.cardDark : Colors.transparent,
             borderRadius: BorderRadius.circular(24),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 4,
-                    ),
-                  ]
-                : null,
           ),
           child: Center(
-            child: Text(
-              '$title ($count)',
-              style: TextStyle(
-                color: isSelected
-                    ? const Color(0xFF1E3A8A)
-                    : const Color(0xFF6B7280),
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: isSelected
+                        ? AdminTheme.primary
+                        : AdminTheme.textTertiary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                Text(
+                  count.toString(),
+                  style: TextStyle(
+                    color: isSelected
+                        ? AdminTheme.primary
+                        : AdminTheme.textTertiary,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -298,12 +274,32 @@ class _AdminUserManagementScreenState
       data: (lawyers) {
         final filtered = _filterLawyers(lawyers);
         if (filtered.isEmpty) {
-          return const Center(child: Text('No lawyers found.'));
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.person_off_outlined,
+                  size: 48,
+                  color: AdminTheme.textTertiary.withValues(alpha: 0.3),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No lawyers found',
+                  style: TextStyle(
+                    color: AdminTheme.textSecondary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          );
         }
         return ListView.builder(
           shrinkWrap: false,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.only(bottom: 20),
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(vertical: 8),
           itemCount: filtered.length,
           itemBuilder: (context, index) {
             final l = filtered[index];
@@ -320,10 +316,9 @@ class _AdminUserManagementScreenState
         );
       },
       loading: () => const Center(
-        child: CircularProgressIndicator(color: Color(0xFF1E3A8A)),
+        child: CircularProgressIndicator(color: AdminTheme.primary),
       ),
       error: (err, stack) {
-        print('❌ Lawyers Error: $err');
         return Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -332,30 +327,31 @@ class _AdminUserManagementScreenState
               children: [
                 const Icon(
                   Icons.error_outline,
-                  color: Color(0xFFDC2626),
+                  color: AdminTheme.danger,
                   size: 48,
                 ),
                 const SizedBox(height: 16),
                 const Text(
                   'Unable to Load Lawyers',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: AdminTheme.textPrimary,
+                  ),
                 ),
                 const SizedBox(height: 8),
-                Text(
+                const Text(
                   'Please check your internet connection',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                  style: TextStyle(
+                    color: AdminTheme.textTertiary,
+                    fontSize: 12,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () => ref.refresh(allLawyersProvider),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E3A8A),
-                  ),
-                  child: const Text(
-                    'Retry',
-                    style: TextStyle(color: Colors.white),
-                  ),
+                  child: const Text('Retry'),
                 ),
               ],
             ),
@@ -372,12 +368,32 @@ class _AdminUserManagementScreenState
       data: (clients) {
         final filtered = _filterClients(clients);
         if (filtered.isEmpty) {
-          return const Center(child: Text('No clients found.'));
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.person_off_outlined,
+                  size: 48,
+                  color: AdminTheme.textTertiary.withValues(alpha: 0.3),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No clients found',
+                  style: TextStyle(
+                    color: AdminTheme.textSecondary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          );
         }
         return ListView.builder(
           shrinkWrap: false,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.only(bottom: 20),
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(vertical: 8),
           itemCount: filtered.length,
           itemBuilder: (context, index) {
             final c = filtered[index];
@@ -394,10 +410,9 @@ class _AdminUserManagementScreenState
         );
       },
       loading: () => const Center(
-        child: CircularProgressIndicator(color: Color(0xFF1E3A8A)),
+        child: CircularProgressIndicator(color: AdminTheme.primary),
       ),
       error: (err, stack) {
-        print('❌ Clients Error: $err');
         return Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -406,30 +421,31 @@ class _AdminUserManagementScreenState
               children: [
                 const Icon(
                   Icons.error_outline,
-                  color: Color(0xFFDC2626),
+                  color: AdminTheme.danger,
                   size: 48,
                 ),
                 const SizedBox(height: 16),
                 const Text(
                   'Unable to Load Clients',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: AdminTheme.textPrimary,
+                  ),
                 ),
                 const SizedBox(height: 8),
-                Text(
+                const Text(
                   'Please check your internet connection',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                  style: TextStyle(
+                    color: AdminTheme.textTertiary,
+                    fontSize: 12,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () => ref.refresh(allClientsProvider),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E3A8A),
-                  ),
-                  child: const Text(
-                    'Retry',
-                    style: TextStyle(color: Colors.white),
-                  ),
+                  child: const Text('Retry'),
                 ),
               ],
             ),
@@ -442,13 +458,13 @@ class _AdminUserManagementScreenState
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'active':
-        return const Color(0xFF059669);
+        return AdminTheme.success;
       case 'suspended':
-        return const Color(0xFFDC2626);
+        return AdminTheme.danger;
       case 'pending':
-        return const Color(0xFFE67E22);
+        return AdminTheme.warning;
       default:
-        return Colors.grey;
+        return AdminTheme.textTertiary;
     }
   }
 }
@@ -489,14 +505,14 @@ class _UserRowItem extends StatelessWidget {
       messenger.showSnackBar(
         SnackBar(
           content: Text('$name status updated to $newStatus'),
-          backgroundColor: const Color(0xFF059669),
+          backgroundColor: AdminTheme.success,
         ),
       );
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(
           content: Text('Failed to update status: $e'),
-          backgroundColor: const Color(0xFFDC2626),
+          backgroundColor: AdminTheme.danger,
         ),
       );
     }
@@ -505,15 +521,19 @@ class _UserRowItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      margin: const EdgeInsets.only(bottom: 1),
+      color: AdminTheme.cardDark,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin: const EdgeInsets.only(bottom: 4),
       child: Row(
         children: [
           CircleAvatar(
             radius: 20,
-            backgroundColor: const Color(0xFF1E3A8A).withValues(alpha: 0.1),
-            child: const Icon(Icons.person, color: Color(0xFF1E3A8A)),
+            backgroundColor: AdminTheme.primary.withValues(alpha: 0.15),
+            child: Icon(
+              isLawyer ? Icons.gavel : Icons.person,
+              color: AdminTheme.primary,
+              size: 20,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -522,61 +542,81 @@ class _UserRowItem extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                    Expanded(
+                      child: Text(
+                        name,
+                        style: const TextStyle(
+                          color: AdminTheme.textPrimary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
+                        horizontal: 8,
+                        vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(4),
+                        color: statusColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         status,
                         style: TextStyle(
                           color: statusColor,
-                          fontSize: 8,
+                          fontSize: 10,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                   ],
                 ),
+                const SizedBox(height: 4),
                 Text(
                   email,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.grey, fontSize: 11),
+                  style: const TextStyle(
+                    color: AdminTheme.textTertiary,
+                    fontSize: 11,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   location,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.grey, fontSize: 11),
+                  style: const TextStyle(
+                    color: AdminTheme.textTertiary,
+                    fontSize: 11,
+                  ),
                 ),
               ],
             ),
           ),
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: Colors.grey),
+            icon: const Icon(Icons.more_vert, color: AdminTheme.textTertiary),
+            color: AdminTheme.cardDark,
             onSelected: (value) async {
               if (value == 'delete') {
                 bool confirm =
                     await showDialog(
                       context: context,
                       builder: (ctx) => AlertDialog(
-                        title: const Text('Confirm Delete'),
+                        backgroundColor: AdminTheme.cardDark,
+                        title: const Text(
+                          'Confirm Delete',
+                          style: TextStyle(color: AdminTheme.textPrimary),
+                        ),
                         content: Text(
                           'Are you sure you want to delete $name? This action cannot be undone.',
+                          style: const TextStyle(
+                            color: AdminTheme.textSecondary,
+                          ),
                         ),
                         actions: [
                           TextButton(
@@ -587,7 +627,7 @@ class _UserRowItem extends StatelessWidget {
                             onPressed: () => Navigator.pop(ctx, true),
                             child: const Text(
                               'Delete',
-                              style: TextStyle(color: Colors.red),
+                              style: TextStyle(color: AdminTheme.danger),
                             ),
                           ),
                         ],
@@ -602,9 +642,18 @@ class _UserRowItem extends StatelessWidget {
                     } else {
                       await ClientService().deleteClient(id);
                     }
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text('$name deleted successfully'),
+                        backgroundColor: AdminTheme.success,
+                      ),
+                    );
                   } catch (e) {
                     messenger.showSnackBar(
-                      SnackBar(content: Text('Delete failed: $e')),
+                      SnackBar(
+                        content: Text('Delete failed: $e'),
+                        backgroundColor: AdminTheme.danger,
+                      ),
                     );
                   }
                 }
@@ -616,16 +665,25 @@ class _UserRowItem extends StatelessWidget {
               if (status.toLowerCase() != 'active')
                 const PopupMenuItem(
                   value: 'active',
-                  child: Text('Activate User'),
+                  child: Text(
+                    'Activate User',
+                    style: TextStyle(color: AdminTheme.success),
+                  ),
                 ),
               if (status.toLowerCase() != 'suspended')
                 const PopupMenuItem(
                   value: 'suspended',
-                  child: Text('Suspend User'),
+                  child: Text(
+                    'Suspend User',
+                    style: TextStyle(color: AdminTheme.warning),
+                  ),
                 ),
               const PopupMenuItem(
                 value: 'delete',
-                child: Text('Delete User', style: TextStyle(color: Colors.red)),
+                child: Text(
+                  'Delete User',
+                  style: TextStyle(color: AdminTheme.danger),
+                ),
               ),
             ],
           ),

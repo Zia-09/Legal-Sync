@@ -12,8 +12,8 @@ import 'package:legal_sync/services/document_service.dart';
 import 'package:legal_sync/provider/document_provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:legal_sync/screens/client%20panel/messages_screen.dart'; // fallback
+import 'package:legal_sync/widgets/document_viewer_helper.dart';
 import 'package:legal_sync/screens/client%20panel/home_screen.dart';
 import 'package:legal_sync/screens/client%20panel/app_setting_screen.dart';
 import 'package:legal_sync/utils/animations.dart';
@@ -129,9 +129,7 @@ class _CaseStatusScreenState extends ConsumerState<CaseStatusScreen> {
         caseId: currentCase.caseId,
         lawyerId: currentCase.lawyerId,
         uploadedBy: clientId,
-        fileType: path.endsWith('.pdf')
-            ? 'pdf'
-            : (path.endsWith('.docx') ? 'doc' : 'image'),
+        fileType: path.split('.').last.toLowerCase(),
         description: 'Uploaded by client',
         tags: ['client_upload'],
         isConfidential: false,
@@ -1748,7 +1746,15 @@ class _DocumentRow extends StatelessWidget {
           ),
           // Eye icon - view button
           GestureDetector(
-            onTap: () => _openDocument(context, url, isImage, name),
+            onTap: () {
+              DocumentViewerHelper.openDocument(
+                context,
+                url: url,
+                isImage: isImage,
+                isPdf: isPdf,
+                name: name,
+              );
+            },
             child: Container(
               width: 40,
               height: 40,
@@ -1768,131 +1774,4 @@ class _DocumentRow extends StatelessWidget {
     );
   }
 
-  void _openDocument(
-    BuildContext context,
-    String url,
-    bool isImage,
-    String name,
-  ) {
-    if (url.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Document URL not available')),
-      );
-      return;
-    }
-    if (isImage) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => _InAppImageViewer(imageUrl: url, title: name),
-        ),
-      );
-    } else {
-      _launchInBrowser(context, url);
-    }
-  }
-
-  Future<void> _launchInBrowser(BuildContext context, String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Could not open document')));
-    }
-  }
-}
-
-// --- Full-screen in-app image viewer with pinch-to-zoom ---------------------
-class _InAppImageViewer extends StatefulWidget {
-  final String imageUrl;
-  final String title;
-  const _InAppImageViewer({required this.imageUrl, required this.title});
-
-  @override
-  State<_InAppImageViewer> createState() => _InAppImageViewerState();
-}
-
-class _InAppImageViewerState extends State<_InAppImageViewer> {
-  final TransformationController _ctrl = TransformationController();
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          widget.title,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
-          overflow: TextOverflow.ellipsis,
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.zoom_out_map, color: Colors.white),
-            onPressed: () => _ctrl.value = Matrix4.identity(),
-            tooltip: 'Reset zoom',
-          ),
-          IconButton(
-            icon: const Icon(Icons.open_in_browser, color: Colors.white),
-            tooltip: 'Open in browser / download',
-            onPressed: () async {
-              final uri = Uri.parse(widget.imageUrl);
-              if (await canLaunchUrl(uri)) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              }
-            },
-          ),
-        ],
-      ),
-      body: InteractiveViewer(
-        transformationController: _ctrl,
-        panEnabled: true,
-        minScale: 0.5,
-        maxScale: 5.0,
-        child: Center(
-          child: Image.network(
-            widget.imageUrl,
-            fit: BoxFit.contain,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return Center(
-                child: CircularProgressIndicator(
-                  value: loadingProgress.expectedTotalBytes != null
-                      ? loadingProgress.cumulativeBytesLoaded /
-                            loadingProgress.expectedTotalBytes!
-                      : null,
-                  color: const Color(0xFFFF6B00),
-                ),
-              );
-            },
-            errorBuilder: (_, _, _) => const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.broken_image, color: Colors.white54, size: 64),
-                  SizedBox(height: 12),
-                  Text(
-                    'Could not load image',
-                    style: TextStyle(color: Colors.white54),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }

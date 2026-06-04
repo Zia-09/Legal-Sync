@@ -3,7 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/provider/billing_provider.dart';
 import 'package:legal_sync/provider/invoice_provider.dart';
+import 'package:legal_sync/model/invoice_Model.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:printing/printing.dart';
+import 'package:legal_sync/model/case_Model.dart';
+import 'package:legal_sync/model/lawyer_Model.dart';
+import 'package:legal_sync/model/client_Model.dart';
+import 'package:legal_sync/services/invoice_pdf_service.dart';
 
 class BillingHistoryScreen extends ConsumerStatefulWidget {
   const BillingHistoryScreen({super.key});
@@ -195,7 +202,7 @@ class _BillingHistoryScreenState extends ConsumerState<BillingHistoryScreen> {
     );
   }
 
-  Widget _buildInvoicesList(List invoices, Color cardColor, Color textColor, Color subtitleColor, bool isDark) {
+  Widget _buildInvoicesList(List<InvoiceModel> invoices, Color cardColor, Color textColor, Color subtitleColor, bool isDark) {
     if (invoices.isEmpty) {
       return Center(
         child: Padding(
@@ -227,13 +234,8 @@ class _BillingHistoryScreenState extends ConsumerState<BillingHistoryScreen> {
             if (_selectedFilter == 'All') return true;
             return inv.status.toUpperCase() == _selectedFilter.toUpperCase();
           })
-          .map((invoice) => _buildInvoiceItem(
-                invoice.description ?? 'Invoice',
-                invoice.invoiceId,
-                invoice.totalAmount ?? 0.0,
-                DateFormat('MMM dd, yyyy').format(invoice.createdDate),
-                invoice.status ?? 'DRAFT',
-                _getStatusColor(invoice.status ?? 'DRAFT'),
+          .map<Widget>((invoice) => _buildInvoiceItem(
+                invoice,
                 cardColor,
                 textColor,
                 subtitleColor,
@@ -299,7 +301,14 @@ class _BillingHistoryScreenState extends ConsumerState<BillingHistoryScreen> {
     );
   }
 
-  Widget _buildInvoiceItem(String title, String invNo, double amount, String date, String status, Color statusColor, Color cardColor, Color textColor, Color subtitleColor, bool isDark) {
+  Widget _buildInvoiceItem(InvoiceModel invoice, Color cardColor, Color textColor, Color subtitleColor, bool isDark) {
+    final title = invoice.notes ?? 'Professional Legal Services';
+    final invNo = invoice.invoiceNumber ?? invoice.invoiceId;
+    final amount = invoice.totalAmount;
+    final date = DateFormat('MMM dd, yyyy').format(invoice.createdAt);
+    final status = invoice.status;
+    final statusColor = _getStatusColor(status);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -310,62 +319,103 @@ class _BillingHistoryScreenState extends ConsumerState<BillingHistoryScreen> {
           BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
+      child: InkWell(
+        onTap: () => _viewInvoicePdf(invoice),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(invNo, style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 2),
+                        Text(title, style: TextStyle(color: subtitleColor, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      status.toUpperCase(),
+                      style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Invoice #$invNo', style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 2),
-                      Text(title, style: TextStyle(color: subtitleColor, fontSize: 12)),
+                      Text('AMOUNT', style: TextStyle(color: subtitleColor.withValues(alpha: 0.6), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                      const SizedBox(height: 4),
+                      Text('Rs. ${NumberFormat("#,##0").format(amount)}', style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.bold)),
                     ],
                   ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(status.toUpperCase() == 'OVERDUE' ? 'PAST DUE' : (status.toUpperCase() == 'PENDING' ? 'DUE DATE' : 'DATE'), 
+                        style: TextStyle(color: subtitleColor.withValues(alpha: 0.6), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                      const SizedBox(height: 4),
+                      Text(date, style: TextStyle(color: status.toUpperCase() == 'OVERDUE' ? Colors.red : textColor, fontSize: 14, fontWeight: FontWeight.w600)),
+                    ],
                   ),
-                  child: Text(
-                    status,
-                    style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('AMOUNT', style: TextStyle(color: subtitleColor.withValues(alpha: 0.6), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
-                    const SizedBox(height: 4),
-                    Text('Rs. ${NumberFormat("#,##0").format(amount)}', style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(status == 'OVERDUE' ? 'PAST DUE' : (status == 'PENDING' ? 'DUE DATE' : 'DATE'), 
-                      style: TextStyle(color: subtitleColor.withValues(alpha: 0.6), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
-                    const SizedBox(height: 4),
-                    Text(date, style: TextStyle(color: status == 'OVERDUE' ? Colors.red : textColor, fontSize: 14, fontWeight: FontWeight.w600)),
-                  ],
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  Future<void> _viewInvoicePdf(InvoiceModel invoice) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => const Center(child: CircularProgressIndicator(color: Color(0xFFDC2626))),
+    );
+
+    try {
+      final caseDoc = await FirebaseFirestore.instance.collection('cases').doc(invoice.caseId).get();
+      final caseModel = CaseModel.fromJson(caseDoc.data()!);
+
+      final lawyerDoc = await FirebaseFirestore.instance.collection('lawyers').doc(invoice.lawyerId).get();
+      final lawyerModel = LawyerModel.fromJson(lawyerDoc.data()!);
+
+      final clientDoc = await FirebaseFirestore.instance.collection('clients').doc(invoice.clientId).get();
+      final clientModel = ClientModel.fromJson(clientDoc.data()!);
+
+      final pdfBytes = await InvoicePdfService.generateInvoicePdf(
+        caseModel: caseModel,
+        lawyerModel: lawyerModel,
+        clientModel: clientModel,
+      );
+
+      if (mounted) Navigator.pop(context);
+
+      await Printing.layoutPdf(
+        onLayout: (format) async => pdfBytes,
+        name: 'Invoice_${invoice.invoiceNumber ?? invoice.invoiceId}.pdf',
+      );
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error generating PDF: $e')));
+      }
+    }
   }
 }

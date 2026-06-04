@@ -215,7 +215,7 @@ class SecurityManager {
   }) async {
     try {
       AppLogger.info('Security Event: $event by $userId', tag: 'AuditLog');
-      // TODO: Send to backend audit log service
+      // Future: Send to backend audit log service
       // await auditLogService.logEvent(event, userId, details);
     } catch (e) {
       AppLogger.error(

@@ -1,10 +1,11 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/provider/chat_thread_provider.dart';
 import 'package:legal_sync/model/chat_thread_model.dart';
 import 'package:legal_sync/screens/client%20panel/case_status_view.dart';
 import 'home_screen.dart';
+import 'legal_categories_screen.dart';
 
 import 'app_setting_screen.dart';
 import 'widgets/chat_widgets.dart';
@@ -402,6 +403,11 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen>
                   context,
                   MaterialPageRoute(builder: (_) => const HomeScreen()),
                   (_) => false,
+                );
+              } else if (index == 1) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LegalCategoriesScreen()),
                 );
               } else if (index == 2) {
                 Navigator.push(

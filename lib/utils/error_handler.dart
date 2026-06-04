@@ -71,17 +71,11 @@ class AppLogger {
   static void info(String message, {String? tag}) {
     final fullTag = tag != null ? '$_tag::$tag' : _tag;
     developer.log('ℹ️  $message', name: fullTag);
-    if (kDebugMode) {
-      print('$fullTag [INFO] $message');
-    }
   }
 
   static void warning(String message, {String? tag}) {
     final fullTag = tag != null ? '$_tag::$tag' : _tag;
     developer.log('⚠️  $message', name: fullTag);
-    if (kDebugMode) {
-      print('$fullTag [WARNING] $message');
-    }
   }
 
   static void error(
@@ -97,17 +91,12 @@ class AppLogger {
       error: error,
       stackTrace: stackTrace,
     );
-    if (kDebugMode) {
-      print('$fullTag [ERROR] $message');
-      print('Details: $error');
-      if (stackTrace != null) print(stackTrace);
-    }
   }
 
   static void debug(String message, {String? tag}) {
     if (kDebugMode) {
       final fullTag = tag != null ? '$_tag::$tag' : _tag;
-      print('$fullTag [DEBUG] $message');
+      developer.log('🐛 $message', name: fullTag);
     }
   }
 }

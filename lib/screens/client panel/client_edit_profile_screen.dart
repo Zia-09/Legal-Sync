@@ -237,13 +237,16 @@ class _ClientEditProfileScreenState extends ConsumerState<ClientEditProfileScree
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: const Color(0xFFFF6B00), width: 2),
-              image: DecorationImage(
-                image: (client.profileImage != null && client.profileImage!.isNotEmpty)
-                    ? NetworkImage(client.profileImage!)
-                    : const AssetImage('images/profile.jpg') as ImageProvider,
-                fit: BoxFit.cover,
-              ),
+              image: (client.profileImage != null && client.profileImage!.isNotEmpty)
+                  ? DecorationImage(
+                      image: NetworkImage(client.profileImage!),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
             ),
+            child: (client.profileImage == null || client.profileImage!.isEmpty)
+                ? const Icon(Icons.person, size: 60, color: Colors.grey)
+                : null,
           ),
           Positioned(
             bottom: 4,

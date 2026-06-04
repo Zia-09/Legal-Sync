@@ -146,5 +146,5 @@ class DocumentModel {
 
   bool get isPDF => fileType.toLowerCase() == 'pdf';
   bool get isImage =>
-      ['jpg', 'jpeg', 'png', 'gif'].contains(fileType.toLowerCase());
+      ['jpg', 'jpeg', 'png', 'gif', 'image'].contains(fileType.toLowerCase());
 }

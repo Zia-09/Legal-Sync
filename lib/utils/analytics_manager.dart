@@ -51,7 +51,7 @@ class AnalyticsManager {
 
       AppLogger.debug('Event logged: $eventName', tag: 'Analytics');
 
-      // TODO: Send to Firebase Analytics or backend
+      // Future: Send to Firebase Analytics or backend
       // FirebaseAnalytics.instance.logEvent(
       //   name: eventName,
       //   parameters: parameters,
@@ -126,7 +126,7 @@ class AnalyticsManager {
         tag: 'Analytics',
       );
 
-      // TODO: Send queued events to backend
+      // Future: Send queued events to backend
       // await analyticsService.sendEvents(_eventQueue);
 
       _eventQueue.clear();
@@ -208,7 +208,7 @@ class CrashReporter {
         stackTrace: stackTrace,
       );
 
-      // TODO: Integrate with Firebase Crashlytics or similar
+      // Future: Integrate with Firebase Crashlytics or similar
       // await FirebaseCrashlytics.instance.recordError(
       //   error,
       //   stackTrace,

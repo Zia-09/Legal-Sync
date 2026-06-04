@@ -27,7 +27,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _currentIndex = 0;
   final TextEditingController _searchCtrl = TextEditingController();
-  Map<String, dynamic>? _activeFilters;
   late AnimationController _pageController;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
@@ -102,12 +101,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       MaterialPageRoute(builder: (_) => const SearchFilterScreen()),
     );
     if (result != null) {
-      setState(() => _activeFilters = result);
+      ref.read(activeFiltersProvider.notifier).state = result;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final activeFilters = ref.watch(activeFiltersProvider);
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
@@ -200,14 +201,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                                       context,
                                                       error,
                                                       stackTrace,
-                                                    ) => Image.asset(
-                                                      'images/profile.jpg',
-                                                      fit: BoxFit.cover,
+                                                    ) => const Icon(
+                                                      Icons.person,
+                                                      size: 24,
+                                                      color: Colors.grey,
                                                     ),
                                               )
-                                            : Image.asset(
-                                                'images/profile.jpg',
-                                                fit: BoxFit.cover,
+                                            : const Icon(
+                                                Icons.person,
+                                                size: 24,
+                                                color: Colors.grey,
                                               ),
                                       ),
                                     ),
@@ -353,25 +356,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                     width: 48,
                                     height: 48,
                                     decoration: BoxDecoration(
-                                      color: _activeFilters != null
+                                      color: activeFilters != null
                                           ? const Color(0xFFFF6B00)
                                           : Theme.of(context).cardColor,
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
-                                        color: _activeFilters != null
+                                        color: activeFilters != null
                                             ? const Color(0xFFFF6B00)
                                             : Theme.of(context).dividerColor,
                                       ),
                                     ),
                                     child: Icon(
                                       Icons.tune,
-                                      color: _activeFilters != null
+                                      color: activeFilters != null
                                           ? Colors.white
                                           : Theme.of(context).iconTheme.color,
                                       size: 20,
                                     ),
                                   ),
-                                  if (_activeFilters != null)
+                                  if (activeFilters != null)
                                     Positioned(
                                       top: 6,
                                       right: 6,
@@ -392,7 +395,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       ),
 
                       // Active filter chips
-                      if (_activeFilters != null) ...[
+                      if (activeFilters != null) ...[
                         const SizedBox(height: 10),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -414,7 +417,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               const Spacer(),
                               GestureDetector(
                                 onTap: () =>
-                                    setState(() => _activeFilters = null),
+                                    ref
+                                            .read(
+                                              activeFiltersProvider.notifier,
+                                            )
+                                            .state =
+                                        null,
                                 child: const Text(
                                   'Clear',
                                   style: TextStyle(

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/model/lawyer_Model.dart';
 import 'package:legal_sync/model/review_Model.dart';
@@ -43,6 +43,8 @@ class _LeaveReviewScreenState extends ConsumerState<LeaveReviewScreen> {
         reviewId: '', // Service will handle ID if using createOrUpdate
         lawyerId: widget.lawyer.lawyerId,
         clientId: client.clientId,
+        clientName: client.name,
+        clientImageUrl: client.profileImageUrl,
         rating: _rating,
         comment: _commentController.text.trim(),
         createdAt: DateTime.now(),
@@ -114,8 +116,10 @@ class _LeaveReviewScreenState extends ConsumerState<LeaveReviewScreen> {
                       widget.lawyer.profileImage != null &&
                           widget.lawyer.profileImage!.isNotEmpty
                       ? NetworkImage(widget.lawyer.profileImage!)
-                            as ImageProvider
-                      : const AssetImage('images/profile.jpg'),
+                      : null,
+                  child: (widget.lawyer.profileImage == null || widget.lawyer.profileImage!.isEmpty)
+                      ? const Icon(Icons.person, size: 30, color: Colors.grey)
+                      : null,
                 ),
                 const SizedBox(width: 16),
                 Expanded(

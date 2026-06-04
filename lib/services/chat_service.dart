@@ -5,12 +5,12 @@ import '../services/notification_services.dart';
 class ChatService {
   ChatService({
     FirebaseFirestore? firestore,
-    NotificationService? notificationService,
+    FirestoreNotificationService? notificationService,
   }) : _db = firestore ?? FirebaseFirestore.instance,
-       _notificationService = notificationService ?? NotificationService();
+       _notificationService = notificationService ?? FirestoreNotificationService();
 
   final FirebaseFirestore _db;
-  final NotificationService _notificationService;
+  final FirestoreNotificationService _notificationService;
 
   static const String _collection = 'chats';
 

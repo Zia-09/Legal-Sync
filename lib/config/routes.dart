@@ -11,6 +11,9 @@ import 'package:legal_sync/screens/lawyer%20panel/lawyer_registration_screen.dar
 import 'package:legal_sync/screens/lawyer%20panel/lawyer_forgot_password_screen.dart';
 import 'package:legal_sync/screens/lawyer%20panel/lawyer_dashboard_screen.dart';
 import 'package:legal_sync/screens/lawyer%20panel/lawyer_verification_pending_screen.dart';
+import 'package:legal_sync/screens/lawyer%20panel/lawyer_cases_screen.dart';
+import 'package:legal_sync/screens/lawyer%20panel/lawyer_notifications_screen.dart';
+import 'package:legal_sync/screens/lawyer%20panel/all_consultation_request_screen.dart';
 import 'package:legal_sync/screens/admin/admin_dashboard_screen.dart';
 import 'package:legal_sync/utils/animations.dart';
 
@@ -37,6 +40,11 @@ class RouteNames {
   static const String lawyerVerificationPending =
       '/lawyer/verification-pending';
   static const String adminDashboard = '/admin/dashboard';
+
+  // Lawyer Specific Sub-pages
+  static const String lawyerCases = '/lawyer/cases';
+  static const String lawyerNotifications = '/lawyer/notifications';
+  static const String consultationRequests = '/lawyer/consultation-requests';
 }
 
 /// 🔹 Route generator for named routes
@@ -87,6 +95,15 @@ class AppRouter {
 
       case RouteNames.adminDashboard:
         return _buildRoute(const AdminDashboardScreen(), settings);
+
+      case RouteNames.lawyerCases:
+        return _buildRoute(const LawyerCasesScreen(), settings);
+
+      case RouteNames.lawyerNotifications:
+        return _buildRoute(const LawyerNotificationsScreen(), settings);
+
+      case RouteNames.consultationRequests:
+        return _buildRoute(const AllConsultationRequestScreen(), settings);
 
       // Default - Onboarding
       default:

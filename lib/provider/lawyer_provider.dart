@@ -217,10 +217,13 @@ final lawyerSearchQueryProvider = StateProvider<String>((ref) => '');
 
 final selectedCategoryProvider = StateProvider<String?>((ref) => null);
 
+final activeFiltersProvider = StateProvider<Map<String, dynamic>?>((ref) => null);
+
 final filteredLawyersProvider = StreamProvider<List<LawyerModel>>((ref) {
   final allLawyersAsync = ref.watch(allLawyersProvider);
   final searchQuery = ref.watch(lawyerSearchQueryProvider).toLowerCase();
   final selectedCategory = ref.watch(selectedCategoryProvider);
+  final activeFilters = ref.watch(activeFiltersProvider);
 
   return allLawyersAsync.when(
     data: (lawyers) {
@@ -243,6 +246,42 @@ final filteredLawyersProvider = StreamProvider<List<LawyerModel>>((ref) {
             selectedCategory.toLowerCase().trim(),
           ),
         );
+      }
+
+      // Filter by advanced filters
+      if (activeFilters != null) {
+        // Specialties
+        final specialties = activeFilters['specialties'] as List<String>? ?? [];
+        if (specialties.isNotEmpty) {
+          filtered = filtered.where((l) => specialties.any((s) => l.specialization.toLowerCase().contains(s.toLowerCase())));
+        }
+
+        // Location
+        final location = activeFilters['location'] as String?;
+        if (location != null && location.trim().isNotEmpty) {
+          filtered = filtered.where((l) => l.location?.toLowerCase().contains(location.toLowerCase().trim()) ?? false);
+        }
+
+        // Fee Range
+        final feeMin = activeFilters['feeMin'] as int?;
+        final feeMax = activeFilters['feeMax'] as int?;
+        if (feeMin != null && feeMax != null) {
+          filtered = filtered.where((l) => l.consultationFee >= feeMin && l.consultationFee <= feeMax);
+        }
+
+        // Min Rating
+        final minRatingStr = activeFilters['minRating'] as String?;
+        if (minRatingStr != null && minRatingStr.isNotEmpty) {
+          final minRating = double.tryParse(minRatingStr.replaceAll('+', '')) ?? 0.0;
+          filtered = filtered.where((l) => l.rating >= minRating);
+        }
+
+        // Available Today / Accepting Clients
+        final availableToday = activeFilters['availableToday'] as bool? ?? false;
+        final acceptingClients = activeFilters['acceptingClients'] as bool? ?? false;
+        if (availableToday || acceptingClients) {
+          filtered = filtered.where((l) => l.status.toLowerCase() == 'active');
+        }
       }
 
       // Sort by Rating and Reviews (Premium feel)

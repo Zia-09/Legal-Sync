@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:legal_sync/model/appoinment_model.dart';
 import 'package:legal_sync/model/client_Model.dart';
 import 'package:legal_sync/services/appoinment_services.dart';
@@ -38,44 +37,43 @@ final streamApprovedConsultationsProvider =
           );
     });
 
-/// ✅ NEW: Get clients with accepted consultations for lawyer (Future-based for efficiency)
-final clientsWithAcceptedConsultationsProvider =
-    FutureProvider.family<List<ClientModel>, String>((ref, lawyerId) async {
-      final clientService = ref.read(clientServiceProvider);
+/// ✅ NEW: Get clients with consultations for lawyer (Reactive Stream)
+final clientsWithConsultationsProvider =
+    StreamProvider.family<List<ClientModel>, String>((ref, lawyerId) {
+      final clientService = ref.watch(clientServiceProvider);
+      final appointmentService = ref.watch(appointmentServiceProvider);
 
-      // Get all approved consultations for this lawyer from Firestore
-      final appointmentQuery = FirebaseFirestore.instance
-          .collection('appointments')
-          .where('lawyerId', isEqualTo: lawyerId)
-          .where('status', isEqualTo: 'approved')
-          .get();
+      return appointmentService.streamAppointmentsByLawyer(lawyerId).asyncMap((
+        consultations,
+      ) async {
+        if (consultations.isEmpty) return [];
 
-      final snapshot = await appointmentQuery;
-      final consultations = snapshot.docs
-          .map((doc) => AppointmentModel.fromJson(doc.data()))
-          .toList();
+        // Include pending, approved, and completed consultations
+        final relevantConsultations =
+            consultations.where((apt) {
+              return ['pending', 'approved', 'completed'].contains(apt.status);
+            }).toList();
 
-      if (consultations.isEmpty) {
-        return [];
-      }
+        if (relevantConsultations.isEmpty) return [];
 
-      // Get unique client IDs
-      final uniqueClientIds = consultations
-          .map((apt) => apt.clientId)
-          .toSet()
-          .toList();
+        // Get unique client IDs
+        final uniqueClientIds =
+            relevantConsultations.map((apt) => apt.clientId).toSet().toList();
 
-      final clients = <ClientModel>[];
-
-      for (final clientId in uniqueClientIds) {
-        final client = await clientService.getClientById(clientId);
-        if (client != null) {
-          clients.add(client);
+        final clients = <ClientModel>[];
+        for (final clientId in uniqueClientIds) {
+          final client = await clientService.getClientById(clientId);
+          if (client != null) {
+            clients.add(client);
+          }
         }
-      }
-
-      return clients;
+        return clients;
+      });
     });
+
+// Keep the old name as an alias if needed, or update consumers.
+// Let's update consumers for clarity.
+
 
 final appointmentStateProvider =
     StateNotifierProvider<AppointmentNotifier, AsyncValue<void>>((ref) {

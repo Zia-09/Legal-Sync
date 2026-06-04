@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'firebase_options.dart';import 'provider/theme_provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'firebase_options.dart';
+import 'provider/theme_provider.dart';
 import 'config/routes.dart';
 import 'config/app_config.dart';
 import 'utils/error_handler.dart';
@@ -10,9 +13,17 @@ import 'utils/cache_manager.dart';
 import 'utils/security_manager.dart';
 import 'utils/analytics_manager.dart';
 import 'screens/splash_screen.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'services/notification_service.dart';
+import 'widgets/notification_listener_wrapper.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Load environment variables
+  await dotenv.load(fileName: ".env");
 
   // Initialize utilities
   await CacheManager.initialize();
@@ -21,7 +32,20 @@ void main() async {
   // Initialize Firebase
   try {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    
+    // Register background message handler
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    
     AppLogger.info('Firebase initialized successfully', tag: 'Startup');
+    // Initialize Notification Service (FCM + Local Notifications)
+    await NotificationService.initialize();
+
+    // Re-register token whenever user logs in, remove on logout
+    FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user != null) {
+        NotificationService.registerForCurrentUser();
+      }
+    });
   } catch (e) {
     AppLogger.error('Failed to initialize Firebase', tag: 'Startup', error: e);
   }
@@ -91,15 +115,18 @@ class MyApp extends ConsumerWidget {
     // Silently fall back to light until the provider resolves
     final themeMode = themeModeAsync.whenData((v) => v).value ?? ThemeMode.light;
 
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'LegalSync',
-      themeMode: themeMode,
-      theme: _buildThemeData(Brightness.light),
-      darkTheme: _buildThemeData(Brightness.dark),
-      home: const SplashScreen(),
-      onGenerateRoute: AppRouter.generateRoute,
-      onUnknownRoute: AppRouter.onUnknownRoute,
+    return RealtimeNotificationListener(
+      child: MaterialApp(
+        navigatorKey: navigatorKey,
+        debugShowCheckedModeBanner: false,
+        title: 'LegalSync',
+        themeMode: themeMode,
+        theme: _buildThemeData(Brightness.light),
+        darkTheme: _buildThemeData(Brightness.dark),
+        home: const SplashScreen(),
+        onGenerateRoute: AppRouter.generateRoute,
+        onUnknownRoute: AppRouter.onUnknownRoute,
+      ),
     );
   }
 

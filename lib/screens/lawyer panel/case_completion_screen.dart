@@ -82,6 +82,36 @@ class _CaseCompletionScreenState extends ConsumerState<CaseCompletionScreen> {
 
     setState(() => _isLoading = true);
 
+    // Show loading dialog BEFORE generating PDF — prevents freeze appearance
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const AlertDialog(
+          backgroundColor: Color(0xFF1A1A1A),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B00)),
+              ),
+              SizedBox(height: 16),
+              Text(
+                'Generating invoice PDF...',
+                style: TextStyle(fontSize: 14, color: Colors.white),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Please wait, this may take a few seconds.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     try {
       final caseService = CaseService();
       await caseService.markCaseWithOutcome(
@@ -91,6 +121,8 @@ class _CaseCompletionScreenState extends ConsumerState<CaseCompletionScreen> {
       );
 
       if (!mounted) return;
+      // Close the loading dialog
+      Navigator.of(context).pop();
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -104,6 +136,8 @@ class _CaseCompletionScreenState extends ConsumerState<CaseCompletionScreen> {
       });
     } catch (e) {
       if (!mounted) return;
+      // Close the loading dialog on error too
+      Navigator.of(context).pop();
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

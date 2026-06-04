@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:legal_sync/model/chat_thread_model.dart';
@@ -8,7 +8,7 @@ import 'package:legal_sync/provider/lawyer_provider.dart';
 import 'package:legal_sync/provider/case_provider.dart';
 import 'package:legal_sync/screens/client panel/chat_detail_screen.dart';
 
-// ─── Chat List Widget ─────────────────────────────────────────────────────────
+// --- Chat List Widget ---------------------------------------------------------
 
 class ChatList extends ConsumerWidget {
   final List<ChatThreadModel> threads;
@@ -75,7 +75,7 @@ class ChatList extends ConsumerWidget {
   }
 }
 
-// ─── Chat Tile Widget ─────────────────────────────────────────────────────────
+// --- Chat Tile Widget ---------------------------------------------------------
 
 class ChatTile extends ConsumerWidget {
   final LawyerModel lawyer;

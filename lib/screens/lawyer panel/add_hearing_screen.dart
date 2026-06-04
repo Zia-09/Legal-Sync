@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:legal_sync/model/hearing_Model.dart';
@@ -6,6 +6,7 @@ import 'package:legal_sync/model/case_Model.dart';
 import 'package:legal_sync/provider/auth_provider.dart';
 import 'package:legal_sync/provider/case_provider.dart';
 import 'package:legal_sync/provider/hearing_provider.dart';
+import 'package:legal_sync/provider/appointment_provider.dart';
 import 'package:legal_sync/services/email_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -110,6 +111,7 @@ class _AddHearingScreenState extends ConsumerState<AddHearingScreen> {
     final inputHintColor = isDark ? Colors.grey.shade500 : Colors.grey.shade400;
 
     final casesAsync = ref.watch(casesByLawyerProvider(user.uid));
+    final acceptedClientsAsync = ref.watch(clientsWithConsultationsProvider(user.uid));
 
     return Scaffold(
       backgroundColor: scaffoldBg,
@@ -151,16 +153,37 @@ class _AddHearingScreenState extends ConsumerState<AddHearingScreen> {
                     _buildSectionHeader('Case Information'),
                     casesAsync.when(
                       data: (cases) {
-                        if (cases.isEmpty) {
-                          return _buildEmptyCaseInfo();
-                        }
-                        return _buildCaseDropdown(
-                          cases,
-                          isDark,
-                          inputBgColor,
-                          inputBorderColor,
-                          inputTextColor,
-                          inputHintColor,
+                        return acceptedClientsAsync.when(
+                          data: (acceptedClients) {
+                            final acceptedClientIds = acceptedClients.map((c) => c.clientId).toSet();
+                            
+                            final activeCases = cases.where((c) {
+                              final lowerStatus = c.status.toLowerCase();
+                              final isCaseActive = lowerStatus != 'closed' && 
+                                                 lowerStatus != 'resolved' && 
+                                                 lowerStatus != 'verdict';
+                              final isClientAccepted = acceptedClientIds.contains(c.clientId);
+                              
+                              return isCaseActive && isClientAccepted;
+                            }).toList();
+
+                            if (activeCases.isEmpty) {
+                              return _buildEmptyCaseInfo();
+                            }
+                            return _buildCaseDropdown(
+                              activeCases,
+                              isDark,
+                              inputBgColor,
+                              inputBorderColor,
+                              inputTextColor,
+                              inputHintColor,
+                            );
+                          },
+                          loading: () => const LinearProgressIndicator(),
+                          error: (e, _) => Text(
+                            'Error loading clients',
+                            style: TextStyle(color: Colors.red.shade700),
+                          ),
                         );
                       },
                       loading: () => const LinearProgressIndicator(),
@@ -305,6 +328,20 @@ class _AddHearingScreenState extends ConsumerState<AddHearingScreen> {
         await ref
             .read(hearingStateNotifierProvider.notifier)
             .addHearing(hearing);
+      }
+
+      // ✅ Update case status to in_progress if it was pending
+      try {
+        final caseDoc = await FirebaseFirestore.instance
+            .collection('cases')
+            .doc(_selectedCaseId)
+            .get();
+        final currentStatus = caseDoc.data()?['status']?.toString().toLowerCase() ?? 'pending';
+        if (currentStatus == 'pending') {
+          await ref.read(caseServiceProvider).updateCaseStatus(_selectedCaseId!, 'in_progress');
+        }
+      } catch (e) {
+        print('Error updating case status: $e');
       }
 
       // ✅ Send hearing notification emails

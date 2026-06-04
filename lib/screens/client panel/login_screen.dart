@@ -80,7 +80,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
       if (!mounted) return;
 
-      // ─── Role Validation: Client Portal Only ────────────────────────────────
+      // ─── Role Validation: Client & Admin routing ────────────────────────────────
+      if (role == 'admin') {
+        context.navigateAndClearStack(RouteNames.adminDashboard);
+        return;
+      }
+
       if (role != 'client') {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -194,7 +199,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       height: 300,
                       width: double.infinity,
                       child: Image.asset(
-                        'images/login-screen.png',
+                        'images/login_image.jpg',
                         fit: BoxFit.cover,
                       ),
                     ),

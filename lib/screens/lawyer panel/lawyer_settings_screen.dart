@@ -7,6 +7,11 @@ import 'package:legal_sync/provider/theme_provider.dart';
 import 'package:legal_sync/screens/lawyer%20panel/all_client_screen.dart';
 import 'package:legal_sync/screens/lawyer%20panel/lawyer_edit_profile_screen.dart';
 import 'package:legal_sync/screens/lawyer%20panel/lawyer_login_screen.dart';
+import 'package:legal_sync/screens/lawyer%20panel/lawyer_login_security_screen.dart';
+import 'package:legal_sync/screens/lawyer%20panel/lawyer_billing_screen.dart';
+import 'package:legal_sync/screens/lawyer%20panel/lawyer_credentials_screen.dart';
+import 'package:legal_sync/screens/lawyer%20panel/lawyer_help_center_screen.dart';
+import 'package:legal_sync/screens/lawyer%20panel/lawyer_contact_support_screen.dart';
 
 class LawyerSettingsScreen extends ConsumerStatefulWidget {
   const LawyerSettingsScreen({super.key});
@@ -33,6 +38,9 @@ class _LawyerSettingsScreenState extends ConsumerState<LawyerSettingsScreen> {
 
     final lawyerAsync = ref.watch(currentLawyerProvider);
     final lawyer = lawyerAsync.valueOrNull;
+
+    final userAsync = ref.watch(authStateProvider);
+    final user = userAsync.valueOrNull;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -67,33 +75,44 @@ class _LawyerSettingsScreenState extends ConsumerState<LawyerSettingsScreen> {
               iconBg: Colors.orange.shade50,
               iconColor: Colors.orange.shade700,
               title: 'Login & Security',
-              subtitle: 'Manage password and 2FA settings',
+              subtitle: user?.email ?? 'Manage password and 2FA settings',
               cardColor: cardColor,
               textColor: textColor,
               subtitleColor: subtitleColor,
-              onTap: () {},
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const LawyerLoginSecurityScreen()),
+              ),
             ),
             _buildSettingItem(
               icon: Icons.credit_card_outlined,
               iconBg: Colors.blue.shade50,
               iconColor: Colors.blue.shade700,
               title: 'Billing & Subscriptions',
-              subtitle: 'Manage payment methods and invoices',
+              subtitle: 'Active • Premium Professional',
               cardColor: cardColor,
               textColor: textColor,
               subtitleColor: subtitleColor,
-              onTap: () {},
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const LawyerBillingScreen()),
+              ),
             ),
             _buildSettingItem(
               icon: Icons.verified_user_outlined,
               iconBg: Colors.green.shade50,
               iconColor: Colors.green.shade700,
               title: 'Credentials & Bar ID',
-              subtitle: 'Verified status and license info',
+              subtitle: lawyer != null 
+                  ? (lawyer.isVerified ? 'Verified Attorney' : 'Verification Pending')
+                  : 'Verified status and license info',
               cardColor: cardColor,
               textColor: textColor,
               subtitleColor: subtitleColor,
-              onTap: () {},
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const LawyerCredentialsScreen()),
+              ),
             ),
             _buildSectionHeader('PREFERENCES', subtitleColor),
             _buildToggleItem(
@@ -127,7 +146,10 @@ class _LawyerSettingsScreenState extends ConsumerState<LawyerSettingsScreen> {
               cardColor: cardColor,
               textColor: textColor,
               subtitleColor: subtitleColor,
-              onTap: () {},
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const LawyerHelpCenterScreen()),
+              ),
             ),
             _buildSettingItem(
               icon: Icons.headset_mic_outlined,
@@ -137,7 +159,10 @@ class _LawyerSettingsScreenState extends ConsumerState<LawyerSettingsScreen> {
               cardColor: cardColor,
               textColor: textColor,
               subtitleColor: subtitleColor,
-              onTap: () {},
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const LawyerContactSupportScreen()),
+              ),
             ),
             const SizedBox(height: 30),
             _buildLogoutButton(context),

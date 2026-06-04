@@ -99,7 +99,7 @@ class _LegalCategoriesScreenState extends ConsumerState<LegalCategoriesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F0F),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -115,20 +115,21 @@ class _LegalCategoriesScreenState extends ConsumerState<LegalCategoriesScreen> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E1E1E),
+                        color: Theme.of(context).cardColor,
                         borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Theme.of(context).dividerColor),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.arrow_back_ios_new,
-                        color: Colors.white,
+                        color: Theme.of(context).iconTheme.color,
                         size: 16,
                       ),
                     ),
                   ),
-                  const Text(
+                  Text(
                     'Legal Categories',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: Theme.of(context).textTheme.titleLarge?.color,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
@@ -146,15 +147,16 @@ class _LegalCategoriesScreenState extends ConsumerState<LegalCategoriesScreen> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E1E1E),
+                        color: Theme.of(context).cardColor,
                         borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Theme.of(context).dividerColor),
                       ),
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.notifications_outlined,
-                            color: Colors.white,
+                            color: Theme.of(context).iconTheme.color,
                             size: 20,
                           ),
                           Positioned(
@@ -184,16 +186,16 @@ class _LegalCategoriesScreenState extends ConsumerState<LegalCategoriesScreen> {
               child: Container(
                 height: 48,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E1E1E),
+                  color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF2A2A2A)),
+                  border: Border.all(color: Theme.of(context).dividerColor),
                 ),
                 child: Row(
                   children: [
                     const SizedBox(width: 14),
-                    const Icon(
+                    Icon(
                       Icons.search,
-                      color: Color(0xFF6B6B6B),
+                      color: Theme.of(context).iconTheme.color?.withValues(alpha: 0.6),
                       size: 20,
                     ),
                     const SizedBox(width: 10),
@@ -203,8 +205,8 @@ class _LegalCategoriesScreenState extends ConsumerState<LegalCategoriesScreen> {
                         onChanged: (val) {
                           setState(() => _searchQuery = val);
                         },
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
                           fontSize: 14,
                         ),
                         decoration: const InputDecoration(
@@ -258,20 +260,20 @@ class _LegalCategoriesScreenState extends ConsumerState<LegalCategoriesScreen> {
             // Grid
             Expanded(
               child: _filteredCategories.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
                             Icons.search_off,
-                            color: Color(0xFF3A3A3A),
+                            color: Theme.of(context).iconTheme.color?.withValues(alpha: 0.3),
                             size: 48,
                           ),
-                          SizedBox(height: 12),
+                          const SizedBox(height: 12),
                           Text(
                             'No categories found',
                             style: TextStyle(
-                              color: Color(0xFF6B6B6B),
+                              color: Theme.of(context).textTheme.bodyMedium?.color,
                               fontSize: 15,
                             ),
                           ),
@@ -454,9 +456,9 @@ class _CategoryCard extends ConsumerWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF252525)),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         child: Stack(
           children: [
@@ -477,13 +479,12 @@ class _CategoryCard extends ConsumerWidget {
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: category['bgColor'] as Color,
+                      color: (category['color'] as Color).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: (category['color'] as Color).withValues(
@@ -497,13 +498,17 @@ class _CategoryCard extends ConsumerWidget {
                       size: 24,
                     ),
                   ),
+                  const Spacer(),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         category['label'] as String,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
@@ -511,6 +516,8 @@ class _CategoryCard extends ConsumerWidget {
                       const SizedBox(height: 2),
                       Text(
                         '$dynamicCount Lawyers',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: category['color'] as Color,
                           fontSize: 11,

@@ -4,6 +4,7 @@ import 'package:legal_sync/provider/auth_provider.dart';
 import 'package:legal_sync/provider/notification_provider.dart';
 import 'package:legal_sync/model/notification_model.dart';
 import 'package:intl/intl.dart';
+import 'package:legal_sync/presentation/common_widgets/empty_state_widget.dart';
 
 class LawyerNotificationsScreen extends ConsumerStatefulWidget {
   const LawyerNotificationsScreen({super.key});
@@ -62,22 +63,10 @@ class _LawyerNotificationsScreenState
       body: notificationsAsync.when(
         data: (notifications) {
           if (notifications.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.notifications_none,
-                    color: Colors.grey.shade400,
-                    size: 64,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No notifications yet',
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
-                  ),
-                ],
-              ),
+            return const EmptyStateWidget(
+              icon: Icons.notifications_outlined,
+              title: 'No notifications yet',
+              subtitle: 'Case updates, hearing reminders,\nand client messages will appear here.',
             );
           }
 

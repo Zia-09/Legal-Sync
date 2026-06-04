@@ -7,6 +7,7 @@ import 'package:legal_sync/services/appoinment_services.dart';
 import 'package:legal_sync/services/notification_services.dart';
 import 'package:legal_sync/services/review_service.dart';
 import 'package:legal_sync/services/lawyer_services.dart';
+import 'package:legal_sync/provider/review_provider.dart';
 import 'chat_detail_screen.dart';
 import 'messages_screen.dart';
 import 'leave_review_screen.dart';
@@ -102,14 +103,14 @@ class LawyerProfileScreen extends ConsumerWidget {
                             ? Image.network(
                                 _profileImageUrl!,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => Image.asset(
-                                  'images/profile.jpg',
-                                  fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => Container(
+                                  color: const Color(0xFF1A1A1A),
+                                  child: const Icon(Icons.person, size: 100, color: Colors.grey),
                                 ),
                               )
-                            : Image.asset(
-                                'images/profile.jpg',
-                                fit: BoxFit.cover,
+                            : Container(
+                                color: const Color(0xFF1A1A1A),
+                                child: const Icon(Icons.person, size: 100, color: Colors.grey),
                               ))
                       : Container(
                           decoration: const BoxDecoration(
@@ -639,7 +640,7 @@ class LawyerProfileScreen extends ConsumerWidget {
                               );
 
                               // Send in-app notification to lawyer
-                              final notifSvc = NotificationService();
+                              final notifSvc = FirestoreNotificationService();
                               await notifSvc.createNotification(
                                 userId: lawyer!.lawyerId,
                                 title: '📅 New Consultation Request',
@@ -1142,11 +1143,17 @@ class _ReviewCard extends StatelessWidget {
   final String reviewer;
   final String review;
   final int rating;
+  final String? clientImageUrl;
+  final bool isOwnReview;
+  final VoidCallback? onDelete;
 
   const _ReviewCard({
     required this.reviewer,
     required this.review,
     required this.rating,
+    this.clientImageUrl,
+    this.isOwnReview = false,
+    this.onDelete,
   });
 
   @override
@@ -1163,24 +1170,29 @@ class _ReviewCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2A2A2A),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Center(
-                  child: Text(
-                    reviewer[0],
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+              clientImageUrl != null && clientImageUrl!.isNotEmpty
+                  ? CircleAvatar(
+                      radius: 20,
+                      backgroundImage: NetworkImage(clientImageUrl!),
+                    )
+                  : Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2A2A2A),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Center(
+                        child: Text(
+                          reviewer.isNotEmpty ? reviewer[0].toUpperCase() : '?',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -1207,18 +1219,25 @@ class _ReviewCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (isOwnReview)
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                  onPressed: onDelete,
+                ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            review,
-            style: const TextStyle(
-              color: Color(0xFF9E9E9E),
-              fontSize: 13,
-              height: 1.5,
-              fontStyle: FontStyle.italic,
+          if (review.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              review,
+              style: const TextStyle(
+                color: Color(0xFF9E9E9E),
+                fontSize: 13,
+                height: 1.5,
+                fontStyle: FontStyle.italic,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -1231,6 +1250,8 @@ class _RealReviewsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final currentClient = ref.watch(currentClientProvider).valueOrNull;
+
     return StreamBuilder<List<ReviewModel>>(
       stream: ReviewService().getVisibleApprovedReviews(lawyerId),
       builder: (context, snapshot) {
@@ -1255,12 +1276,41 @@ class _RealReviewsSection extends ConsumerWidget {
 
         return Column(
           children: reviews.map((r) {
+            final isOwnReview = currentClient != null && currentClient.clientId == r.clientId;
+
             return Padding(
               padding: const EdgeInsets.only(bottom: 12.0),
               child: _ReviewCard(
-                reviewer: 'Verified Client', // Default for now
+                reviewer: r.clientName?.isNotEmpty == true ? r.clientName! : 'Verified Client',
                 review: r.comment ?? '',
                 rating: r.rating.toInt(),
+                clientImageUrl: r.clientImageUrl,
+                isOwnReview: isOwnReview,
+                onDelete: isOwnReview
+                    ? () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            backgroundColor: const Color(0xFF1A1A1A),
+                            title: const Text('Delete Review', style: TextStyle(color: Colors.white)),
+                            content: const Text('Are you sure you want to delete this review?', style: TextStyle(color: Colors.white70)),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm == true) {
+                          ref.read(reviewControllerProvider.notifier).deleteReview(r.reviewId);
+                        }
+                      }
+                    : null,
               ),
             );
           }).toList(),

@@ -5,8 +5,8 @@ import 'package:legal_sync/provider/case_provider.dart';
 import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/provider/lawyer_provider.dart';
 import 'package:legal_sync/provider/notification_provider.dart';
+import 'package:legal_sync/config/admin_theme.dart';
 import 'package:intl/intl.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 import 'admin_analytics_screen.dart';
 import 'admin_cases_screen.dart';
@@ -41,44 +41,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Future<void> _ensureAdminAuth() async {
-    // Satisfy Firebase Firestore security rules that require request.auth != null
-    if (FirebaseAuth.instance.currentUser == null) {
-      try {
-        await FirebaseAuth.instance.signInAnonymously();
-      } catch (_) {
-        try {
-          await FirebaseAuth.instance.signInWithEmailAndPassword(
-            email: 'admin@legalsync.com',
-            password: 'Admin@1234',
-          );
-        } catch (_) {
-          try {
-            await FirebaseAuth.instance.createUserWithEmailAndPassword(
-              email: 'admin@legalsync.com',
-              password: 'Admin@1234',
-            );
-          } catch (_) {}
-        }
-      }
-    }
+    // Admin must be authenticated via the login screen (role == 'admin' in Firestore).
+    // No hardcoded credentials here.
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: IndexedStack(index: _currentIndex, children: _screens),
-      bottomNavigationBar: _buildBottomNav(context),
+    return Theme(
+      data: AdminTheme.buildAdminTheme(),
+      child: Scaffold(
+        backgroundColor: AdminTheme.primaryDark,
+        body: IndexedStack(index: _currentIndex, children: _screens),
+        bottomNavigationBar: _buildBottomNav(context),
+      ),
     );
   }
 
   Widget _buildBottomNav(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: AdminTheme.cardDark,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withValues(alpha: 0.3),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
@@ -87,12 +72,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       child: BottomNavigationBar(
         currentIndex: _currentIndex,
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: Theme.of(context).primaryColor,
-        unselectedItemColor: const Color(0xFF9CA3AF),
+        selectedItemColor: AdminTheme.primary,
+        unselectedItemColor: AdminTheme.textTertiary,
         showUnselectedLabels: true,
         selectedFontSize: 10,
         unselectedFontSize: 10,
-        backgroundColor: Theme.of(context).cardColor,
+        backgroundColor: AdminTheme.cardDark,
         elevation: 0,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Home'),
@@ -176,19 +161,23 @@ class _AdminHomeTabState extends ConsumerState<_AdminHomeTab>
                     const SizedBox(height: 24),
 
                     // Stats grid
-                    GridView.count(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      childAspectRatio: 1.05,
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final cardW = (constraints.maxWidth - 16) / 2;
+                        final aspect = (cardW / 150).clamp(0.7, 1.1);
+                        return GridView.count(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          childAspectRatio: aspect,
                       children: [
                         _StatCard(
                           title: 'Total Lawyers',
                           value: allLawyers.value?.length ?? 0,
                           icon: Icons.business_center,
-                          color: const Color(0xFF1E3A8A),
+                          color: AdminTheme.statBlue,
                           isLoading: allLawyers.isLoading,
                           onTap: () => Navigator.push(
                             context,
@@ -204,21 +193,33 @@ class _AdminHomeTabState extends ConsumerState<_AdminHomeTab>
                               allCases.value
                                   ?.where(
                                     (c) =>
-                                        c.status.toLowerCase() == 'active' ||
-                                        c.status.toLowerCase() == 'in_progress',
+                                        c.status.toLowerCase().contains(
+                                              'active',
+                                            ) ||
+                                        c.status.toLowerCase().contains(
+                                              'ongoing',
+                                            ) ||
+                                        c.status.toLowerCase().contains(
+                                              'in_progress',
+                                            ),
                                   )
                                   .length ??
                               0,
                           icon: Icons.folder,
-                          color: const Color(0xFF059669),
+                          color: AdminTheme.statGreen,
                           isLoading: allCases.isLoading,
-                          onTap: () {},
+                          onTap: () {
+                            final parent = context
+                                .findAncestorStateOfType<
+                                    _AdminDashboardScreenState>();
+                            parent?.setState(() => parent._currentIndex = 2);
+                          },
                         ),
                         _StatCard(
                           title: 'Pending Verifications',
                           value: pendingVerifications.value?.length ?? 0,
                           icon: Icons.verified_user,
-                          color: const Color(0xFFE67E22),
+                          color: AdminTheme.warning,
                           isLoading: pendingVerifications.isLoading,
                           onTap: () => Navigator.push(
                             context,
@@ -232,11 +233,18 @@ class _AdminHomeTabState extends ConsumerState<_AdminHomeTab>
                           title: 'Total Clients',
                           value: allClients.value?.length ?? 0,
                           icon: Icons.people,
-                          color: const Color(0xFF7C3AED),
+                          color: AdminTheme.statPurple,
                           isLoading: allClients.isLoading,
-                          onTap: () {},
+                          onTap: () {
+                            final parent = context
+                                .findAncestorStateOfType<
+                                    _AdminDashboardScreenState>();
+                            parent?.setState(() => parent._currentIndex = 1);
+                          },
                         ),
                       ],
+                        );
+                      },
                     ),
                     const SizedBox(height: 32),
 
@@ -274,7 +282,7 @@ class _AdminHomeTabState extends ConsumerState<_AdminHomeTab>
 
   AppBar _buildAppBar(BuildContext context) {
     return AppBar(
-      backgroundColor: Theme.of(context).cardColor,
+      backgroundColor: AdminTheme.cardDark,
       elevation: 0,
       automaticallyImplyLeading: false,
       title: Row(
@@ -282,12 +290,12 @@ class _AdminHomeTabState extends ConsumerState<_AdminHomeTab>
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E3A8A).withValues(alpha: 0.1),
+              color: AdminTheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
+            child: const Icon(
               Icons.gavel,
-              color: Theme.of(context).primaryColor,
+              color: AdminTheme.primary,
               size: 20,
             ),
           ),
@@ -297,8 +305,8 @@ class _AdminHomeTabState extends ConsumerState<_AdminHomeTab>
             children: [
               Text(
                 'LegalSync',
-                style: TextStyle(
-                  color: Theme.of(context).primaryColor,
+                style: const TextStyle(
+                  color: AdminTheme.primary,
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                 ),
@@ -306,11 +314,7 @@ class _AdminHomeTabState extends ConsumerState<_AdminHomeTab>
               Text(
                 'ADMIN PORTAL',
                 style: TextStyle(
-                  color:
-                      Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.color?.withValues(alpha: 0.6) ??
-                      const Color(0xFF6B7280),
+                  color: AdminTheme.textTertiary.withValues(alpha: 0.8),
                   fontSize: 10,
                   letterSpacing: 1.2,
                 ),
@@ -330,9 +334,9 @@ class _AdminHomeTabState extends ConsumerState<_AdminHomeTab>
             return IconButton(
               icon: Stack(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.notifications_none,
-                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                    color: AdminTheme.textPrimary,
                   ),
                   if (unreadCount > 0)
                     Positioned(
@@ -342,7 +346,7 @@ class _AdminHomeTabState extends ConsumerState<_AdminHomeTab>
                         width: 14,
                         height: 14,
                         decoration: const BoxDecoration(
-                          color: Color(0xFFE67E22),
+                          color: AdminTheme.warning,
                           shape: BoxShape.circle,
                         ),
                         child: Center(
@@ -377,8 +381,8 @@ class _AdminHomeTabState extends ConsumerState<_AdminHomeTab>
             ),
             child: const CircleAvatar(
               radius: 16,
-              backgroundColor: Color(0xFF1E3A8A),
-              child: Icon(Icons.person, size: 20, color: Colors.white),
+              backgroundColor: AdminTheme.info,
+              child: Icon(Icons.person, size: 20, color: AdminTheme.textPrimary),
             ),
           ),
         ),
@@ -387,57 +391,149 @@ class _AdminHomeTabState extends ConsumerState<_AdminHomeTab>
   }
 
   Widget _buildSearchBar(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: _searchCtrl,
-        onSubmitted: (query) {
-          if (query.trim().isNotEmpty) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    AdminUserManagementScreen(initialSearch: query.trim()),
-              ),
-            );
-          }
-        },
-        decoration: InputDecoration(
-          hintText: 'Search lawyers, cases or clients...',
-          hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
-          prefixIcon: const Icon(
-            Icons.search,
-            color: Color(0xFF9CA3AF),
-            size: 20,
-          ),
-          suffixIcon: _searchCtrl.text.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(
-                    Icons.close,
-                    color: Color(0xFF9CA3AF),
-                    size: 18,
+    final allLawyers = ref.watch(allLawyersProvider);
+    final allCases = ref.watch(allCasesProvider);
+    final allClients = ref.watch(allClientsProvider);
+    final query = _searchCtrl.text.trim().toLowerCase();
+
+    // Live results when query is non-empty
+    final showResults = query.isNotEmpty;
+    final matchedLawyers = showResults && allLawyers.value != null
+        ? allLawyers.value!.where((l) =>
+            l.name.toLowerCase().contains(query) ||
+            l.email.toLowerCase().contains(query)).take(3).toList()
+        : <dynamic>[];
+    final matchedClients = showResults && allClients.value != null
+        ? allClients.value!.where((c) =>
+            c.name.toLowerCase().contains(query) ||
+            c.email.toLowerCase().contains(query)).take(3).toList()
+        : <dynamic>[];
+    final matchedCases = showResults && allCases.value != null
+        ? allCases.value!.where((c) =>
+            c.title.toLowerCase().contains(query)).take(3).toList()
+        : <dynamic>[];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          decoration: AdminTheme.searchBarDecoration(),
+          child: TextField(
+            controller: _searchCtrl,
+            onSubmitted: (q) {
+              if (q.trim().isNotEmpty) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        AdminUserManagementScreen(initialSearch: q.trim()),
                   ),
-                  onPressed: () {
-                    _searchCtrl.clear();
-                    setState(() {});
-                  },
-                )
-              : null,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                );
+              }
+            },
+            decoration: InputDecoration(
+              hintText: 'Search lawyers, cases or clients...',
+              hintStyle: const TextStyle(
+                color: AdminTheme.textTertiary,
+                fontSize: 14,
+              ),
+              prefixIcon: const Icon(
+                Icons.search,
+                color: AdminTheme.textTertiary,
+                size: 20,
+              ),
+              suffixIcon: _searchCtrl.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(
+                        Icons.close,
+                        color: AdminTheme.textTertiary,
+                        size: 18,
+                      ),
+                      onPressed: () {
+                        _searchCtrl.clear();
+                        setState(() {});
+                      },
+                    )
+                  : null,
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+            style: const TextStyle(color: AdminTheme.textPrimary),
+            onChanged: (_) => setState(() {}),
+          ),
         ),
-        onChanged: (_) => setState(() {}),
-      ),
+        // Live results dropdown
+        if (showResults)
+          Container(
+            margin: const EdgeInsets.only(top: 4),
+            decoration: BoxDecoration(
+              color: AdminTheme.cardDark,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AdminTheme.accentDark),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (matchedLawyers.isNotEmpty) ...
+                  matchedLawyers.map((l) => _SearchResultTile(
+                    icon: Icons.gavel,
+                    iconColor: AdminTheme.statBlue,
+                    title: l.name,
+                    subtitle: 'Lawyer • ${l.email}',
+                    onTap: () {
+                      _searchCtrl.clear();
+                      setState(() {});
+                      Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => AdminUserManagementScreen(initialSearch: l.name),
+                      ));
+                    },
+                  )),
+                if (matchedClients.isNotEmpty) ...
+                  matchedClients.map((c) => _SearchResultTile(
+                    icon: Icons.person,
+                    iconColor: AdminTheme.statPurple,
+                    title: c.name,
+                    subtitle: 'Client • ${c.email}',
+                    onTap: () {
+                      _searchCtrl.clear();
+                      setState(() {});
+                      Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => AdminUserManagementScreen(initialSearch: c.name),
+                      ));
+                    },
+                  )),
+                if (matchedCases.isNotEmpty) ...
+                  matchedCases.map((c) => _SearchResultTile(
+                    icon: Icons.folder_open,
+                    iconColor: AdminTheme.warning,
+                    title: c.title,
+                    subtitle: 'Case • ${c.status}',
+                    onTap: () {
+                      _searchCtrl.clear();
+                      setState(() {});
+                      final parent = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+                      parent?.setState(() => parent._currentIndex = 2);
+                    },
+                  )),
+                if (matchedLawyers.isEmpty && matchedClients.isEmpty && matchedCases.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text(
+                      'No results found',
+                      style: TextStyle(color: AdminTheme.textTertiary, fontSize: 13),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 
@@ -447,16 +543,7 @@ class _AdminHomeTabState extends ConsumerState<_AdminHomeTab>
       children: [
         Text(
           title,
-          style: TextStyle(
-            color:
-                Theme.of(
-                  context,
-                ).textTheme.bodySmall?.color?.withValues(alpha: 0.7) ??
-                const Color(0xFF4B5563),
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
-          ),
+          style: AdminTheme.sectionHeaderStyle(),
         ),
         if (onViewAll != null)
           TextButton(
@@ -464,7 +551,7 @@ class _AdminHomeTabState extends ConsumerState<_AdminHomeTab>
             child: const Text(
               'View All',
               style: TextStyle(
-                color: Color(0xFF1E3A8A),
+                color: AdminTheme.primary,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -479,7 +566,7 @@ class _AdminHomeTabState extends ConsumerState<_AdminHomeTab>
       (
         'Reports',
         Icons.insert_chart,
-        const Color(0xFFE67E22),
+        AdminTheme.warning,
         () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const AdminAnalyticsScreen()),
@@ -488,7 +575,7 @@ class _AdminHomeTabState extends ConsumerState<_AdminHomeTab>
       (
         'Verify Bar',
         Icons.verified,
-        const Color(0xFF059669),
+        AdminTheme.success,
         () => Navigator.push(
           context,
           MaterialPageRoute(
@@ -497,21 +584,29 @@ class _AdminHomeTabState extends ConsumerState<_AdminHomeTab>
         ),
       ),
       (
-        'Support',
-        Icons.support_agent,
-        const Color(0xFF7C3AED),
-        () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Support center coming soon!'),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: Color(0xFF7C3AED),
-          ),
-        ),
+        'Users',
+        Icons.people,
+        AdminTheme.info,
+        () {
+          // Navigate to Users tab in parent
+          final parent = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+          parent?.setState(() => parent._currentIndex = 1);
+        },
       ),
       (
-        'System',
+        'Cases',
+        Icons.folder,
+        AdminTheme.statGreen,
+        () {
+          // Navigate to Cases tab in parent
+          final parent = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+          parent?.setState(() => parent._currentIndex = 2);
+        },
+      ),
+      (
+        'Settings',
         Icons.settings,
-        const Color(0xFF4B5563),
+        AdminTheme.textTertiary,
         () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const AdminSettingsScreen()),
@@ -519,11 +614,10 @@ class _AdminHomeTabState extends ConsumerState<_AdminHomeTab>
       ),
     ];
 
-    return SizedBox(
-      height: 90,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
         children: actions
             .map(
               (a) => _QuickActionItem(
@@ -556,9 +650,9 @@ class _RecentActivityList extends ConsumerWidget {
       for (final l in sorted.take(3)) {
         events.add({
           'icon': Icons.person_add,
-          'bg': const Color(0xFF1E3A8A),
+          'bg': AdminTheme.info,
           'title': l.name,
-          'desc': 'registered from ${l.location ?? 'unknown location'}.',
+          'desc': 'registered from ${l.location ?? 'unknown'}',
           'time': _timeAgo(l.joinedAt.toDate()),
           'at': l.joinedAt.toDate(),
         });
@@ -575,9 +669,9 @@ class _RecentActivityList extends ConsumerWidget {
       for (final c in sorted.take(2)) {
         events.add({
           'icon': Icons.folder_open,
-          'bg': const Color(0xFFE67E22),
+          'bg': AdminTheme.warning,
           'title': c.title,
-          'desc': 'case ${c.status}.',
+          'desc': 'case ${c.status}',
           'time': _timeAgo(c.updatedAt ?? c.createdAt),
           'at': c.updatedAt ?? c.createdAt,
         });
@@ -595,7 +689,7 @@ class _RecentActivityList extends ConsumerWidget {
         return const Center(
           child: Padding(
             padding: EdgeInsets.all(20),
-            child: CircularProgressIndicator(color: Color(0xFF1E3A8A)),
+            child: CircularProgressIndicator(color: AdminTheme.primary),
           ),
         );
       }
@@ -605,7 +699,7 @@ class _RecentActivityList extends ConsumerWidget {
           padding: EdgeInsets.symmetric(vertical: 16),
           child: Text(
             'Unable to load recent activity.',
-            style: TextStyle(color: Colors.grey),
+            style: TextStyle(color: AdminTheme.textTertiary),
           ),
         );
       }
@@ -614,7 +708,7 @@ class _RecentActivityList extends ConsumerWidget {
         padding: EdgeInsets.symmetric(vertical: 16),
         child: Text(
           'No recent activity.',
-          style: TextStyle(color: Colors.grey),
+          style: TextStyle(color: AdminTheme.textTertiary),
         ),
       );
     }
@@ -679,12 +773,13 @@ class _RegistrationTrendsChart extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: AdminTheme.cardDark,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AdminTheme.accentDark),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
@@ -695,25 +790,21 @@ class _RegistrationTrendsChart extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'REGISTRATION TRENDS',
-                style: TextStyle(
-                  color: Color(0xFF4B5563),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                ),
+                style: AdminTheme.sectionHeaderStyle(),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF059669).withValues(alpha: 0.1),
+                  color: AdminTheme.success.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   growthLabel,
                   style: const TextStyle(
-                    color: Color(0xFF059669),
+                    color: AdminTheme.success,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                   ),
@@ -726,59 +817,67 @@ class _RegistrationTrendsChart extends ConsumerWidget {
             const Center(
               child: Padding(
                 padding: EdgeInsets.all(16),
-                child: CircularProgressIndicator(color: Color(0xFF1E3A8A)),
+                child: CircularProgressIndicator(color: AdminTheme.primary),
               ),
             )
           else
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: counts.entries.map((entry) {
-                final ratio = maxCount == 0 ? 0.0 : entry.value / maxCount;
-                final barH = (ratio * 90).clamp(6.0, 90.0);
-                final label = DateFormat('EEE').format(entry.key);
-                return Column(
-                  children: [
-                    Container(
-                      width: 30,
-                      height: 100,
-                      alignment: Alignment.bottomCenter,
-                      child: TweenAnimationBuilder(
-                        tween: Tween<double>(begin: 0, end: barH),
-                        duration: const Duration(milliseconds: 1000),
-                        curve: Curves.easeOutBack,
-                        builder: (ctx, double h, _) => Container(
-                          width: 24,
-                          height: h,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1E3A8A),
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(4),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: counts.entries.map((entry) {
+                  final ratio = maxCount == 0 ? 0.0 : entry.value / maxCount;
+                  final barH = (ratio * 80).clamp(6.0, 80.0);
+                  final label = DateFormat('EEE').format(entry.key);
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 26,
+                          height: 100,
+                          alignment: Alignment.bottomCenter,
+                          child: TweenAnimationBuilder(
+                            tween: Tween<double>(begin: 0, end: barH),
+                            duration: const Duration(milliseconds: 1000),
+                            curve: Curves.easeOutBack,
+                            builder: (ctx, double h, _) => Container(
+                              width: 20,
+                              height: h,
+                              decoration: BoxDecoration(
+                                color: AdminTheme.primary,
+                                borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(4),
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                        const SizedBox(height: 4),
+                        Text(
+                          entry.value.toString(),
+                          style: const TextStyle(
+                            color: AdminTheme.primary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          label,
+                          style: const TextStyle(
+                            color: AdminTheme.textTertiary,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      entry.value.toString(),
-                      style: const TextStyle(
-                        color: Color(0xFF1E3A8A),
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        color: Color(0xFF9CA3AF),
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
+                  );
+                }).toList(),
+              ),
             ),
         ],
       ),
@@ -811,14 +910,15 @@ class _StatCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AdminTheme.cardDark,
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AdminTheme.accentDark),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 10,
+              color: color.withValues(alpha: 0.1),
+              blurRadius: 12,
               offset: const Offset(0, 4),
             ),
           ],
@@ -827,19 +927,22 @@ class _StatCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
+                color: color.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, color: color, size: 16),
+              child: Icon(icon, color: color, size: 18),
             ),
             const Spacer(),
             if (isLoading)
               SizedBox(
                 width: 24,
                 height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2, color: color),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                ),
               )
             else
               TweenAnimationBuilder(
@@ -848,21 +951,26 @@ class _StatCard extends StatelessWidget {
                 builder: (_, int v, _) => Text(
                   _fmt(v),
                   style: const TextStyle(
-                    color: Color(0xFF1F2937),
+                    color: AdminTheme.textPrimary,
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Text(
               title,
-              style: const TextStyle(color: Color(0xFF6B7280), fontSize: 11),
+              style: const TextStyle(
+                color: AdminTheme.textTertiary,
+                fontSize: 12,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             const Spacer(),
             SizedBox(
               width: double.infinity,
-              height: 24,
+              height: 28,
               child: ElevatedButton(
                 onPressed: onTap,
                 style: ElevatedButton.styleFrom(
@@ -873,7 +981,7 @@ class _StatCard extends StatelessWidget {
                   ),
                 ),
                 child: const Text(
-                  'REVIEW NOW',
+                  'Review',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 10,
@@ -907,39 +1015,43 @@ class _QuickActionItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(right: 16),
-        width: 72,
-        child: Column(
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: bgColor.withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+      child: Padding(
+        padding: const EdgeInsets.only(right: 12),
+        child: SizedBox(
+          width: 70,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: bgColor.withValues(alpha: 0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Icon(icon, color: Colors.white, size: 26),
               ),
-              child: Icon(icon, color: Colors.white, size: 24),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFF4B5563),
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
+              const SizedBox(height: 8),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AdminTheme.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -973,47 +1085,120 @@ class _ActivityItem extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: iconBg.withValues(alpha: 0.1),
+              color: iconBg.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: iconBg, size: 20),
+            child: Icon(icon, color: iconBg, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                RichText(
-                  text: TextSpan(
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF4B5563),
-                      height: 1.4,
-                    ),
-                    children: [
-                      TextSpan(
-                        text: '$title ',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1F2937),
-                        ),
-                      ),
-                      TextSpan(text: description),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 4),
                 Text(
-                  time,
+                  title,
                   style: const TextStyle(
-                    color: Color(0xFF9CA3AF),
-                    fontSize: 11,
+                    color: AdminTheme.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    color: AdminTheme.textTertiary,
+                    fontSize: 12,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 12),
+          Text(
+            time,
+            style: const TextStyle(
+              color: AdminTheme.textTertiary,
+              fontSize: 11,
+            ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Search Result Tile ────────────────────────────────────────────────────
+class _SearchResultTile extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _SearchResultTile({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: iconColor, size: 16),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: AdminTheme.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: AdminTheme.textTertiary,
+                      fontSize: 11,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right,
+              color: AdminTheme.textTertiary,
+              size: 18,
+            ),
+          ],
+        ),
       ),
     );
   }

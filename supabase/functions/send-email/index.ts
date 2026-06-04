@@ -236,7 +236,9 @@ function generateDocumentSharedEmail(data: {
             <p><strong>${data.lawyerName}</strong> has shared a new document with you:</p>
             <div class="document-box">
               <p style="font-size: 18px; font-weight: bold;">${data.documentName}</p>
-              <p style="color: #666; font-size: 14px;">Shared on ${new Date().toLocaleDateString()}</p>
+              <p style="color: #666; font-size: 14px;">Shared on ${
+    new Date().toLocaleDateString()
+  }</p>
             </div>
             <p>You can now access this document securely through LegalSync. Log in to your account to view and download it.</p>
             <p>If you have any questions about this document, please contact <strong>${data.lawyerName}</strong>.</p>
@@ -254,58 +256,72 @@ function generateDocumentSharedEmail(data: {
 // Email template router
 function getEmailTemplate(
   type: string,
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
 ): { html: string; subject: string } | null {
   switch (type) {
     case "welcome":
       return {
-        html: generateWelcomeEmail(data as {
-          clientName: string;
-          lawyerName: string;
-          caseRef: string;
-        }),
+        html: generateWelcomeEmail(
+          data as {
+            clientName: string;
+            lawyerName: string;
+            caseRef: string;
+          },
+        ),
         subject: "Welcome to LegalSync",
       };
     case "hearing_scheduled":
       return {
-        html: generateHearingScheduledEmail(data as {
-          clientName: string;
-          lawyerName: string;
-          caseTitle: string;
-          date: string;
-          time: string;
-          court: string;
-        }),
-        subject: `Hearing Scheduled — ${(data as { date?: string }).date || ""}`,
+        html: generateHearingScheduledEmail(
+          data as {
+            clientName: string;
+            lawyerName: string;
+            caseTitle: string;
+            date: string;
+            time: string;
+            court: string;
+          },
+        ),
+        subject: `Hearing Scheduled — ${
+          (data as { date?: string }).date || ""
+        }`,
       };
     case "hearing_reminder":
       return {
-        html: generateHearingReminderEmail(data as {
-          clientName: string;
-          lawyerName: string;
-          date: string;
-          time: string;
-          court: string;
-        }),
+        html: generateHearingReminderEmail(
+          data as {
+            clientName: string;
+            lawyerName: string;
+            date: string;
+            time: string;
+            court: string;
+          },
+        ),
         subject: "Reminder — Hearing Tomorrow",
       };
     case "case_update":
       return {
-        html: generateCaseUpdateEmail(data as {
-          clientName: string;
-          lawyerName: string;
-          caseTitle: string;
-          updateText: string;
-        }),
-        subject: `Case Update — ${(data as { caseTitle?: string }).caseTitle || ""}`,
+        html: generateCaseUpdateEmail(
+          data as {
+            clientName: string;
+            lawyerName: string;
+            caseTitle: string;
+            updateText: string;
+          },
+        ),
+        subject: `Case Update — ${
+          (data as { caseTitle?: string }).caseTitle || ""
+        }`,
       };
     case "document_shared":
       return {
-        html: generateDocumentSharedEmail(data as {
-          clientName: string;
-          lawyerName: string;
-          documentName: string;
-        }),
+        html: generateDocumentSharedEmail(
+          data as {
+            clientName: string;
+            lawyerName: string;
+            documentName: string;
+          },
+        ),
         subject: "New Document Shared",
       };
     default:
@@ -325,89 +341,106 @@ Deno.serve(async (req: Request) => {
 
   // Only allow POST requests
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ success: false, error: "Method not allowed" }), {
-      status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ success: false, error: "Method not allowed" }),
+      {
+        status: 405,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 
   try {
     // Parse request body
-    const { to, _subject, type, data } = await req.json();
+    const body = await req.json();
+    const { to, type, data, html, subject, scheduled_at } = body;
 
     // Validate required fields
-    if (!to || !type || !data) {
+    if (!to || (!type && !html)) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: "Missing required fields: to, type, data",
+          error: "Missing required fields: 'to' and either 'type' or 'html'",
         }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        },
       );
     }
 
-    // Get the email template
-    const emailTemplate = getEmailTemplate(type, data);
-    if (!emailTemplate) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: `Unknown email type: ${type}`,
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+    // Get the email template or use raw HTML
+    let emailSubject = subject || "";
+    let emailHtml = html || "";
+
+    if (type && data) {
+      const emailTemplate = getEmailTemplate(type, data);
+      if (!emailTemplate) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Unknown email type: ${type}`,
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+      emailSubject = emailTemplate.subject;
+      emailHtml = emailTemplate.html;
     }
 
-    // Get API key from environment
-    const apiKey = Deno.env.get("RESEND_API_KEY");
+    // Get API key from environment (Brevo/Sendinblue)
+    const apiKey = Deno.env.get("BREVO_API_KEY");
     if (!apiKey) {
-      console.error("RESEND_API_KEY not configured");
+      console.error("BREVO_API_KEY not configured");
       return new Response(
         JSON.stringify({
           success: false,
-          error: "Server configuration error",
+          error: "Server configuration error: BREVO_API_KEY missing",
         }),
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        },
       );
     }
 
-    // Send email via Resend API
-    const response = await fetch("https://api.resend.com/emails", {
+    // Construct Brevo payload
+    const brevoPayload: any = {
+      sender: { name: "LegalSync", email: "noreply@legalsync-app.com" },
+      to: [{ email: to }],
+      subject: emailSubject,
+      htmlContent: emailHtml,
+    };
+
+    console.log(`Sending email to: ${to} via Brevo`);
+
+    // Send email via Brevo API
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        "api-key": apiKey,
       },
-      body: JSON.stringify({
-        from: "LegalSync <onboarding@resend.dev>",
-        to: to,
-        subject: emailTemplate.subject,
-        html: emailTemplate.html,
-      }),
+      body: JSON.stringify(brevoPayload),
     });
 
-    const resendResponse = await response.json();
+    const brevoResponse = await response.json();
+    console.log("Brevo response:", JSON.stringify(brevoResponse));
 
     if (!response.ok) {
-      console.error("Resend API error:", resendResponse);
+      console.error("Brevo API error:", JSON.stringify(brevoResponse));
       return new Response(
         JSON.stringify({
           success: false,
-          error: "Failed to send email",
+          error: brevoResponse?.message || "Failed to send email",
         }),
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        },
       );
     }
 
@@ -415,12 +448,12 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({
         success: true,
         message: "Email sent successfully",
-        id: resendResponse.id,
+        id: brevoResponse.messageId,
       }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      },
     );
   } catch (error) {
     console.error("Edge function error:", error);
@@ -432,7 +465,7 @@ Deno.serve(async (req: Request) => {
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      },
     );
   }
 });

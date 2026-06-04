@@ -66,7 +66,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
 
       // 🔹 Trigger Professional Login Notification
       try {
-        await NotificationService().createNotification(
+        await FirestoreNotificationService().createNotification(
           userId: uid,
           title: 'Login Successful',
           message:
@@ -171,7 +171,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
 
       // Notify admin
       try {
-        await NotificationService().createNotification(
+        await FirestoreNotificationService().createNotification(
           userId: 'admin',
           title: 'New Lawyer Registration',
           message:

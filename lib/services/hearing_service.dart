@@ -10,14 +10,14 @@ import 'package:intl/intl.dart';
 class HearingService {
   HearingService({
     FirebaseFirestore? firestore,
-    NotificationService? notificationService,
+    FirestoreNotificationService? notificationService,
     ActivityService? activityService,
   }) : _firestore = firestore ?? FirebaseFirestore.instance,
-       _notificationService = notificationService ?? NotificationService(),
+       _notificationService = notificationService ?? FirestoreNotificationService(),
        _activityService = activityService ?? ActivityService();
 
   final FirebaseFirestore _firestore;
-  final NotificationService _notificationService;
+  final FirestoreNotificationService _notificationService;
   final ActivityService _activityService;
   static const String _collection = 'hearings';
 
@@ -118,24 +118,23 @@ class HearingService {
               </div>
               ''',
             );
-
-            // Schedule 12-hour reminder
+            // Schedule 24-hour reminder
             final reminderDate = hearing.hearingDate.subtract(
-              const Duration(hours: 12),
+              const Duration(hours: 24),
             );
             if (reminderDate.isAfter(DateTime.now())) {
               await emailService.sendScheduledProfessionalEmail(
                 to: email,
                 subject: isClient
-                    ? 'Reminder: Upcoming Hearing in 12 Hours'
-                    : 'Reminder: Scheduled Hearing in 12 Hours',
+                    ? 'Reminder: Upcoming Hearing in 24 Hours'
+                    : 'Reminder: Scheduled Hearing in 24 Hours',
                 htmlContent:
                     '''
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
                   <h2 style="color: #FF6B00; text-align: center;">Hearing Reminder</h2>
                   <p style="font-size: 16px; color: #333;">Dear $name,</p>
                   <p style="font-size: 15px; color: #444;">
-                    This is a reminder that you have a ${hearing.hearingType ?? 'hearing'} approaching in approximately 12 hours.
+                    This is a reminder that you have a \${hearing.hearingType ?? 'hearing'} approaching in approximately 24 hours.
                   </p>
                   <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
                     <p style="margin: 0; color: #666;"><strong>Date & Time:</strong> $hearingDateStr</p>
@@ -169,31 +168,50 @@ class HearingService {
   }) async {
     await createHearing(hearing);
 
-    // 1. Send immediate in-app notification to all recipients (Client + Lawyer if needed)
+    final hearingDateStr = DateFormat('dd MMM yyyy, h:mm a').format(hearing.hearingDate);
+
+    // 1. Immediate in-app notification + immediate push to all recipients
     for (final userId in recipientUserIds) {
       await _notificationService.createNotification(
         userId: userId,
-        title: 'New Hearing Scheduled',
+        title: '📅 New Hearing Scheduled',
         message:
-            'A new ${hearing.hearingType ?? 'hearing'} has been scheduled for case ${hearing.caseId} at ${hearing.courtName ?? 'the court'}.',
+            'A new ${hearing.hearingType ?? 'hearing'} has been scheduled on $hearingDateStr at ${hearing.courtName ?? 'the court'}.',
         type: 'hearing',
         metadata: {'hearingId': hearing.hearingId, 'caseId': hearing.caseId},
       );
     }
 
-    // 2. Queue push notification for the future reminder
+    // 2. Immediate push notification to all recipients (fires now)
     await _notificationService.queuePushNotification(
       userIds: recipientUserIds,
-      title: 'Upcoming Hearing Reminder',
+      title: '📅 New Hearing Scheduled',
       message:
-          'Hearing for case ${hearing.caseId} at ${hearing.courtName ?? 'court'} in $hoursBefore hours.',
+          'A ${hearing.hearingType ?? 'hearing'} has been scheduled on $hearingDateStr at ${hearing.courtName ?? 'court'}.',
       data: {
-        'type': 'hearing',
+        'type': 'hearing_created',
         'hearingId': hearing.hearingId,
         'caseId': hearing.caseId,
       },
-      scheduledAt: hearing.hearingDate.subtract(Duration(hours: hoursBefore)),
+      scheduledAt: DateTime.now(), // Send immediately
     );
+
+    // 3. Scheduled 24-hour reminder push notification
+    final reminderTime = hearing.hearingDate.subtract(Duration(hours: hoursBefore));
+    if (reminderTime.isAfter(DateTime.now())) {
+      await _notificationService.queuePushNotification(
+        userIds: recipientUserIds,
+        title: '⏰ Hearing Tomorrow',
+        message:
+            'Reminder: Your ${hearing.hearingType ?? 'hearing'} is in $hoursBefore hours — at ${hearing.courtName ?? 'court'}.',
+        data: {
+          'type': 'hearing_reminder',
+          'hearingId': hearing.hearingId,
+          'caseId': hearing.caseId,
+        },
+        scheduledAt: reminderTime,
+      );
+    }
   }
 
   /// 🔹 Update hearing
@@ -347,6 +365,7 @@ class HearingService {
         .snapshots()
         .map((snapshot) {
           final now = DateTime.now();
+          final today = DateTime(now.year, now.month, now.day);
           final docs = snapshot.docs
               .map(
                 (doc) => HearingModel.fromJson({
@@ -355,7 +374,11 @@ class HearingService {
                 }),
               )
               .where((h) {
-                final isUpcoming = h.hearingDate.isAfter(now);
+                // Include hearings that are today or in the future
+                // Comparison using dates only to ensure hearings today are included regardless of time
+                final hearingDateOnly = DateTime(h.hearingDate.year, h.hearingDate.month, h.hearingDate.day);
+                final isUpcoming = !hearingDateOnly.isBefore(today);
+                
                 final isActive = ['scheduled', 'ongoing'].contains(h.status);
                 return isUpcoming && isActive;
               })
@@ -551,37 +574,52 @@ class HearingService {
     }
   }
 
-  Future<void> sendManualReminder({
+  Future<bool> sendManualReminder({
     required HearingModel hearing,
     required String clientId,
   }) async {
-    final title = 'Hearing Reminder: ${hearing.hearingType ?? 'Hearing'}';
+    final hearingDateStr = DateFormat('dd MMM yyyy, h:mm a').format(hearing.hearingDate);
+    final title = '🔔 Hearing Reminder';
     final message =
-        'Your hearing for case ${hearing.caseId} is scheduled at ${hearing.courtName ?? 'the court'} on ${DateFormat('dd MMM yyyy, h:mm a').format(hearing.hearingDate)}.';
+        'Your ${hearing.hearingType ?? 'hearing'} is on $hearingDateStr at ${hearing.courtName ?? 'the court'}. Please be prepared.';
 
-    // 1. In-app notification
-    await _notificationService.createNotification(
-      userId: clientId,
-      title: title,
-      message: message,
-      type: 'hearing',
-      metadata: {'hearingId': hearing.hearingId, 'caseId': hearing.caseId},
-    );
+    print('📨 sendManualReminder called — clientId: $clientId, hearingId: ${hearing.hearingId}');
 
-    // 2. Push notification (queued)
-    await _notificationService.queuePushNotification(
-      userIds: [clientId],
-      title: title,
-      message: message,
-      data: {
-        'type': 'hearing',
-        'hearingId': hearing.hearingId,
-        'caseId': hearing.caseId,
-      },
-    );
+    bool pushQueued = false;
+    try {
+      // 1. In-app notification (shows in notification bell in app)
+      await _notificationService.createNotification(
+        userId: clientId,
+        title: title,
+        message: message,
+        type: 'hearing',
+        metadata: {'hearingId': hearing.hearingId, 'caseId': hearing.caseId},
+      );
+
+      // 2. Push notification — sent immediately via FCM through Edge Function
+      await _notificationService.queuePushNotification(
+        userIds: [clientId],
+        title: title,
+        message: message,
+        data: {
+          'type': 'manual_reminder',
+          'hearingId': hearing.hearingId,
+          'caseId': hearing.caseId,
+        },
+        scheduledAt: DateTime.now(), // Immediate
+      );
+      pushQueued = true;
+      print('✅ Push notification queued for client: $clientId');
+    } catch (e) {
+      print('❌ Push notification failed: $e');
+    }
 
     // 3. Mark as reminder sent in the hearing document
-    await markReminderSent(hearing.hearingId);
+    try {
+      await markReminderSent(hearing.hearingId);
+    } catch (_) {}
+
+    return pushQueued; // Return true if push was queued successfully
   }
 
   /// 🔹 Complete hearing

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/provider/document_provider.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class RecentActivityScreen extends ConsumerWidget {
   const RecentActivityScreen({super.key});
@@ -37,24 +38,10 @@ class RecentActivityScreen extends ConsumerWidget {
           ),
         ),
         title: Text(
-          'Recent Activity',
+          'Legal Documents',
           style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            onPressed: () {},
-            icon: Container(
-               padding: const EdgeInsets.all(8),
-               decoration: BoxDecoration(
-                 color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
-                 shape: BoxShape.circle,
-               ),
-               child: Icon(Icons.search, color: textColor, size: 20),
-            ),
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
       body: clientAsync.when(
         data: (client) {
@@ -71,11 +58,14 @@ class RecentActivityScreen extends ConsumerWidget {
 
           return docsAsync.when(
             data: (documents) => _buildActivityList(
+              context,
+              ref,
               documents,
               cardColor,
               textColor,
               subtitleColor,
               isDark,
+              client.clientId,
             ),
             loading: () => const Center(
               child: CircularProgressIndicator(color: Color(0xFFDC2626)),
@@ -92,20 +82,18 @@ class RecentActivityScreen extends ConsumerWidget {
           child: Text('Error: $err'),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        backgroundColor: const Color(0xFFDC2626),
-        child: const Icon(Icons.add, color: Colors.white, size: 32),
-      ),
     );
   }
 
   Widget _buildActivityList(
+    BuildContext context,
+    WidgetRef ref,
     List documents,
     Color cardColor,
     Color textColor,
     Color subtitleColor,
     bool isDark,
+    String currentClientId,
   ) {
     if (documents.isEmpty) {
       return SingleChildScrollView(
@@ -123,7 +111,7 @@ class RecentActivityScreen extends ConsumerWidget {
                       color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(Icons.history, color: subtitleColor, size: 32),
+                    child: Icon(Icons.folder_open, color: subtitleColor, size: 32),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -176,8 +164,11 @@ class RecentActivityScreen extends ConsumerWidget {
                     _buildSectionHeader(entry.key, subtitleColor),
                     const SizedBox(height: 16),
                     ...entry.value.map((doc) => _buildActivityItem(
+                          context,
+                          ref,
+                          doc,
                           doc.fileName ?? 'Document',
-                          'Uploaded by ${doc.uploadedBy}',
+                          'Uploaded by ${doc.uploadedBy == currentClientId ? "you" : "lawyer"}',
                           _timeAgo(doc.uploadedAt),
                           _getIconForFileType(doc.fileType),
                           _getColorForFileType(doc.fileType),
@@ -185,6 +176,7 @@ class RecentActivityScreen extends ConsumerWidget {
                           textColor,
                           subtitleColor,
                           isDark,
+                          doc.uploadedBy == currentClientId,
                         )),
                     const SizedBox(height: 24),
                   ]),
@@ -267,54 +259,129 @@ class RecentActivityScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildActivityItem(String title, String subtitle, String time, IconData icon, Color iconColor, Color cardColor, Color textColor, Color subtitleColor, bool isDark) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
+  Future<void> _launchInBrowser(BuildContext context, String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Could not open document')));
+    }
+  }
+
+  Widget _buildActivityItem(
+    BuildContext context,
+    WidgetRef ref,
+    dynamic doc,
+    String title, 
+    String subtitle, 
+    String time, 
+    IconData icon, 
+    Color iconColor, 
+    Color cardColor, 
+    Color textColor, 
+    Color subtitleColor, 
+    bool isDark,
+    bool canDelete,
+  ) {
+    return GestureDetector(
+      onTap: () {
+        if (doc.fileUrl != null && doc.fileUrl.toString().isNotEmpty) {
+           _launchInBrowser(context, doc.fileUrl);
+        } else {
+           ScaffoldMessenger.of(context).showSnackBar(
+             const SnackBar(content: Text('Document URL not available'))
+           );
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade200),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor, size: 24),
             ),
-            child: Icon(icon, color: iconColor, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(color: subtitleColor, fontSize: 11),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  title,
-                  style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.bold),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  time,
+                  style: TextStyle(color: subtitleColor.withValues(alpha: 0.7), fontSize: 11),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: TextStyle(color: subtitleColor, fontSize: 11),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                if (canDelete) ...[
+                  const SizedBox(height: 4),
+                  GestureDetector(
+                    onTap: () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Delete Document'),
+                          content: const Text('Are you sure you want to delete this document?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirm == true) {
+                        await ref.read(documentStateProvider.notifier).deleteDocument(doc.documentId);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Document deleted')),
+                          );
+                        }
+                      }
+                    },
+                    child: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
+                  ),
+                ]
               ],
             ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            time,
-            style: TextStyle(color: subtitleColor.withValues(alpha: 0.7), fontSize: 11),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
+

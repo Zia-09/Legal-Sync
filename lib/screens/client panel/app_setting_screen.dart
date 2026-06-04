@@ -17,6 +17,7 @@ import 'update_password_screen.dart';
 import 'client_edit_profile_screen.dart';
 import 'payment_methods_screen.dart';
 import 'billing_history_screen.dart';
+import 'payment_history_screen.dart';
 import 'recent_activity_screen.dart';
 import 'package:legal_sync/utils/animations.dart';
 
@@ -182,23 +183,17 @@ class _AppSettingScreenState extends State<AppSettingScreen> {
                                               color: const Color(0xFFFF6B00),
                                               width: 2,
                                             ),
-                                            image: DecorationImage(
-                                              image:
-                                                  (client?.profileImage !=
-                                                          null &&
-                                                      client!
-                                                          .profileImage!
-                                                          .isNotEmpty)
-                                                  ? NetworkImage(
-                                                      client.profileImage!,
-                                                    )
-                                                  : const AssetImage(
-                                                          'images/profile.jpg',
-                                                        )
-                                                        as ImageProvider,
-                                              fit: BoxFit.cover,
-                                            ),
+                                            image: (client?.profileImage != null &&
+                                                    client!.profileImage!.isNotEmpty)
+                                                ? DecorationImage(
+                                                    image: NetworkImage(client.profileImage!),
+                                                    fit: BoxFit.cover,
+                                                  )
+                                                : null,
                                           ),
+                                          child: (client?.profileImage == null || client!.profileImage!.isEmpty)
+                                              ? const Icon(Icons.person, size: 60, color: Colors.grey)
+                                              : null,
                                         ),
                                         Positioned(
                                           bottom: 0,
@@ -430,6 +425,25 @@ class _AppSettingScreenState extends State<AppSettingScreen> {
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => const BillingHistoryScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        AnimationUtils.slideUpAnimation(
+                          child: _SettingRow(
+                            icon: Icons.history,
+                            iconBgColor: const Color(0xFF10B981),
+                            title: 'Payment History',
+                            subtitle: 'View your payment records',
+                            cardColor: cardColor,
+                            textColor: textColor,
+                            subtitleColor: subtitleColor,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const PaymentHistoryScreen(),
                                 ),
                               );
                             },

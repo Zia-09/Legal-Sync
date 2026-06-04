@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/provider/auth_provider.dart';
 import 'package:legal_sync/provider/document_provider.dart';
@@ -8,7 +8,7 @@ import 'package:legal_sync/model/document_Model.dart';
 import 'package:legal_sync/model/case_Model.dart';
 import 'package:legal_sync/model/client_Model.dart';
 import 'package:intl/intl.dart';
-
+import 'package:legal_sync/widgets/document_viewer_helper.dart';
 class LawyerManagementDocumentScreen extends ConsumerStatefulWidget {
   const LawyerManagementDocumentScreen({super.key});
 
@@ -620,6 +620,9 @@ class _LawyerManagementDocumentScreenState
                   date:
                       'Submitted: ${DateFormat('dd MMM yyyy').format(doc.uploadedAt)}',
                   isPending: !doc.isApprovedForClient,
+                  fileUrl: doc.fileUrl,
+                  isImage: doc.isImage,
+                  isPdf: doc.isPDF,
                 ),
               );
             }),
@@ -640,6 +643,9 @@ class _LawyerManagementDocumentScreenState
     required Color statusColor,
     required String date,
     bool isPending = false,
+    required String fileUrl,
+    required bool isImage,
+    required bool isPdf,
   }) {
     final user = ref.watch(authStateProvider).value;
 
@@ -807,16 +813,27 @@ class _LawyerManagementDocumentScreenState
               ),
               Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.remove_red_eye_outlined,
-                      size: 16,
-                      color: Colors.black87,
+                  GestureDetector(
+                    onTap: () {
+                      DocumentViewerHelper.openDocument(
+                        context,
+                        url: fileUrl,
+                        isImage: isImage,
+                        isPdf: isPdf,
+                        name: docTitle,
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.remove_red_eye_outlined,
+                        size: 16,
+                        color: Colors.black87,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),

@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class FullScreenImageViewer extends StatelessWidget {
   final String imageUrl;
@@ -56,13 +57,28 @@ class FullScreenImageViewer extends StatelessWidget {
             ),
           ),
 
-          // Close button
+          // Close and Download buttons
           Positioned(
             top: 40,
             right: 20,
-            child: IconButton(
-              icon: const Icon(Icons.close, color: Colors.white, size: 30),
-              onPressed: () => Navigator.pop(context),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.open_in_browser, color: Colors.white, size: 26),
+                  tooltip: 'Open in browser / download',
+                  onPressed: () async {
+                    final uri = Uri.parse(imageUrl);
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
             ),
           ),
         ],

@@ -1,15 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:legal_sync/provider/auth_provider.dart';
-import 'package:legal_sync/services/email_service.dart';
 import 'package:legal_sync/widgets/brand_logo.dart';
 import 'package:legal_sync/config/routes.dart';
 import 'package:legal_sync/utils/animations.dart';
-
-// ─── Static Admin Credentials ────────────────────────────────────────────────
-const String _adminEmail = 'admin@legalsync.com';
-const String _adminPassword = 'Admin@1234';
 
 class LawyerLoginScreen extends ConsumerStatefulWidget {
   const LawyerLoginScreen({super.key});
@@ -79,23 +75,6 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen>
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    // ─── Admin shortcut ───────────────────────────────────────────────────────
-    if (email == _adminEmail && password == _adminPassword) {
-      try {
-        await FirebaseAuth.instance.signInAnonymously();
-        emailService.sendProfessionalEmail(
-          to: _adminEmail,
-          subject: 'Admin Entry (via Lawyer Portal) - LegalSync',
-          htmlContent:
-              '<h1>Admin Login Successful</h1><p>The main admin account has just entered the system via the lawyer portal.</p>',
-        );
-      } catch (_) {}
-      if (!mounted) return;
-      context.navigateTo(RouteNames.adminDashboard);
-      return;
-    }
-    // ─────────────────────────────────────────────────────────────────────────
-
     try {
       final role = await ref
           .read(authNotifierProvider.notifier)
@@ -103,7 +82,24 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen>
 
       if (!mounted) return;
 
+      // ─── Check if admin role via Firestore ────────────────────────────────
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .get();
+        final firestoreRole = userDoc.data()?['role'] as String? ?? role;
+        if (firestoreRole == 'admin') {
+          if (!mounted) return;
+          context.navigateTo(RouteNames.adminDashboard);
+          return;
+        }
+      }
+      // ──────────────────────────────────────────────────────────────────────
+
       // ─── Role Validation: Lawyer Portal Only ──────────────────────────────
+      if (!mounted) return;
       if (role != 'lawyer') {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -126,10 +122,10 @@ class _LawyerLoginScreenState extends ConsumerState<LawyerLoginScreen>
       }
       // ──────────────────────────────────────────────────────────────────────
 
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid != null) {
+      final currentUid = FirebaseAuth.instance.currentUser?.uid;
+      if (currentUid != null) {
         final isApproved =
-            await ref.read(authServiceProvider).checkLawyerApproval(uid);
+            await ref.read(authServiceProvider).checkLawyerApproval(currentUid);
         if (!mounted) return;
 
         if (isApproved) {

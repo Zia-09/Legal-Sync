@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:legal_sync/model/notification_model.dart';
 
-class NotificationService {
+class FirestoreNotificationService {
   final CollectionReference _notifications = FirebaseFirestore.instance
       .collection('notifications');
   final CollectionReference _deviceTokens = FirebaseFirestore.instance

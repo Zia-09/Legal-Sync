@@ -6,7 +6,7 @@ import 'package:legal_sync/provider/chat_provider.dart';
 import 'package:legal_sync/model/chat_thread_model.dart';
 import 'package:legal_sync/provider/client_provider.dart';
 import 'package:legal_sync/screens/lawyer%20panel/lawyer_chat_screen.dart';
-
+import 'package:legal_sync/presentation/common_widgets/empty_state_widget.dart';
 import 'package:intl/intl.dart';
 
 class LawyerMessagesScreen extends ConsumerStatefulWidget {
@@ -238,8 +238,7 @@ class _LawyerMessagesScreenState extends ConsumerState<LawyerMessagesScreen> {
     final clientAsync = ref.watch(getClientByIdProvider(partnerId));
     final partnerName = clientAsync.valueOrNull?.name ?? 'Client';
     final avatarUrl =
-        clientAsync.valueOrNull?.profileImageUrl ??
-        'https://i.pravatar.cc/150?u=$partnerId';
+        clientAsync.valueOrNull?.profileImageUrl ?? '';
     final timeStr = _formatTime(thread.updatedAt);
     final lastMsg = thread.lastMessage ?? 'No messages yet';
 
@@ -312,9 +311,9 @@ class _LawyerMessagesScreenState extends ConsumerState<LawyerMessagesScreen> {
                 children: [
                   CircleAvatar(
                     radius: 28,
-                    backgroundImage: NetworkImage(avatarUrl),
-                    onBackgroundImageError: (_, _) {},
-                    child: const Icon(Icons.person),
+                    backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+                    onBackgroundImageError: avatarUrl.isNotEmpty ? (_, _) {} : null,
+                    child: avatarUrl.isEmpty ? const Icon(Icons.person) : null,
                   ),
                   if (isUnread)
                     Positioned(
@@ -423,23 +422,14 @@ class _LawyerMessagesScreenState extends ConsumerState<LawyerMessagesScreen> {
         : _selectedFilter == 'Unread'
         ? 'No unread messages'
         : 'No conversations yet';
+    final subtitle = _selectedFilter == 'All'
+        ? 'Your client conversations will appear here.'
+        : 'Nothing to show in this filter.';
 
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.chat_bubble_outline,
-            size: 60,
-            color: Colors.grey.shade300,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            label,
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
-          ),
-        ],
-      ),
+    return EmptyStateWidget(
+      icon: Icons.chat_bubble_outline,
+      title: label,
+      subtitle: subtitle,
     );
   }
 

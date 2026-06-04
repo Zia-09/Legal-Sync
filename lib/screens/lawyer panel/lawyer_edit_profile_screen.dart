@@ -166,13 +166,12 @@ class _LawyerEditProfileScreenState
                         radius: 50,
                         backgroundColor: Colors.grey.shade200,
                         backgroundImage:
-                            (lawyer != null &&
-                                lawyer.profileImageUrl.isNotEmpty)
-                            ? NetworkImage(lawyer.profileImageUrl)
-                            : const NetworkImage(
-                                    'https://i.pravatar.cc/150?img=12',
-                                  )
-                                  as ImageProvider,
+                            (lawyer != null && lawyer.profileImageUrl.isNotEmpty)
+                                ? NetworkImage(lawyer.profileImageUrl)
+                                : null,
+                        child: (lawyer == null || lawyer.profileImageUrl.isEmpty)
+                            ? const Icon(Icons.person, size: 50, color: Colors.grey)
+                            : null,
                       ),
                       Positioned(
                         bottom: 0,

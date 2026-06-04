@@ -14,7 +14,6 @@ class MessageTemplateService {
           .doc(template.templateId)
           .set(template.toJson());
     } catch (e) {
-      print('Error creating template: $e');
       rethrow;
     }
   }
@@ -31,7 +30,6 @@ class MessageTemplateService {
       }
       return null;
     } catch (e) {
-      print('Error getting template: $e');
       return null;
     }
   }
@@ -53,7 +51,6 @@ class MessageTemplateService {
       templates.sort((a, b) => b.usageCount.compareTo(a.usageCount));
       return templates;
     } catch (e) {
-      print('Error getting lawyer templates: $e');
       return [];
     }
   }
@@ -93,7 +90,6 @@ class MessageTemplateService {
       templates.sort((a, b) => b.usageCount.compareTo(a.usageCount));
       return templates;
     } catch (e) {
-      print('Error getting templates by category: $e');
       return [];
     }
   }
@@ -115,7 +111,6 @@ class MessageTemplateService {
           .map((doc) => MessageTemplateModel.fromJson(doc.data()))
           .toList();
     } catch (e) {
-      print('Error searching templates: $e');
       return [];
     }
   }
@@ -136,7 +131,6 @@ class MessageTemplateService {
           )
           .toList();
     } catch (e) {
-      print('Error searching templates: $e');
       return [];
     }
   }
@@ -149,7 +143,6 @@ class MessageTemplateService {
     try {
       await _firestore.collection(_collection).doc(templateId).update(data);
     } catch (e) {
-      print('Error updating template: $e');
       rethrow;
     }
   }
@@ -162,7 +155,6 @@ class MessageTemplateService {
         'lastUsedAt': Timestamp.now(),
       });
     } catch (e) {
-      print('Error incrementing usage count: $e');
       rethrow;
     }
   }
@@ -174,7 +166,6 @@ class MessageTemplateService {
         'isActive': false,
       });
     } catch (e) {
-      print('Error deactivating template: $e');
       rethrow;
     }
   }
@@ -184,7 +175,6 @@ class MessageTemplateService {
     try {
       await _firestore.collection(_collection).doc(templateId).delete();
     } catch (e) {
-      print('Error deleting template: $e');
       rethrow;
     }
   }
@@ -196,7 +186,6 @@ class MessageTemplateService {
         'tags': FieldValue.arrayUnion([tag]),
       });
     } catch (e) {
-      print('Error adding tag: $e');
       rethrow;
     }
   }
@@ -208,7 +197,6 @@ class MessageTemplateService {
         'tags': FieldValue.arrayRemove([tag]),
       });
     } catch (e) {
-      print('Error removing tag: $e');
       rethrow;
     }
   }
@@ -222,7 +210,6 @@ class MessageTemplateService {
       final templates = await getTemplatesByLawyer(lawyerId);
       return templates.take(limit).toList();
     } catch (e) {
-      print('Error getting most used templates: $e');
       return [];
     }
   }
@@ -246,7 +233,6 @@ class MessageTemplateService {
       templates.sort((a, b) => b.lastUsedAt!.compareTo(a.lastUsedAt!));
       return templates.take(limit).toList();
     } catch (e) {
-      print('Error getting recently used templates: $e');
       return [];
     }
   }
@@ -268,7 +254,6 @@ class MessageTemplateService {
       templates.sort((a, b) => b.usageCount.compareTo(a.usageCount));
       return templates.take(20).toList();
     } catch (e) {
-      print('Error getting public templates: $e');
       return [];
     }
   }
@@ -280,7 +265,6 @@ class MessageTemplateService {
         'isPublic': true,
       });
     } catch (e) {
-      print('Error sharing template: $e');
       rethrow;
     }
   }
@@ -292,7 +276,6 @@ class MessageTemplateService {
         'isPublic': false,
       });
     } catch (e) {
-      print('Error unsharing template: $e');
       rethrow;
     }
   }

@@ -15,6 +15,7 @@ class HearingModel {
   final String? createdBy; // lawyerId or clientId
   final String? outcome; // "win", "lose", "postponed", etc.
   final String? judgeNotes;
+  final String? judgeName;
   final String? modeOfConduct; // "Online", "Offline"
   final String? hearingType;
   final String? clientId;
@@ -48,6 +49,7 @@ class HearingModel {
     this.createdBy,
     this.outcome,
     this.judgeNotes,
+    this.judgeName,
     this.modeOfConduct,
     this.hearingType,
     this.clientId,
@@ -85,6 +87,7 @@ class HearingModel {
       createdBy: json['createdBy']?.toString(),
       outcome: json['outcome']?.toString(),
       judgeNotes: json['judgeNotes']?.toString(),
+      judgeName: json['judgeName']?.toString(),
       modeOfConduct: json['modeOfConduct']?.toString(),
       hearingType: json['hearingType']?.toString(),
       clientId: json['clientId']?.toString(),
@@ -120,6 +123,7 @@ class HearingModel {
       'createdBy': createdBy,
       'outcome': outcome,
       'judgeNotes': judgeNotes,
+      'judgeName': judgeName,
       'modeOfConduct': modeOfConduct,
       'hearingType': hearingType,
       'clientId': clientId,
@@ -145,6 +149,7 @@ class HearingModel {
     DateTime? updatedAt,
     String? outcome,
     String? judgeNotes,
+    String? judgeName,
     String? modeOfConduct,
     String? hearingType,
     String? clientId,
@@ -170,6 +175,7 @@ class HearingModel {
       createdBy: createdBy,
       outcome: outcome ?? this.outcome,
       judgeNotes: judgeNotes ?? this.judgeNotes,
+      judgeName: judgeName ?? this.judgeName,
       modeOfConduct: modeOfConduct ?? this.modeOfConduct,
       hearingType: hearingType ?? this.hearingType,
       clientId: clientId ?? this.clientId,

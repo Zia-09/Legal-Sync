@@ -7,6 +7,8 @@ import 'package:legal_sync/model/client_Model.dart';
 import 'package:legal_sync/provider/appointment_provider.dart';
 import 'package:legal_sync/provider/auth_provider.dart';
 import 'package:legal_sync/provider/client_provider.dart';
+import 'package:legal_sync/screens/lawyer%20panel/create_case_screen.dart';
+import 'package:legal_sync/presentation/common_widgets/empty_state_widget.dart';
 
 class AllConsultationRequestScreen extends ConsumerStatefulWidget {
   const AllConsultationRequestScreen({super.key});
@@ -20,7 +22,6 @@ class _AllConsultationRequestScreenState
     extends ConsumerState<AllConsultationRequestScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  late List<AppointmentModel> _acceptedRequests = [];
 
   @override
   void initState() {
@@ -100,8 +101,8 @@ class _AllConsultationRequestScreenState
         controller: _tabController,
         children: [
           _buildPendingList(currentUser.uid),
-          _buildAcceptedList(),
-          _buildHistoryList(),
+          _buildAcceptedList(currentUser.uid),
+          _buildHistoryList(currentUser.uid),
         ],
       ),
     );
@@ -118,7 +119,11 @@ class _AllConsultationRequestScreenState
         return clientsAsync.when(
           data: (clients) {
             if (appointments.isEmpty) {
-              return const Center(child: Text('No pending requests.'));
+              return const EmptyStateWidget(
+                icon: Icons.pending_actions,
+                title: 'No pending requests',
+                subtitle: 'New consultation requests from\nclients will appear here.',
+              );
             }
             return ListView.builder(
               padding: const EdgeInsets.all(20),
@@ -162,21 +167,135 @@ class _AllConsultationRequestScreenState
     );
   }
 
-  Widget _buildAcceptedList() {
-    if (_acceptedRequests.isEmpty) {
-      return const Center(child: Text('No accepted requests yet.'));
-    }
-    return const Center(child: Text('Feature coming soon'));
+  Widget _buildAcceptedList(String lawyerId) {
+    final appointmentsAsync = ref.watch(
+      streamApprovedConsultationsProvider(lawyerId),
+    );
+    final clientsAsync = ref.watch(allClientsProvider);
+
+    return appointmentsAsync.when(
+      data: (appointments) {
+        return clientsAsync.when(
+          data: (clients) {
+            if (appointments.isEmpty) {
+              return const EmptyStateWidget(
+                icon: Icons.check_circle_outline,
+                title: 'No accepted consultations',
+                subtitle: 'Consultations you accept will\nappear in this tab.',
+              );
+            }
+            return ListView.builder(
+              padding: const EdgeInsets.all(20),
+              itemCount: appointments.length,
+              itemBuilder: (context, index) {
+                final appointment = appointments[index];
+                final client = clients.firstWhere(
+                  (c) => c.clientId == appointment.clientId,
+                  orElse: () => ClientModel(
+                    clientId: appointment.clientId,
+                    name: 'Unknown Client',
+                    email: '',
+                    phone: '',
+                    profileImage: null,
+                    caseIds: [],
+                    walletBalance: 0,
+                    hasPendingPayment: false,
+                    isVerified: false,
+                    status: 'active',
+                    joinedAt: Timestamp.now(),
+                  ),
+                );
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: _buildConsultationCard(
+                    appointment: appointment,
+                    client: client,
+                    showActions: false,
+                    isAccepted: true,
+                  ),
+                );
+              },
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, stack) => Center(child: Text('Error: $error')),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => Center(child: Text('Error: $error')),
+    );
   }
 
-  Widget _buildHistoryList() {
-    return const Center(child: Text('No history available.'));
+  Widget _buildHistoryList(String lawyerId) {
+    final appointmentsAsync = ref.watch(
+      streamAppointmentsByLawyerProvider(lawyerId),
+    );
+    final clientsAsync = ref.watch(allClientsProvider);
+
+    return appointmentsAsync.when(
+      data: (allAppointments) {
+        final history =
+            allAppointments
+                .where((apt) => ['completed', 'rejected'].contains(apt.status))
+                .toList();
+
+        return clientsAsync.when(
+          data: (clients) {
+            if (history.isEmpty) {
+              return const EmptyStateWidget(
+                icon: Icons.history,
+                title: 'No history yet',
+                subtitle: 'Completed and declined consultations\nwill appear here.',
+              );
+            }
+            return ListView.builder(
+              padding: const EdgeInsets.all(20),
+              itemCount: history.length,
+              itemBuilder: (context, index) {
+                final appointment = history[index];
+                final client = clients.firstWhere(
+                  (c) => c.clientId == appointment.clientId,
+                  orElse: () => ClientModel(
+                    clientId: appointment.clientId,
+                    name: 'Unknown Client',
+                    email: '',
+                    phone: '',
+                    profileImage: null,
+                    caseIds: [],
+                    walletBalance: 0,
+                    hasPendingPayment: false,
+                    isVerified: false,
+                    status: 'active',
+                    joinedAt: Timestamp.now(),
+                  ),
+                );
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: _buildConsultationCard(
+                    appointment: appointment,
+                    client: client,
+                    showActions: false,
+                  ),
+                );
+              },
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, stack) => Center(child: Text('Error: $error')),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => Center(child: Text('Error: $error')),
+    );
   }
 
   Widget _buildConsultationCard({
     required AppointmentModel appointment,
     required ClientModel client,
     required bool showActions,
+    bool isAccepted = false,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -356,28 +475,67 @@ class _AllConsultationRequestScreenState
                   ),
                 ] else ...[
                   const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        // View Case/Chat logic
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                  Row(
+                    children: [
+                      if (isAccepted) ...[
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => CreateCaseScreen(
+                                        initialClient: client,
+                                      ),
+                                ),
+                              );
+                            },
+                            icon: const Icon(
+                              Icons.add_box_outlined,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                            label: const Text(
+                              'Create Case',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFF6B00),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              elevation: 0,
+                            ),
+                          ),
                         ),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        'View Details',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
+                        const SizedBox(width: 12),
+                      ],
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            // View details logic
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey.shade100,
+                            foregroundColor: Colors.black87,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            'View Details',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ],

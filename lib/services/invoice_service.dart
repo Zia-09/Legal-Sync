@@ -14,12 +14,13 @@ class InvoiceService {
   final TimeTrackingService _timeTrackingService;
   static const String _collection = 'invoices';
 
-  /// 🔹 Generate invoice from time entries
+  /// 🔹 Generate invoice from time entries or flat fee
   Future<InvoiceModel> generateInvoice({
     required String caseId,
     required String lawyerId,
     required String clientId,
     required double ratePerHour,
+    double? totalAmount,
     String? notes,
   }) async {
     try {
@@ -27,7 +28,9 @@ class InvoiceService {
       final totalHours = await _timeTrackingService.getTotalHoursForCase(
         caseId,
       );
-      final totalAmount = totalHours * ratePerHour;
+      
+      // Use provided totalAmount (flat fee) or calculate from hours
+      final finalAmount = totalAmount ?? (totalHours * ratePerHour);
 
       final invoiceId = _firestore.collection(_collection).doc().id;
 
@@ -38,7 +41,7 @@ class InvoiceService {
         clientId: clientId,
         totalHours: totalHours,
         ratePerHour: ratePerHour,
-        totalAmount: totalAmount,
+        totalAmount: finalAmount,
         createdAt: DateTime.now(),
         status: 'draft',
         invoiceNumber: _generateInvoiceNumber(),

@@ -4,29 +4,38 @@ import 'dart:io';
 import 'dart:async';
 import 'package:legal_sync/app_helper/case_status_helper.dart';
 import 'package:legal_sync/model/case_Model.dart';
+
 import 'package:legal_sync/model/notification_model.dart';
 import 'package:legal_sync/services/case_status_history_service.dart';
-import 'package:legal_sync/services/notification_services.dart';
+import 'package:legal_sync/services/notification_service.dart'
+    as push; // My Push/Local Service
+import 'package:legal_sync/services/notification_services.dart'; // Old Firestore DB Service
 import 'package:legal_sync/services/activity_service.dart';
 import 'package:legal_sync/services/email_service.dart';
 import 'package:legal_sync/services/lawyer_services.dart';
+
+import 'package:legal_sync/model/client_Model.dart';
+
+import 'package:legal_sync/services/invoice_pdf_service.dart'; // New
+// import 'package:legal_sync/services/time_tracking_service.dart';
 
 /// 🔹 CaseService handles all Firestore operations for case management
 class CaseService {
   CaseService({
     FirebaseFirestore? firestore,
     CaseStatusHistoryService? statusHistoryService,
-    NotificationService? notificationService,
+    FirestoreNotificationService? notificationService,
     ActivityService? activityService,
   }) : _firestore = firestore ?? FirebaseFirestore.instance,
        _statusHistoryService =
            statusHistoryService ?? CaseStatusHistoryService(),
-       _notificationService = notificationService ?? NotificationService(),
+       _notificationService =
+           notificationService ?? FirestoreNotificationService(),
        _activityService = activityService ?? ActivityService();
 
   final FirebaseFirestore _firestore;
   final CaseStatusHistoryService _statusHistoryService;
-  final NotificationService _notificationService;
+  final FirestoreNotificationService _notificationService;
   final ActivityService _activityService;
   static const String _collection = 'cases';
 
@@ -170,7 +179,7 @@ class CaseService {
         .collection(_collection)
         .where(
           'status',
-          whereIn: const ['pending', 'in_progress', 'in-progress', 'ongoing'],
+          whereIn: const ['pending', 'active', 'ongoing'],
         ),
   );
 
@@ -489,7 +498,8 @@ class CaseService {
     String? lawyerId,
   }) async {
     try {
-      // Get case and client data
+      print('🚀 Starting case completion workflow for Case: $caseId');
+      // Get case data
       final caseDoc = await _firestore
           .collection(_collection)
           .doc(caseId)
@@ -497,47 +507,49 @@ class CaseService {
       if (!caseDoc.exists) throw Exception('Case not found');
 
       final caseData = caseDoc.data() as Map<String, dynamic>;
-      final clientId = caseData['clientId'] as String;
+      final clientId = caseData['clientId'] as String? ?? '';
       final lawyerIdVal = lawyerId ?? (caseData['lawyerId'] as String?);
       final caseTitle = caseData['title'] as String? ?? 'Your Case';
 
       // Update case with outcome
       await _firestore.collection(_collection).doc(caseId).update({
-        'status': 'closed',
+        'status': 'completed',
         'caseOutcome': outcome,
         'outcomeNotes': outcomeNotes,
         'completedAt': Timestamp.now(),
         'updatedAt': Timestamp.now(),
       });
+      print('✅ Case status updated to completed');
 
-      // Log status history
-      await _statusHistoryService.logStatusChange(
-        caseId: caseId,
-        lawyerId: lawyerIdVal ?? '',
-        previousStatus: caseData['status'] as String? ?? 'pending',
-        newStatus: 'closed',
-        changedBy: lawyerIdVal ?? 'system',
-        reason: 'Case completed with outcome: $outcome',
-        notes: outcomeNotes,
-      );
+      // Fetch Models for PDF and communications
+      final lawyerService = LawyerService();
+      final lawyerModel = lawyerIdVal != null
+          ? await lawyerService.getLawyerById(lawyerIdVal)
+          : null;
 
-      // Get client email and send notification
-      final clientDoc = await _firestore
-          .collection('users')
-          .doc(clientId)
-          .get();
-      if (clientDoc.exists) {
-        final clientData = clientDoc.data() as Map<String, dynamic>;
-        final clientEmail = clientData['email'] as String?;
-        final clientName = clientData['name'] as String? ?? 'Client';
+      // Fetch Client Model
+      ClientModel? clientModel;
+      if (clientId.isNotEmpty) {
+        final clientDoc = await _firestore
+            .collection('users')
+            .doc(clientId)
+            .get();
+        if (clientDoc.exists) {
+          clientModel = ClientModel.fromJson(clientDoc.data()!);
+        }
+      }
 
-        if (clientEmail != null && clientEmail.isNotEmpty) {
-          // Send appropriate completion email based on outcome
+      // 1. Send Outcome Notifications (Email)
+      if (clientModel != null) {
+        if (clientModel.email.isNotEmpty) {
           unawaited(
             _sendCaseCompletionEmail(
-              clientEmail: clientEmail,
-              clientName: clientName,
-              lawyerName: caseData['lawyerName'] as String? ?? 'Your Lawyer',
+              clientEmail: clientModel.email,
+              clientName: clientModel.name,
+              lawyerName:
+                  lawyerModel?.name ??
+                  caseData['lawyerName'] as String? ??
+                  'Your Lawyer',
               caseTitle: caseTitle,
               outcome: outcome,
               outcomeNotes: outcomeNotes,
@@ -546,7 +558,7 @@ class CaseService {
         }
       }
 
-      // Add notification
+      // Add In-App Notification
       if (clientId.isNotEmpty) {
         await _notificationService.addNotification(
           NotificationModel(
@@ -563,20 +575,64 @@ class CaseService {
       }
 
       // Update lawyer case statistics
-      if (lawyerIdVal != null && lawyerIdVal.isNotEmpty) {
+      if (lawyerModel != null) {
         try {
-          final lawyerService = LawyerService();
           await lawyerService.updateCaseStatistics(
-            lawyerId: lawyerIdVal,
+            lawyerId: lawyerModel.lawyerId,
             outcome: outcome,
           );
         } catch (e) {
           print('⚠️ Failed to update lawyer statistics: $e');
-          // Don't throw - case was already marked complete
         }
       }
+
+      // 3. Generate Professional PDF Invoice automatically (Feature 3)
+      if (lawyerModel != null && clientModel != null) {
+        try {
+          print('📑 Generating automated Professional PDF invoice...');
+          final currentCase = CaseModel.fromJson({
+            ...caseData,
+            'caseId': caseId,
+            'status': 'completed',
+            'completedAt': DateTime.now(),
+          });
+
+          final pdfBytes = await InvoicePdfService.generateInvoicePdf(
+            caseModel: currentCase,
+            lawyerModel: lawyerModel,
+            clientModel: clientModel,
+          );
+
+          final pdfUrl = await InvoicePdfService.uploadAndSaveInvoice(
+            caseModel: currentCase,
+            pdfData: pdfBytes,
+          );
+
+          if (pdfUrl != null) {
+            print('✅ Professional Invoice PDF generated and uploaded: $pdfUrl');
+          }
+        } catch (e) {
+          print('⚠️ Failed to generate automated PDF invoice: $e');
+        }
+      }
+
+      // 4. Send Push Notification to Client (Feature 1)
+      try {
+        if (clientId.isNotEmpty) {
+          await push.NotificationService.showLocalNotificationDirect(
+            title: 'Case Completed: $caseTitle',
+            body: 'Outcome: $outcome. View details and invoice in your portal.',
+            payload: caseId,
+          );
+          print('✅ Push notification triggered');
+        }
+      } catch (e) {
+        print('⚠️ Failed to send push notification: $e');
+      }
+      print('🏁 Case completion workflow finished for $caseId');
     } catch (e) {
-      throw Exception('❌ Failed to mark case with outcome: $e');
+      print('❌ Error in case completion workflow: $e');
+      throw Exception('Failed to complete case: $e');
     }
   }
 
@@ -683,7 +739,7 @@ class CaseService {
     return _firestore
         .collection(_collection)
         .where('lawyerId', isEqualTo: lawyerId)
-        .where('status', isEqualTo: 'in_progress')
+        .where('status', isEqualTo: 'active')
         .snapshots()
         .map((snapshot) {
           final cases = snapshot.docs

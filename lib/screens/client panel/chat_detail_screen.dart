@@ -183,24 +183,16 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         if (client == null) return const Scaffold();
 
         final isDark = Theme.of(context).brightness == Brightness.dark;
-        final scaffoldBg = isDark
-            ? const Color(0xFF121212)
-            : const Color(0xFFF7F9FC);
+        final scaffoldBg = isDark ? const Color(0xFF0B141A) : const Color(0xFFEFEAE2);
         final cardColor = isDark ? const Color(0xFF1A1A1A) : Colors.white;
-        final appBarColor = isDark ? const Color(0xFF141414) : Colors.white;
+        final appBarColor = isDark ? const Color(0xFF1A1A1A) : Colors.white;
         final textColor = isDark ? Colors.white : Colors.black87;
-        final subtitleColor = isDark
-            ? const Color(0xFF6B6B6B)
-            : Colors.grey.shade600;
-        final inputBg = isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade100;
-        final msgMineColor = const Color(0xFFFF6B00);
-        final msgTheirsColor = isDark
-            ? const Color(0xFF1E1E1E)
-            : Colors.grey.shade200;
-        final msgTextColorMine = Colors.white;
-        final msgTextColorTheirs = isDark
-            ? const Color(0xFFDDDDDD)
-            : Colors.black87;
+        final subtitleColor = isDark ? const Color(0xFF6B6B6B) : Colors.grey.shade600;
+        final inputBg = isDark ? const Color(0xFF202C33) : Colors.white;
+        final msgMineColor = isDark ? const Color(0xFF005C4B) : const Color(0xFFE7FFDB);
+        final msgTheirsColor = isDark ? const Color(0xFF202C33) : Colors.white;
+        final msgTextColorMine = isDark ? Colors.white : Colors.black87;
+        final msgTextColorTheirs = isDark ? Colors.white : Colors.black87;
 
         return ref
             .watch(
@@ -396,15 +388,18 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                                 decoration: BoxDecoration(
                                   color: isMine ? msgMineColor : msgTheirsColor,
                                   borderRadius: BorderRadius.only(
-                                    topLeft: const Radius.circular(16),
-                                    topRight: const Radius.circular(16),
-                                    bottomLeft: Radius.circular(
-                                      isMine ? 16 : 4,
-                                    ),
-                                    bottomRight: Radius.circular(
-                                      isMine ? 4 : 16,
-                                    ),
+                                    topLeft: const Radius.circular(12),
+                                    topRight: const Radius.circular(12),
+                                    bottomLeft: Radius.circular(isMine ? 12 : 0),
+                                    bottomRight: Radius.circular(isMine ? 0 : 12),
                                   ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.1),
+                                      blurRadius: 1,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ],
                                 ),
                                 child: Column(
                                   crossAxisAlignment: isMine
@@ -486,16 +481,8 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                                           ),
                                           padding: const EdgeInsets.all(12),
                                           decoration: BoxDecoration(
-                                            color: isMine
-                                                ? Colors.white.withValues(
-                                                    alpha: 0.1,
-                                                  )
-                                                : (isDark
-                                                      ? Colors.grey[850]
-                                                      : Colors.white),
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
+                                            color: isDark ? Colors.black26 : Colors.black12,
+                                            borderRadius: BorderRadius.circular(8),
                                           ),
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
@@ -538,49 +525,44 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                                           ),
                                         ),
                                       ),
-                                    if (msg.message.isNotEmpty &&
-                                        msg.messageType == 'text')
-                                      Text(
-                                        msg.message,
-                                        style: TextStyle(
-                                          color: isMine
-                                              ? msgTextColorMine
-                                              : msgTextColorTheirs,
-                                          fontSize: 13,
-                                          height: 1.4,
-                                        ),
-                                        maxLines: null,
-                                        overflow: TextOverflow.visible,
-                                      ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
+                                    Wrap(
+                                      alignment: WrapAlignment.end,
+                                      crossAxisAlignment: WrapCrossAlignment.end,
                                       children: [
-                                        Text(
-                                          DateFormat(
-                                            'hh:mm a',
-                                          ).format(msg.sentAt),
-                                          style: TextStyle(
-                                            color: isMine
-                                                ? msgTextColorMine.withValues(
-                                                    alpha: 0.6,
-                                                  )
-                                                : subtitleColor,
-                                            fontSize: 10,
+                                        if (msg.message.isNotEmpty && msg.messageType == 'text')
+                                          Padding(
+                                            padding: const EdgeInsets.only(right: 8.0, bottom: 2.0),
+                                            child: Text(
+                                              msg.message,
+                                              style: TextStyle(
+                                                color: isMine ? msgTextColorMine : msgTextColorTheirs,
+                                                fontSize: 14,
+                                                height: 1.3,
+                                              ),
+                                              maxLines: null,
+                                              overflow: TextOverflow.visible,
+                                            ),
                                           ),
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              DateFormat('hh:mm a').format(msg.sentAt),
+                                              style: TextStyle(
+                                                color: isDark ? Colors.white54 : Colors.black54,
+                                                fontSize: 10,
+                                              ),
+                                            ),
+                                            if (isMine) ...[
+                                              const SizedBox(width: 4),
+                                              Icon(
+                                                msg.isRead ? Icons.done_all : Icons.done,
+                                                size: 14,
+                                                color: msg.isRead ? Colors.blue : (isDark ? Colors.white54 : Colors.black54),
+                                              ),
+                                            ],
+                                          ],
                                         ),
-                                        if (isMine) ...[
-                                          const SizedBox(width: 4),
-                                          Icon(
-                                            msg.isRead
-                                                ? Icons.done_all
-                                                : Icons.done,
-                                            size: 14,
-                                            color: msg.isRead
-                                                ? Colors.lightBlueAccent
-                                                : Colors.white60,
-                                          ),
-                                        ],
                                       ],
                                     ),
                                   ],
@@ -593,67 +575,56 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
 
                       // Input bar
                       Container(
-                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 16),
-                        decoration: BoxDecoration(
-                          color: appBarColor,
-                          border: Border(
-                            top: BorderSide(
-                              color: isDark
-                                  ? const Color(0xFF1E1E1E)
-                                  : Colors.grey.shade200,
-                            ),
-                          ),
-                        ),
+                        padding: const EdgeInsets.all(8),
+                        color: Colors.transparent,
                         child: Row(
                           children: [
-                            IconButton(
-                              onPressed: () =>
-                                  _pickAndSendFile(client.clientId),
-                              icon: Icon(
-                                Icons.attach_file,
-                                color: subtitleColor,
-                              ),
-                            ),
                             Expanded(
                               child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                ),
                                 decoration: BoxDecoration(
                                   color: inputBg,
                                   borderRadius: BorderRadius.circular(24),
-                                  border: Border.all(
-                                    color: isDark
-                                        ? const Color(0xFF2A2A2A)
-                                        : Colors.transparent,
-                                  ),
                                 ),
-                                child: TextField(
-                                  controller: _ctrl,
-                                  onChanged: (val) {
-                                    ref
-                                        .read(
-                                          chatStateNotifierProvider.notifier,
-                                        )
-                                        .setTypingStatus(
-                                          senderId: client.clientId,
-                                          receiverId: widget.receiverId,
-                                          isTyping: val.isNotEmpty,
-                                        );
-                                  },
-                                  style: TextStyle(
-                                    color: textColor,
-                                    fontSize: 13,
-                                  ),
-                                  decoration: InputDecoration(
-                                    hintText: 'Type a message...',
-                                    hintStyle: TextStyle(color: subtitleColor),
-                                    border: InputBorder.none,
-                                    isDense: true,
-                                    contentPadding: EdgeInsets.symmetric(
-                                      vertical: 10,
+                                child: Row(
+                                  children: [
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      onPressed: () => _pickAndSendFile(client.clientId),
+                                      icon: Icon(
+                                        Icons.attach_file,
+                                        color: subtitleColor,
+                                      ),
                                     ),
-                                  ),
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _ctrl,
+                                        textCapitalization: TextCapitalization.sentences,
+                                        minLines: 1,
+                                        maxLines: 5,
+                                        onChanged: (val) {
+                                          ref
+                                              .read(chatStateNotifierProvider.notifier)
+                                              .setTypingStatus(
+                                                senderId: client.clientId,
+                                                receiverId: widget.receiverId,
+                                                isTyping: val.isNotEmpty,
+                                              );
+                                        },
+                                        style: TextStyle(
+                                          color: textColor,
+                                          fontSize: 16,
+                                        ),
+                                        decoration: InputDecoration(
+                                          hintText: 'Message',
+                                          hintStyle: TextStyle(color: subtitleColor, fontSize: 16),
+                                          border: InputBorder.none,
+                                          isDense: true,
+                                          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                  ],
                                 ),
                               ),
                             ),
@@ -691,7 +662,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                                 width: 44,
                                 height: 44,
                                 decoration: const BoxDecoration(
-                                  color: Color(0xFFFF6B00),
+                                  color: Color(0xFF00A884), // WhatsApp green accent
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(

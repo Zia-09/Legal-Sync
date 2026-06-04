@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,7 +11,8 @@ import 'package:legal_sync/provider/document_provider.dart';
 import 'package:legal_sync/provider/appointment_provider.dart';
 
 class CreateCaseScreen extends ConsumerStatefulWidget {
-  const CreateCaseScreen({super.key});
+  final ClientModel? initialClient;
+  const CreateCaseScreen({super.key, this.initialClient});
 
   @override
   ConsumerState<CreateCaseScreen> createState() => _CreateCaseScreenState();
@@ -35,6 +36,9 @@ class _CreateCaseScreenState extends ConsumerState<CreateCaseScreen> {
   void initState() {
     super.initState();
     _refIdController.text = _generateReferenceId();
+    if (widget.initialClient != null) {
+      _selectedClient = widget.initialClient;
+    }
   }
 
   String _generateReferenceId() {
@@ -488,9 +492,9 @@ class _CreateCaseScreenState extends ConsumerState<CreateCaseScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    // ✅ Get only clients with ACCEPTED consultations
+    // ✅ Get only clients with active/pending consultations
     final clientsAsync = ref.watch(
-      clientsWithAcceptedConsultationsProvider(user.uid),
+      clientsWithConsultationsProvider(user.uid),
     );
 
     return clientsAsync.when(
@@ -531,7 +535,13 @@ class _CreateCaseScreenState extends ConsumerState<CreateCaseScreen> {
           );
         }
 
-        return _buildDropdown(clients);
+        // Ensure the pre-selected client is in the list
+        final dropdownItems = List<ClientModel>.from(clients);
+        if (_selectedClient != null && !dropdownItems.contains(_selectedClient)) {
+          dropdownItems.add(_selectedClient!);
+        }
+
+        return _buildDropdown(dropdownItems);
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, stack) => Container(

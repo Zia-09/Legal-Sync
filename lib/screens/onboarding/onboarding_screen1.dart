@@ -238,7 +238,7 @@ class _OnboardingPage1State extends State<OnboardingPage1>
                             AnalyticsManager.logButtonClick('Skip',
                                 screenName: 'Onboarding Page 1');
                             await OnboardingHelper.markSeen();
-                            if (mounted) {
+                            if (context.mounted) {
                               context.navigateAndClearStack(RouteNames.login);
                             }
                           },
@@ -247,7 +247,7 @@ class _OnboardingPage1State extends State<OnboardingPage1>
                               AnalyticsManager.logButtonClick('Skip',
                                   screenName: 'Onboarding Page 1');
                               await OnboardingHelper.markSeen();
-                              if (mounted) {
+                              if (context.mounted) {
                                 context.navigateAndClearStack(RouteNames.login);
                               }
                             },

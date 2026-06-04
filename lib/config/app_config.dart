@@ -4,17 +4,18 @@
 /// Use environment variables or .env files instead of hardcoding values
 library;
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class AppConfig {
   // Firebase Configuration - should be in google-services.json for Android
   // and GoogleService-Info.plist for iOS
   static const String firebaseProjectId = 'legal-sync-xxx';
 
   // Supabase Configuration
-  static const String supabaseUrl =
-      'https://agzqautnshxgactnthxx.supabase.co';
+  static String get supabaseUrl =>
+      dotenv.env['SUPABASE_URL'] ?? 'https://agzqautnshxgactnthxx.supabase.co';
 
-  static const String supabaseAnonKey =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFnenFhdXRuc2h4Z2FjdG50aHh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1NDk3MTYsImV4cCI6MjA4ODEyNTcxNn0.fi_GSGQCFzP5Ki7qI_1VnJ2oPPRYMhIHIVA9krJmSrE';
+  static String get supabaseAnonKey => dotenv.env['SUPABASE_ANON_KEY'] ?? '';
 
   // API Configuration
   static const String apiBaseUrl = 'https://api.legalsync.app';

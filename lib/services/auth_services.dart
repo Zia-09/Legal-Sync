@@ -41,22 +41,71 @@ class AuthService {
     required String password,
   }) async {
     try {
-      final userCredential = await _auth.signInWithEmailAndPassword(
-        email: email.trim(),
-        password: password,
-      );
+      final trimmedEmail = email.trim();
+
+      // Auto-provision admin user if logging in with hardcoded admin credentials
+      if (trimmedEmail == 'admin@lawconnect.com' && password == 'Admin@12345') {
+        try {
+          await _auth.signInWithEmailAndPassword(
+            email: trimmedEmail,
+            password: password,
+          );
+        } on FirebaseAuthException catch (e) {
+          if (e.code == 'user-not-found' || e.code == 'invalid-credential') {
+            // Create user in Firebase Auth
+            final userCredential = await _auth.createUserWithEmailAndPassword(
+              email: trimmedEmail,
+              password: password,
+            );
+            final String uid = userCredential.user!.uid;
+            final Timestamp now = Timestamp.now();
+
+            // Set role and details in Firestore users collection
+            await _firestore.collection(_usersCollection).doc(uid).set({
+              'role': 'admin',
+              'name': 'Admin',
+              'email': trimmedEmail,
+              'createdAt': now,
+              'isFirstTimeUser': false,
+            });
+
+            // Set details in Firestore admins collection
+            await _firestore.collection('admins').doc(uid).set({
+              'adminId': uid,
+              'name': 'Admin',
+              'email': trimmedEmail,
+              'role': 'super_admin',
+              'isActive': true,
+              'createdAt': now,
+            });
+
+            // Sign in again to ensure session is active
+            await _auth.signInWithEmailAndPassword(
+              email: trimmedEmail,
+              password: password,
+            );
+          } else {
+            rethrow;
+          }
+        }
+      } else {
+        await _auth.signInWithEmailAndPassword(
+          email: trimmedEmail,
+          password: password,
+        );
+      }
 
       // Get user data for welcome email
       final userDoc = await _firestore
           .collection(_usersCollection)
-          .doc(userCredential.user!.uid)
+          .doc(_auth.currentUser!.uid)
           .get();
       final userName = userDoc.data()?['name'] as String? ?? 'User';
 
       // Send login notification email (fire-and-forget to avoid blocking UI)
       unawaited(
         EmailService().sendLoginNotificationEmail(
-          toEmail: email.trim(),
+          toEmail: trimmedEmail,
           userName: userName,
         ),
       );
@@ -164,9 +213,16 @@ class AuthService {
 
       return 'success';
     } on FirebaseAuthException catch (e) {
+      if (e.code == 'email-already-in-use') {
+        return 'This email is already in use by another account.';
+      } else if (e.code == 'weak-password') {
+        return 'The password provided is too weak.';
+      } else if (e.code == 'invalid-email') {
+        return 'The email address is not valid.';
+      }
       return e.message ?? 'Something went wrong during sign-up.';
     } catch (e) {
-      return e.toString();
+      return 'An unexpected error occurred. Please try again.';
     }
   }
 

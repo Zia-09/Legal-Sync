@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:legal_sync/model/lawyer_model.dart';
-import 'package:legal_sync/model/client_model.dart';
+import 'package:legal_sync/model/lawyer_Model.dart';
+import 'package:legal_sync/model/client_Model.dart';
 import 'package:legal_sync/model/ai_case_prediction_model.dart';
 import 'package:legal_sync/model/admin_Model.dart';
 
